@@ -29,12 +29,12 @@ test('M6.15 cancellation terminates the owned process tree and waits for exit',(
  assert.match(manager,/Cancellation\.Cancel\(\)/);
 });
 
-test('M6.15 final output is validated before replacement and failed commit preserves temp output',()=>{
+test('M6.15/M6.21 final output is validated before unique commit and failure preserves temp',()=>{
  assert.match(host,/ExportStatus\.Validating/);
- assert.match(host,/File\.Replace\(/);
+ assert.match(host,/UniqueOutputCommit\.Commit\(task\.TemporaryOutputPath, task\.OutputPath\)/);
+ assert.doesNotMatch(host,/File\.Replace\(task\.TemporaryOutputPath/);
  assert.match(host,/preserveFailedOutput = File\.Exists\(task\.TemporaryOutputPath\)/);
- assert.match(host,/原有正式视频已保留/);
- assert.match(host,/File\.Move\(task\.TemporaryOutputPath, task\.OutputPath\)/);
+ assert.match(host,/已有正式视频未受影响/);
 });
 
 test('M6.15 close confirmation uses the agreed button wording and waits for task completion',()=>{
