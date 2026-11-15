@@ -1,9 +1,9 @@
 ---
-name: transcript-studio-code-review
-description: Review, minimally repair, and verify the Transcript Studio WPF/WebView2/React/Remotion app, subtitle Skill, and its documentation. Require English Conventional Commit messages. Do not automatically push without access and appropriate user authorization.
+name: script-to-video-code-review
+description: Review, minimally repair, and verify the ScriptToVideo WPF/WebView2/React/Remotion app, subtitle Skill, and its documentation. Require English Conventional Commit messages. Do not automatically push without access and appropriate user authorization.
 ---
 
-# Transcript Studio — full project code review
+# ScriptToVideo — full project code review
 
 Use this Skill for end-to-end code inspection and targeted fixes. **Never interpret reviewing a Skill as authorization to modify the Skill itself** unless the user asks. Scope changes to the user's request and preserve existing local edits.
 
@@ -17,11 +17,11 @@ Use this Skill for end-to-end code inspection and targeted fixes. **Never interp
 
 ## 2. Data contract and correctness (non-negotiable)
 
-- Only `*.transcript-studio.json` Transcript Studio v2 is accepted: `transcript_studio.format === "transcript-studio"`, `schemaVersion === 2`, `language === "en"`.
-- Paragraphs are marked **only** by `segments[].words[].breakParagraph: true`; omitted means no break. Never infer paragraph breaks from punctuation, WhisperX segments, timestamps or page boundaries. Reject `false`/invalid types and legacy `evr`/`paragraphBreaksAfter` input.
+- Only `*.script.json` ScriptToVideo v2 is accepted: `script_to_video.format === "script-to-video"`, `schemaVersion === 2`, `language === "en"`.
+- Paragraphs are marked **only** by `segments[].words[].breakParagraph: true`; omitted means no break. Never infer paragraph breaks from punctuation, WhisperX segments, timestamps or page boundaries. Reject `false`/invalid types and legacy `enscript`/`paragraphBreaksAfter` input.
 - Keep original WhisperX `word`, `start`, `end`, `score`, `segments[].text`, and `word_segments` unchanged. The latter must not receive break markers.
 - Internal word IDs (e.g. `s11w2`) exist for editing and project overrides, not for defining paragraph boundaries in subtitle JSON. User edits are stored in a separate project and merged into an effective transcript.
-- Compare generated subtitles with raw input using `docs/skills/transcript-studio-paragraphs/scripts/transcript_tool.py validate ... --source ...` when sources are available.
+- Compare generated subtitles with raw input using `docs/skills/script-to-video-paragraphs/scripts/transcript_tool.py validate ... --source ...` when sources are available.
 - Enforce file/source fingerprint and project version checks in desktop, UI and export paths. No implicit migration of old formats.
 
 ## 3. Layout, playback, export
@@ -50,7 +50,7 @@ npm.cmd run typecheck
 npm.cmd run build
 npm.cmd test
 npm.cmd run test:skill
-dotnet publish desktop/TranscriptStudio.csproj -c Release -o dist/wpf
+dotnet publish desktop/ScriptToVideo.csproj -c Release -o dist/wpf
 ```
 
 - `npm test` alone is **not** full TSX/Vite validation. Do not report the application as tested when only core tests passed.
