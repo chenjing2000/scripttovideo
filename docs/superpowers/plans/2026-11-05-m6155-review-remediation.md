@@ -1,14 +1,14 @@
 # M6.15.5 — Fix four important code-review findings
 
 ## Goal
-Fix four confirmed important issues from `TranscriptStudio_M6154_1_Code_Review.md` with minimal changes:
+Fix four confirmed important issues from `ScriptToVideo_M6154_1_Code_Review.md` with minimal changes:
 1. Dependency-install cancellation leaves the React dialog in `cancelling`.
 2. Uncommitted word drafts and dirty projects can be lost on import or application close.
 3. An older save acknowledgement can clear dirty state for newer edits.
 4. Settings persistence messages are ignored during video export.
 
 ## Constraints
-- Baseline: `TranscriptStudio_M6154_1_WinForms_Tray_Hotfix.zip`.
+- Baseline: `ScriptToVideo_M6154_1_WinForms_Tray_Hotfix.zip`.
 - Preserve the WPF + WinForms NotifyIcon tray implementation.
 - No architecture rewrite, no new runtime dependencies, no changes to export file format or task lifecycle.
 - Keep existing user data and source files; work in a separate extracted copy.
@@ -46,7 +46,7 @@ Fix four confirmed important issues from `TranscriptStudio_M6154_1_Code_Review.m
 - `node scripts/test-core.mjs`
 - `npm.cmd run typecheck` and `npm.cmd run build` if dependencies are available.
 - `npm.cmd run test:skill`
-- `dotnet publish desktop/TranscriptStudio.csproj -c Release -o dist/wpf` if .NET SDK is available.
+- `dotnet publish desktop/ScriptToVideo.csproj -c Release -o dist/wpf` if .NET SDK is available.
 - Inspect final diff and archive integrity.
 
 

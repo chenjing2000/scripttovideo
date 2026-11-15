@@ -1,8 +1,8 @@
-# Transcript Studio M6 — comprehensive code review
+# ScriptToVideo M6 — comprehensive code review
 
 Date: 2026-11-04
-Baseline: `TranscriptStudio_M6_WebView2_Media_Streaming_Fix_Source.zip` (the media-streaming build confirmed by the user to play MP4).
-Method: `docs/skills/transcript-studio-code-review/SKILL.md`.
+Baseline: `ScriptToVideo_M6_WebView2_Media_Streaming_Fix_Source.zip` (the media-streaming build confirmed by the user to play MP4).
+Method: `docs/skills/script-to-video-code-review/SKILL.md`.
 
 ## Scope
 
@@ -37,7 +37,7 @@ Reviewed WPF/WebView2 startup, message handling, local-media streaming, HTTP byt
 ## Verification performed
 
 - `npm test`: **68 / 68 passed** (67 baseline + one new case).
-- `python -m unittest discover docs/skills/transcript-studio-paragraphs/tests -q`: **6 / 6 passed**.
+- `python -m unittest discover docs/skills/script-to-video-paragraphs/tests -q`: **6 / 6 passed**.
 - `npm run typecheck`: **not verified**; the provided runtime does not have a complete installed `@types/node` package. Error `TS2688 Cannot find type definition file for 'node'` is a missing dependency, not proof that TypeScript sources are error-free.
 - `npm run build`: **not verified**, blocked by the same missing dependency.
 - `dotnet publish` and .NET byte-range integration tests: **not run**; no .NET SDK in this runtime.
@@ -47,12 +47,12 @@ Reviewed WPF/WebView2 startup, message handling, local-media streaming, HTTP byt
 ## Windows acceptance commands
 
 ```bat
-cd /d E:\Projects\TranscriptStudio
+cd /d E:\Projects\ScriptToVideo
 npm.cmd ci
 npm.cmd run verify
 dotnet run --project tests/dotnet-media-range/MediaRangeTests.csproj
-dotnet publish desktop/TranscriptStudio.csproj -c Release -o dist/wpf
-dist\wpf\TranscriptStudio.exe
+dotnet publish desktop/ScriptToVideo.csproj -c Release -o dist/wpf
+dist\wpf\ScriptToVideo.exe
 ```
 
 Check the known-working MP4, seek and pause/stop, switching between JSON/media pairs, save and reopen the project, audio-only preview, non-default canvas resolution, and an actual MP4 export. Test corrupted project JSON (e.g. fontSize 0 or invalid mediaKind) and verify that it is rejected without harming the source transcript.

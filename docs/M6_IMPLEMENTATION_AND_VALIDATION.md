@@ -1,9 +1,9 @@
-# Transcript Studio M6 — implementation notes
+# ScriptToVideo M6 — implementation notes
 
 ## Product contract
 
-- Product: **Transcript Studio** (EXE `TranscriptStudio.exe`, namespace `TranscriptStudio`).
-- Only `*.transcript-studio.json` (Transcript Studio v2, `transcript_studio.format: transcript-studio`) is an import entry. Older M5 `.video-transcript.json` is intentionally rejected. **No migration tool or fallback path**.
+- Product: **ScriptToVideo** (EXE `ScriptToVideo.exe`, namespace `ScriptToVideo`).
+- Only `*.script.json` (ScriptToVideo v2, `script_to_video.format: script-to-video`) is an import entry. Older M5 `.video-transcript.json` is intentionally rejected. **No migration tool or fallback path**.
 - Desktop media auto-discovery is case-insensitive, exact stem, same directory only: `.mp4` → `.mkv` → `.mp3` → `.wav`. No recursive search, no silent fallback after a selected media file fails decoding.
 - Video mode: source occupies canvas width proportionally, transcript uses the remaining canvas. Audio mode: transcript fills the logical canvas and the original audio is used for playback and MP4 export.
 - Canvas `width`/`height` are per-project even integer pixel values in [320, 3840], default 1200×1600. Output MP4 matches project dimensions. Aspect ratio is not locked.
@@ -11,7 +11,7 @@
 - Right panel always shows word-level subtitle editing (no tabs). Current toolbar order (M6.12+): Settings, Import JSON, Save Project, Export Plain Text, Export MP4. Buttons use circular `#D3E5EB` fill with no visible border.
 - Left-canvas font settings and right-editor font settings are independent. The left font controls the rendered reading canvas; the right font controls the editable transcript pane. The settings dialog opens centered in the WebView client area and can be dragged by its title bar.
 - The on-screen volume bar and its filename tooltip are removed. Volume keyboard shortcuts remain available. Transport time is centred **above the progress track**, and play/pause and stop buttons are placed to its right. Normal notices disappear after 5 seconds; errors require manual dismissal. Export progress has a separate persistent status while rendering; ordinary completion messages still expire in 5 seconds.
-- Window and HTML document title: `Transcript Studio`. `AllowCors` replaced by WebView2 `Allow` for local media host only; the UI host remains `DenyCors`.
+- Window and HTML document title: `ScriptToVideo`. `AllowCors` replaced by WebView2 `Allow` for local media host only; the UI host remains `DenyCors`.
 - All Git commit messages (subject and body) **must be in English**. No Git commit or push is performed by this archive.
 
 ## Contract preservation
@@ -26,8 +26,8 @@
 ```powershell
 npm.cmd ci
 npm.cmd run verify
-dotnet publish desktop/TranscriptStudio.csproj -c Release -o dist/wpf
-.\dist\wpf\TranscriptStudio.exe
+dotnet publish desktop/ScriptToVideo.csproj -c Release -o dist/wpf
+.\dist\wpf\ScriptToVideo.exe
 ```
 
 Test with four same-stem variants and ensure priority is as specified; then test audio-only MP3 and WAV files; verify audio output exists in exported MP4 using `ffprobe`. Check `.mkv` in WebView2 with known codecs: `.mkv` container support is codec/platform dependent and may fail to decode in preview; **no transparent transcode fallback is implemented**.
@@ -62,4 +62,4 @@ Windows acceptance: resize rightwards, downwards, and diagonally, including maxi
 
 ## M6.12+ persistence update
 
-The M6.5 `.transcript-studio/projects/.../project.settings.json` location described in older notes is superseded. Current projects are stored at `<subtitle-directory>/<stem>/<stem>.project.json`; plain text exports are stored beside them as `<stem>.article.txt`. See `docs/M612_BREAKING_STORAGE_LAYOUT.md`.
+The M6.5 `.script-to-video/projects/.../project.settings.json` location described in older notes is superseded. Current projects are stored at `<subtitle-directory>/<stem>/<stem>.project.json`; plain text exports are stored beside them as `<stem>.article.txt`. See `docs/M612_BREAKING_STORAGE_LAYOUT.md`.

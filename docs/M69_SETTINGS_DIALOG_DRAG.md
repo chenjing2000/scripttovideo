@@ -1,4 +1,4 @@
-# Transcript Studio M6.9 — Settings dialog drag and timeline alignment
+# ScriptToVideo M6.9 — Settings dialog drag and timeline alignment
 
 ## Changes
 
@@ -27,7 +27,7 @@
 
 ```bat
 npm.cmd run verify
-dotnet publish desktop/TranscriptStudio.csproj -c Release -r win-x64 --self-contained false -o dist/wpf
+dotnet publish desktop/ScriptToVideo.csproj -c Release -r win-x64 --self-contained false -o dist/wpf
 ```
 
 ## Validation limitations

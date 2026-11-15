@@ -24,7 +24,7 @@ This revision keeps Remotion's dedicated Chrome Headless Shell and the existing 
 
 ```cmd
 npm.cmd run verify
-dotnet publish desktop/TranscriptStudio.csproj -c Release -r win-x64 --self-contained false -o dist/wpf
+dotnet publish desktop/ScriptToVideo.csproj -c Release -r win-x64 --self-contained false -o dist/wpf
 ```
 
 Tests that only inspect source and core TypeScript cannot prove process-tree cancellation or that a browser download is fully cleaned on the user's Windows machine. Those need the above Windows tests.

@@ -33,7 +33,7 @@
 ### Task 1: Replace native tray plumbing with NotifyIcon
 
 **Files:**
-- Modify: `desktop/TranscriptStudio.csproj`
+- Modify: `desktop/ScriptToVideo.csproj`
 - Modify: `desktop/AppLifecycle/TrayIconManager.cs`
 - Modify: `tests/m614-tray-lifecycle.test.mjs`
 - Modify: `tests/m6153-tray-lifecycle.test.mjs`

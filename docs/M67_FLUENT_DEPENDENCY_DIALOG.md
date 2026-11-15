@@ -30,6 +30,6 @@
 
 ## Tests
 
-`npm run verify` and `dotnet publish desktop/TranscriptStudio.csproj -c Release -r win-x64 --self-contained false -o dist/wpf`.
+`npm run verify` and `dotnet publish desktop/ScriptToVideo.csproj -c Release -r win-x64 --self-contained false -o dist/wpf`.
 
 Windows WPF compilation and actual export still require verification on a Windows machine with the requisite dependencies.
