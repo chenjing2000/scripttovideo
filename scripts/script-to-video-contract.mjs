@@ -1,12 +1,12 @@
 import {createHash} from 'node:crypto';
 /** Standalone CLI admission gate; mirrors src/core/transcript.ts. */
-export function assertTranscriptStudio(input){
+export function assertScriptToVideo(input){
  const object=x=>!!x&&typeof x==='object'&&!Array.isArray(x);
- const meta=input?.transcript_studio;
- if(!object(input)||!object(meta)||meta.format!=='transcript-studio'||meta.schemaVersion!==2)
-  throw new Error('仅支持 Transcript Studio v2 (*.transcript-studio.json)');
- if(Object.keys(meta).some(k=>!['format','schemaVersion','displayOverrides'].includes(k)))throw new Error('未知 transcript_studio 字段');
- if('evr' in input||'paragraphs' in input||'paragraphBreaksAfter' in input)throw new Error('禁止旧格式字段');
+ const meta=input?.script_to_video;
+ if(!object(input)||!object(meta)||meta.format!=='script-to-video'||meta.schemaVersion!==2)
+  throw new Error('仅支持 ScriptToVideo v2 (*.script.json)');
+ if(Object.keys(meta).some(k=>!['format','schemaVersion','displayOverrides'].includes(k)))throw new Error('未知 script_to_video 字段');
+ if('paragraphs' in input||'paragraphBreaksAfter' in input)throw new Error('禁止旧格式字段');
  if(input.language!=='en'||!Array.isArray(input.segments)||!input.segments.length)throw new Error('必须包含英语 segments');
  const ids=new Set();let last=-Infinity,paragraphs=1,terminal;
  for(let si=0;si<input.segments.length;si++){
@@ -39,8 +39,8 @@ export function assertProjectForExport(project,{mediaName,subtitleName,subtitleB
  const object=x=>!!x&&typeof x==='object'&&!Array.isArray(x);
  const finite=n=>typeof n==='number'&&Number.isFinite(n);
  const color=s=>typeof s==='string'&&/^#[0-9a-f]{6}$/i.test(s);
- if(!object(project)||project.format!=='transcript-studio-project'||project.schemaVersion!==2)
-  throw new Error('Expected Transcript Studio project v2');
+ if(!object(project)||project.format!=='script-to-video-project'||project.schemaVersion!==2)
+  throw new Error('Expected ScriptToVideo project v2');
  const source=project.source;
  if(!object(source)||typeof source.videoName!=='string'||typeof source.subtitleName!=='string'||
     source.videoName.toLowerCase()!==mediaName.toLowerCase()||source.subtitleName.toLowerCase()!==subtitleName.toLowerCase())

@@ -1,17 +1,17 @@
 import {readFile,copyFile,mkdir,stat} from 'node:fs/promises';
 import path from 'node:path';import {execFileSync} from 'node:child_process';import{fileURLToPath}from'node:url';
-import {assertTranscriptStudio,assertProjectForExport} from './transcript-studio-contract.mjs';
+import {assertScriptToVideo,assertProjectForExport} from './script-to-video-contract.mjs';
 import {createCliTaskCacheDir} from './cli-cache.mjs';
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 function getArg(name){const i=process.argv.indexOf(`--${name}`);return i<0?undefined:process.argv[i+1]}
 const media=getArg('media'),json=getArg('json'),output=getArg('out'),projectPath=getArg('project'),cacheArg=getArg('cache-dir');
-if(!media||!json||!output){console.error('Usage: npm run export -- --media INPUT.mp4|mkv|mp3|wav --json FILE.transcript-studio.json --out OUTPUT.mp4 [--project FILE.project.json] [--cache-dir DIRECTORY]');process.exit(2)}
-const cacheRoot=cacheArg?path.resolve(cacheArg):path.join(path.dirname(path.resolve(output)),'.transcript-studio-cache');
+if(!media||!json||!output){console.error('Usage: npm run export -- --media INPUT.mp4|mkv|mp3|wav --json FILE.script.json --out OUTPUT.mp4 [--project FILE.project.json] [--cache-dir DIRECTORY]');process.exit(2)}
+const cacheRoot=cacheArg?path.resolve(cacheArg):path.join(path.dirname(path.resolve(output)),'.script-to-video-cache');
 let publicDir,bundleLocation;
 try{
- const subtitleBytes=await readFile(json),input=JSON.parse(subtitleBytes.toString('utf8').replace(/^\uFEFF/,''));assertTranscriptStudio(input);
- const stem=path.basename(json).slice(0,-'.transcript-studio.json'.length);
- if(!path.basename(json).toLowerCase().endsWith('.transcript-studio.json')||path.basename(media,path.extname(media)).toLowerCase()!==stem.toLowerCase())throw Error('Media and .transcript-studio.json must have the same stem');
+ const subtitleBytes=await readFile(json),input=JSON.parse(subtitleBytes.toString('utf8').replace(/^\uFEFF/,''));assertScriptToVideo(input);
+ const stem=path.basename(json).slice(0,-'.script.json'.length);
+ if(!path.basename(json).toLowerCase().endsWith('.script.json')||path.basename(media,path.extname(media)).toLowerCase()!==stem.toLowerCase())throw Error('Media and .script.json must have the same stem');
  const ext=path.extname(media).toLowerCase();if(!['.mp4','.mkv','.mp3','.wav'].includes(ext))throw Error('Unsupported media extension');
  const mediaKind=['.mp3','.wav'].includes(ext)?'audio':'video';
  const project=projectPath?JSON.parse(await readFile(projectPath,'utf8')):undefined;
@@ -42,7 +42,7 @@ try{
  const browserExecutable=getArg('browser');console.log('Bundling Remotion...');
  bundleLocation=await bundle({publicDir,entryPoint:path.join(root,'src/remotion/index.ts'),outDir:bundleRoot});
  const compositions=await getCompositions(bundleLocation,{inputProps,browserExecutable});
- const composition=compositions.find(c=>c.id==='TranscriptStudio');if(!composition)throw Error('Missing TranscriptStudio composition');
+ const composition=compositions.find(c=>c.id==='ScriptToVideo');if(!composition)throw Error('Missing ScriptToVideo composition');
  const intermediate=path.join(cacheDir,'render-output.mp4');
  await renderMedia({composition,serveUrl:bundleLocation,codec:'h264',audioCodec:'aac',browserExecutable,concurrency:2,outputLocation:intermediate,inputProps,crf:18,onProgress:({progress})=>console.log('render '+Math.round(progress*100)+'%')});
  await stat(intermediate);
