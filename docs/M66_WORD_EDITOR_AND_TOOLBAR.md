@@ -20,7 +20,7 @@
 ### Windows manual acceptance
 
 1. `npm.cmd ci` then `npm.cmd run verify`.
-2. `dotnet publish desktop/TranscriptStudio.csproj -c Release -r win-x64 --self-contained false -o dist/wpf`.
+2. `dotnet publish desktop/ScriptToVideo.csproj -c Release -r win-x64 --self-contained false -o dist/wpf`.
 3. Open transcript and double-click a short and a long word. Check the editor width changes as text is typed and no letters are clipped; use both Arial and Nunito Sans.
 4. Check right-click suppression and the #AB1D22 focus border without thickness change.
 5. Check Enter, Escape, double-click blank area, double-click another word, and single-click-away semantics.

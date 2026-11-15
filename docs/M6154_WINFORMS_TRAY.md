@@ -2,13 +2,13 @@
 
 ## What changed
 
-Transcript Studio now uses the in-box .NET Windows Forms `NotifyIcon` component only for the notification-area icon. The main window, the compact tray menu, and all application UI remain WPF.
+ScriptToVideo now uses the in-box .NET Windows Forms `NotifyIcon` component only for the notification-area icon. The main window, the compact tray menu, and all application UI remain WPF.
 
 The tray manager no longer contains application-owned `Shell_NotifyIcon`, `HwndSource`, `TaskbarCreated`, cursor-position or monitor-information P/Invoke code. Explorer-restart recovery and the tray icon's native message window are delegated to `NotifyIcon`.
 
 ## User-visible behavior retained
 
-- One tray icon with tooltip `Transcript Studio`.
+- One tray icon with tooltip `ScriptToVideo`.
 - Left-button double-click activates the existing WPF main window.
 - Right-button release opens the custom WPF tray menu.
 - The menu remains 70 DIP wide and contains only `打开` and `退出`.

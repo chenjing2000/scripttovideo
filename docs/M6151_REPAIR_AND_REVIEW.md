@@ -1,6 +1,6 @@
-# Transcript Studio M6.15.1 → M6.15.2 Repair and Second-Pass Review
+# ScriptToVideo M6.15.1 → M6.15.2 Repair and Second-Pass Review
 
-**Review basis:** `TranscriptStudio_M6151_Source.zip` plus the prior `TranscriptStudio_M6151_Code_Review.md` report and the project requirements in `README.md`, `docs/M615_EXPORT_LIFECYCLE.md`, `docs/M614_SINGLE_INSTANCE_AND_TRAY.md`, and `M6.15_RELEASE_NOTES.md`.
+**Review basis:** `ScriptToVideo_M6151_Source.zip` plus the prior `ScriptToVideo_M6151_Code_Review.md` report and the project requirements in `README.md`, `docs/M615_EXPORT_LIFECYCLE.md`, `docs/M614_SINGLE_INSTANCE_AND_TRAY.md`, and `M6.15_RELEASE_NOTES.md`.
 
 **Working method:** Isolated extraction of the supplied archive; fixes made in that copy only. Each behavior change received a regression test before implementation and a focused red/green run. The final review was performed as a separate self-review because no subagent-dispatch capability was available in this environment.
 
@@ -37,7 +37,7 @@
 **Files:** `scripts/export.mjs`, `README.md`, `tests/m615-cli-cache.test.mjs`
 
 - `--cache-dir` is now optional.
-- If omitted, the script resolves `.transcript-studio-cache/` beside the absolute output path.
+- If omitted, the script resolves `.script-to-video-cache/` beside the absolute output path.
 - If explicitly supplied, the value is resolved to an absolute path and retained.
 - The desktop host continues to pass its own task-specific cache directory, so desktop behavior is unchanged.
 - Updated usage text and README documentation.

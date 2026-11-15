@@ -22,7 +22,7 @@ Run on Windows from the source directory:
 ```bat
 npm.cmd ci
 npm.cmd run verify
-dotnet publish desktop/TranscriptStudio.csproj -c Release -r win-x64 --self-contained false -o dist/wpf
+dotnet publish desktop/ScriptToVideo.csproj -c Release -r win-x64 --self-contained false -o dist/wpf
 ```
 
 Manually check the *real Windows WebView2* window: open Settings at typical and narrow sizes; ensure there is no horizontal scroll at normal window sizes, especially for the right-hand color swatches and the paragraph-alignment dropdown. Verify the dialog is centered, can be dragged only by the header, stays within the 16-DIP boundary, closes by clicking outside, and recovers its measured width after maximizing/restoring and reopening. Verify that the original 500-DIP default height and playback controls are unchanged.
