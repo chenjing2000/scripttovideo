@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.IO;
 using System.Text;
 
 namespace ScriptToVideo.Export;
@@ -32,10 +33,26 @@ internal sealed class ExportProcessManager
         {
             try { if (!process.HasExited) process.Kill(entireProcessTree: true); }
             catch (InvalidOperationException) { }
-            catch (System.ComponentModel.Win32Exception) { }
+            catch (System.ComponentModel.Win32Exception error)
+            {
+                Trace.WriteLine($"Failed to terminate export process tree: {error}");
+            }
 
-            await process.WaitForExitAsync();
-            await Task.WhenAll(outputTask, errorTask);
+            // Descendants may keep redirected pipes open after the parent exits.
+            // Cancellation must not wait forever for process or stream cleanup.
+            try
+            {
+                await Task.WhenAll(process.WaitForExitAsync(), outputTask, errorTask)
+                    .WaitAsync(TimeSpan.FromSeconds(10));
+            }
+            catch (TimeoutException error)
+            {
+                Trace.WriteLine($"Export process cleanup timed out: {error}");
+            }
+            catch (IOException error)
+            {
+                Trace.WriteLine($"Export process output cleanup failed: {error}");
+            }
             throw;
         }
 

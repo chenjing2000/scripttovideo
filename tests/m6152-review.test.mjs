@@ -12,8 +12,9 @@ test('Remotion memoizes normalized project style across frame renders',()=>{
  assert.match(composition,/useMemo\(\(\)=>project\?normalizeProjectStyle\(project\):null,\[project\]\)/);
 });
 test('ReaderCanvas recomputes the plan when viewport width changes and rejects mismatched snapshots',()=>{
- assert.match(reader,/pagePlan\.viewportWidth===canvasWidth/);
- assert.match(reader,/pagePlan\.viewportHeight===availableHeight/);
+ assert.match(reader,/pagePlan\.viewportWidth!==canvasWidth/);
+ assert.match(reader,/pagePlan\.viewportHeight!==availableHeight/);
+ assert.match(reader,/throw new Error\('Invalid export page-plan snapshot/);
  assert.match(reader,/\[pagePlan,words,visible,style,canvasWidth,availableHeight\]/);
 });
 test('desktop project admission checks override IDs against the parsed source words',()=>{

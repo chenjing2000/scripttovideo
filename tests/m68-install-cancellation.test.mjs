@@ -18,7 +18,8 @@ test('M6.8: npm and browser preparation share a cancellation token and kill only
  assert.match(host,/RunDependencyCommandAsync\("node\.exe",runtime,\["scripts\/ensure-browser\.mjs"\][^;]*cancellationToken:cancellationToken\)/);
  assert.match(host,/CancellationTokenSource\.CreateLinkedTokenSource\(timeout\.Token,cancellationToken\)/);
  assert.match(host,/process\.Kill\(entireProcessTree:true\)/);
- assert.match(host,/await process\.WaitForExitAsync\(\)/);
+ assert.match(host,/Task\.WhenAll\(process\.WaitForExitAsync\(\), standard, errors\)\.WaitAsync\(TimeSpan\.FromSeconds\(10\)\)/);
+ assert.doesNotMatch(host,/await process\.WaitForExitAsync\(\);/);
  assert.match(host,/cancellationToken\.ThrowIfCancellationRequested\(\)/);
  assert.match(host,/finally\s*\{\s*if\(Directory\.Exists\(staging\)\)Directory\.Delete\(staging,recursive:true\);/);
 });

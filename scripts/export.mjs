@@ -2,6 +2,7 @@ import {readFile,copyFile,mkdir,stat} from 'node:fs/promises';
 import path from 'node:path';import {execFileSync} from 'node:child_process';import{fileURLToPath}from'node:url';
 import {assertScriptToVideo,assertProjectForExport} from './script-to-video-contract.mjs';
 import {createCliTaskCacheDir} from './cli-cache.mjs';
+import {assertExportPagePlan} from './page-plan-validation.mjs';
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 function getArg(name){const i=process.argv.indexOf(`--${name}`);return i<0?undefined:process.argv[i+1]}
 const media=getArg('media'),json=getArg('json'),output=getArg('out'),projectPath=getArg('project'),cacheArg=getArg('cache-dir');
@@ -36,7 +37,7 @@ try{
  const bundleRoot=path.join(cacheDir,'bundle');
  const filename='__export_input'+ext;await copyFile(media,path.join(publicDir,filename));
  const pagePlan=getArg('page-plan')?JSON.parse(await readFile(getArg('page-plan'),'utf8')):undefined;
- if(pagePlan&&(pagePlan.viewportWidth!==width||pagePlan.viewportHeight!==height-videoHeight))throw Error('Page plan does not match canvas size');
+ if(pagePlan!==undefined)assertExportPagePlan(pagePlan,input,project,width,height-videoHeight);
  const inputProps={transcript:input,project,mediaKind,videoHeight,mediaFile:filename,pagePlan,durationSec};
  const {bundle}=await import('@remotion/bundler');const {getCompositions,renderMedia}=await import('@remotion/renderer');
  const browserExecutable=getArg('browser');console.log('Bundling Remotion...');
