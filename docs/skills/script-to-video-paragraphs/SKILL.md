@@ -3,7 +3,7 @@ name: script-to-video-paragraphs
 description: Segment WhisperX English word-timestamped transcripts semantically and generate strictly validated ScriptToVideo v2 JSON, preserving all original recognition fields.
 ---
 
-# ScriptToVideo Paragraph Skill — M5 / v2
+# ScriptToVideo Paragraph Skill — v2
 
 ## Goal
 Convert a raw WhisperX English JSON into `<video-stem>.script.json`, with **word-level** `segments[].words[].breakParagraph: true` at the end of each semantic paragraph. Produce `<video-stem>.paragraphs.txt` for human review.
