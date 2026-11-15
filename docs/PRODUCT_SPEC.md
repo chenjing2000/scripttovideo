@@ -1,6 +1,6 @@
 # ScriptToVideo — product specification (M6.13)
 
-ScriptToVideo combines a same-stem MP4/MKV/MP3/WAV source with a paginated English reading surface on a configurable even-pixel canvas (default 1200×1600). Word-level progress highlighting, semantic paragraphs, explicit word x coordinates, deterministic page switching, inline word editing and H.264/AAC MP4 export are shared between preview and Remotion rendering.
+ScriptToVideo combines a same-stem MP4/MKV/M4A/MP3/WAV source with a paginated English reading surface on a configurable even-pixel canvas (default 1200×1600). Word-level progress highlighting, semantic paragraphs, explicit word x coordinates, deterministic page switching, inline word editing and H.264/AAC MP4 export are shared between preview and Remotion rendering.
 
 ## Source contract
 

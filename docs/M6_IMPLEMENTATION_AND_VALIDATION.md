@@ -4,7 +4,7 @@
 
 - Product: **ScriptToVideo** (EXE `ScriptToVideo.exe`, namespace `ScriptToVideo`).
 - Only `*.script.json` (ScriptToVideo v2, `script_to_video.format: script-to-video`) is an import entry. Older M5 `.video-transcript.json` is intentionally rejected. **No migration tool or fallback path**.
-- Desktop media auto-discovery is case-insensitive, exact stem, same directory only: `.mp4` → `.mkv` → `.mp3` → `.wav`. No recursive search, no silent fallback after a selected media file fails decoding.
+- Desktop media auto-discovery is case-insensitive, exact stem, same directory only: `.mp4` → `.mkv` → `.m4a` → `.mp3` → `.wav`. No recursive search. A missing or initially undecodable file is skipped until the first playable candidate; playback errors after import do not trigger switching.
 - Video mode: source occupies canvas width proportionally, transcript uses the remaining canvas. Audio mode: transcript fills the logical canvas and the original audio is used for playback and MP4 export.
 - Canvas `width`/`height` are per-project even integer pixel values in [320, 3840], default 1200×1600. Output MP4 matches project dimensions. Aspect ratio is not locked.
 - Responsive geometry (M6 revision): the output canvas is only the rendered reading/video frame. Its desktop preview maintains the configured output aspect ratio; the surrounding frame is **6 DIP wider** (3 DIP at each side). There is **3 DIP above the preview**, and **3 DIP below the transport**. A 48-DIP-high transport attaches directly to the canvas bottom, matches preview width, and stays outside the MP4 export. Workspace client top/bottom inset is 2 DIP each. Minimum preview width: 360 DIP; minimum subtitle-editor width: 240 DIP. The editor takes all otherwise unused width, rather than a 3:2 ratio. Main window native minimum height varies with output aspect ratio.
@@ -30,7 +30,7 @@ dotnet publish desktop/ScriptToVideo.csproj -c Release -o dist/wpf
 .\dist\wpf\ScriptToVideo.exe
 ```
 
-Test with four same-stem variants and ensure priority is as specified; then test audio-only MP3 and WAV files; verify audio output exists in exported MP4 using `ffprobe`. Check `.mkv` in WebView2 with known codecs: `.mkv` container support is codec/platform dependent and may fail to decode in preview; **no transparent transcode fallback is implemented**.
+Test with five same-stem variants and verify the prioritized decode fallback, then test M4A, MP3 and WAV audio-only files; verify audio output exists in exported MP4 using `ffprobe`. Check `.mkv` in WebView2 with known codecs: `.mkv` container support is codec/platform dependent and may fail to decode in preview; **no transparent transcode fallback is implemented**.
 
 Test 1200×1600, 1080×1920, 1920×1080 and 1080×1080 project canvases; after changing width, video height must be recomputed from the source aspect ratio, and subtitle pagination must update. Verify output dimensions with `ffprobe` and compare representative frames with the WPF preview.
 

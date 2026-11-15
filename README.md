@@ -9,8 +9,8 @@ Windows reading-video editor based on **WPF (.NET 10) + WebView2 + React/TypeScr
 ## Import and media priority
 
 1. Select `Lesson.script.json` (the **only** import file type).
-2. Search **the JSON file's directory only** for `Lesson.mp4`, then `Lesson.mkv`, then `Lesson.mp3`, then `Lesson.wav` (case-insensitive filenames).
-3. Use video + subtitles if a video exists; otherwise display full-canvas subtitles with audio playback. If no media matches, display an error requiring user dismissal.
+2. Search **the JSON file's directory only** for `Lesson.mp4`, then `Lesson.mkv`, then `Lesson.m4a`, then `Lesson.mp3`, then `Lesson.wav` (case-insensitive filenames).
+3. Probe candidates in that priority order. Missing or initially undecodable files are skipped; the first decodable video uses video + subtitles, while audio uses full-canvas subtitles. No candidate succeeds: show a consolidated error without replacing the active project or preview. No automatic transcode or mid-playback fallback.
 4. MKV containers may have video codecs unsupported by WebView2. No automatic remux/transcode exists in M6.
 
 ## Transcript contract

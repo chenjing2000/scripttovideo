@@ -22,7 +22,7 @@ test('M6.12: legacy path is not searched or migrated and schema stays v2',()=>{
  assert.match(ui,/transcriptStem\(project\.source\.subtitleName\)\+'\.article\.txt'/);
 });
 test('M6.12: existing corrupt project cannot be silently overwritten',()=>{
- assert.match(cs,/projectSaveLocked = projectContent != null/);
+ assert.match(cs,/projectSaveLocked = pending\.ProjectContent != null/);
  assert.match(cs,/case "project-validated":/);
  assert.match(cs,/if \(projectSaveLocked\)/);
  assert.match(ui,/setProjectLoadBlocked\(blocked\)/);

@@ -17,6 +17,9 @@ internal sealed class LocalMediaServer : IDisposable
     private readonly CoreWebView2 browser;
     private string? selectedPath;
     private string? selectedToken;
+    private readonly Dictionary<string, string> tokenPaths = new(StringComparer.Ordinal);
+    internal string? ActiveUrl => selectedToken is null || selectedPath is null ? null :
+        Prefix + selectedToken + "/" + Uri.EscapeDataString(Path.GetFileName(selectedPath));
 
     internal LocalMediaServer(CoreWebView2 browser)
     {
@@ -25,13 +28,61 @@ internal sealed class LocalMediaServer : IDisposable
         browser.WebResourceRequested += Respond;
     }
 
-    internal string Select(string absoluteFilePath)
+    // Candidate tokens coexist with the active player token. A failed probe must
+    // never revoke the previous media stream or expose the containing directory.
+    internal string PrepareCandidate(string absoluteFilePath)
     {
         var path = Path.GetFullPath(absoluteFilePath);
         if (!File.Exists(path)) throw new FileNotFoundException("媒体文件不存在。", path);
+        var token = Guid.NewGuid().ToString("N");
+        tokenPaths.Add(token, path);
+        return Prefix + token + "/" + Uri.EscapeDataString(Path.GetFileName(path));
+    }
+
+    internal void CommitCandidate(string url)
+    {
+        var token = TokenFromUrl(url);
+        if (!tokenPaths.TryGetValue(token, out var path))
+            throw new InvalidOperationException("媒体候选令牌已失效。");
+        selectedToken = token;
         selectedPath = path;
-        selectedToken = Guid.NewGuid().ToString("N");
-        return Prefix + selectedToken + "/" + Uri.EscapeDataString(Path.GetFileName(path));
+    }
+
+    internal void ReleaseCandidate(string url)
+    {
+        var token = TokenFromUrl(url);
+        if (token == selectedToken) return; // The active stream is never revoked by cleanup.
+        tokenPaths.Remove(token);
+    }
+
+    internal void ReleasePrevious(string? url)
+    {
+        if (url is null) return;
+        var token = TokenFromUrl(url);
+        if (token != selectedToken) tokenPaths.Remove(token);
+    }
+
+    internal void ResetActive()
+    {
+        selectedToken = null;
+        selectedPath = null;
+    }
+
+    internal string Select(string absoluteFilePath)
+    {
+        var url = PrepareCandidate(absoluteFilePath);
+        CommitCandidate(url);
+        return url;
+    }
+
+    private static string TokenFromUrl(string url)
+    {
+        if (!Uri.TryCreate(url, UriKind.Absolute, out var uri) ||
+            !url.StartsWith(Prefix, StringComparison.Ordinal) ||
+            uri.AbsolutePath.Split('/', StringSplitOptions.RemoveEmptyEntries) is not { Length: 3 } segments ||
+            segments[0] != "media")
+            throw new InvalidOperationException("非法媒体访问令牌。");
+        return segments[1];
     }
 
     private void Respond(object? sender, CoreWebView2WebResourceRequestedEventArgs e)
@@ -46,8 +97,8 @@ internal sealed class LocalMediaServer : IDisposable
         {
             var segments = uri.AbsolutePath.Split('/', StringSplitOptions.RemoveEmptyEntries);
             if (segments.Length != 3 || segments[0] != "media" ||
-                !string.Equals(segments[1], selectedToken, StringComparison.Ordinal) ||
-                selectedPath == null || !string.Equals(Uri.UnescapeDataString(segments[2]), Path.GetFileName(selectedPath), StringComparison.Ordinal))
+                !tokenPaths.TryGetValue(segments[1], out var requestedPath) ||
+                !string.Equals(Uri.UnescapeDataString(segments[2]), Path.GetFileName(requestedPath), StringComparison.Ordinal))
             {
                 Reply(e, Stream.Null, 404, "Not Found", "Content-Length: 0");
                 return;
@@ -63,7 +114,7 @@ internal sealed class LocalMediaServer : IDisposable
                 return;
             }
 
-            file = new FileStream(selectedPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+            file = new FileStream(requestedPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
             var size = file.Length;
             var rangeHeader = request.Headers.Contains("Range") ? request.Headers.GetHeader("Range") : null;
             if (!MediaByteRanges.TryResolve(rangeHeader, size, out var start, out var end))
@@ -75,10 +126,10 @@ internal sealed class LocalMediaServer : IDisposable
             }
             var partial = rangeHeader != null;
             var length = size == 0 ? 0 : end - start + 1;
-            var mime = Path.GetExtension(selectedPath).ToLowerInvariant() switch
+            var mime = Path.GetExtension(requestedPath).ToLowerInvariant() switch
             {
                 ".mp4" => "video/mp4", ".mkv" => "video/x-matroska",
-                ".mp3" => "audio/mpeg", ".wav" => "audio/wav", _ => "application/octet-stream"
+                ".m4a" => "audio/mp4", ".mp3" => "audio/mpeg", ".wav" => "audio/wav", _ => "application/octet-stream"
             };
             var headers = $"Content-Type: {mime}\r\nAccept-Ranges: bytes\r\nContent-Length: {length}\r\nCache-Control: no-store\r\nX-Content-Type-Options: nosniff";
             if (partial) headers += $"\r\nContent-Range: bytes {start}-{end}/{size}";
@@ -96,7 +147,7 @@ internal sealed class LocalMediaServer : IDisposable
             }
             Reply(e, responseBody ?? Stream.Null, partial ? 206 : 200, partial ? "Partial Content" : "OK", headers);
             responseBody = null; // Ownership transferred to WebView2.
-            Trace.WriteLine($"ScriptToVideo media: {request.Method} {(partial ? "206" : "200")} {Path.GetFileName(selectedPath)} range={rangeHeader ?? "all"}");
+            Trace.WriteLine($"ScriptToVideo media: {request.Method} {(partial ? "206" : "200")} {Path.GetFileName(requestedPath)} range={rangeHeader ?? "all"}");
         }
         catch (Exception error)
         {
@@ -168,6 +219,7 @@ internal sealed class LocalMediaServer : IDisposable
         browser.WebResourceRequested -= Respond;
         selectedPath = null;
         selectedToken = null;
+        tokenPaths.Clear();
     }
 
 }

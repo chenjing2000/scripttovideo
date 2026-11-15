@@ -23,13 +23,12 @@ test('Code review: MP4 export commits the active word and snapshots a matching p
  assert.match(body,/pagePlan:exportPlan/);
 });
 
-test('Code review: invalid incoming transcript clears the old visible pair',()=>{
+test('M6.17: invalid incoming transcript preserves the old visible pair',()=>{
  const start=ui.indexOf(' const applyPair=');
- const end=ui.indexOf('\n useEffect(()=>{const receive=',start);
+ const end=ui.indexOf('\\n useEffect(()=>{const receive=',start);
  const body=ui.slice(start,end);
- assert.match(body,/setMediaUrl\(''\)/);
- assert.match(body,/setProject\(null\)/);
- assert.match(body,/setWords\(\[\]\)/);
+ assert.doesNotMatch(body,/setMediaUrl\\(''\\)|setProject\\(null\\)|setWords\\(\\[\\]\\)/);
+ assert.match(body,/pair-rejected/);
  assert.match(body,/字幕读取失败/);
 });
 
@@ -91,8 +90,8 @@ test('Code review: invalid settings backups never overwrite an earlier backup',(
 test('Code review: local media endpoint is token-bound to one selected basename, not a folder mapping',()=>{
  assert.match(media,/var path = Path\.GetFullPath\(absoluteFilePath\)/);
  assert.match(media,/segments\.Length != 3/);
- assert.match(media,/!string\.Equals\(segments\[1\], selectedToken, StringComparison\.Ordinal\)/);
- assert.match(media,/Uri\.UnescapeDataString\(segments\[2\]\), Path\.GetFileName\(selectedPath\)/);
+ assert.ok(media.includes('!tokenPaths.TryGetValue(segments[1], out var requestedPath)'));
+ assert.ok(media.includes('Uri.UnescapeDataString(segments[2]), Path.GetFileName(requestedPath)'));
  assert.match(reader,/Directory\.EnumerateFiles\(folder, "\*", SearchOption\.TopDirectoryOnly\)/);
  assert.doesNotMatch(reader,/SetVirtualHostNameToFolderMapping\([^\n]*media/i);
 });

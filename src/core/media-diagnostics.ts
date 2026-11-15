@@ -24,5 +24,5 @@ export function describeMediaError(code: number | undefined): string {
 }
 
 export function missingCompanionMessage(stem: string): string {
-  return `找不到同名媒体文件：${['.mp4','.mkv','.mp3','.wav'].map(ext=>stem+ext).join('、')}。请确认文件与字幕 JSON 在同一文件夹。`;
+  return `找不到同名媒体文件：${['.mp4','.mkv','.m4a','.mp3','.wav'].map(ext=>stem+ext).join('、')}。请确认文件与字幕 JSON 在同一文件夹。`;
 }

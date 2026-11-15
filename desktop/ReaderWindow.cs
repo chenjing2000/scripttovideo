@@ -26,6 +26,14 @@ internal sealed class ReaderWindow : Window
     private readonly WebView2 view = new();
     private readonly TrayIconManager trayIcon;
     private Source? source;
+    private sealed record MediaCandidate(string Path, string Kind, string Url);
+    private sealed record PendingMediaImport(string Id, string Subtitle, string Transcript,
+        string Fingerprint, string ProjectPath, string? ProjectContent, List<MediaCandidate> Candidates);
+    private PendingMediaImport? pendingMediaImport;
+    private string? previousMediaUrl;
+    private string? lastCommittedImportId;
+    private Source? previousSource;
+    private bool previousProjectSaveLocked;
     private readonly ExportTaskManager exportTasks = new();
     private readonly ExportProcessManager exportProcesses = new();
     private bool isShuttingDown;
@@ -142,6 +150,7 @@ internal sealed class ReaderWindow : Window
             AppLog.Write("Window", "Main window closed; disposing application resources.");
             DisposeSafely("TrayIconManager", trayIcon.Dispose);
             DisposeSafely("ExportTaskManager", exportTasks.Dispose);
+            CancelPendingMediaImport();
             if (mediaServer is not null)
                 DisposeSafely("LocalMediaServer", mediaServer.Dispose);
             DisposeSafely("WebView2", view.Dispose);
@@ -298,7 +307,30 @@ internal sealed class ReaderWindow : Window
                 case "open":
                     if (args.AdditionalObjects.FirstOrDefault() is not CoreWebView2File file)
                         throw new InvalidOperationException("无法获取 JSON 文件的本地路径。");
+                    CancelPendingMediaImport();
                     OpenPair(file.Path);
+                    break;
+                case "import-selected":
+                    CompleteMediaImport(request);
+                    break;
+                case "import-failed":
+                    FailMediaImport(request);
+                    break;
+                case "import-cancel":
+                    if (pendingMediaImport?.Id == request.GetProperty("requestId").GetString())
+                        CancelPendingMediaImport();
+                    break;
+                case "pair-rejected":
+                    RollbackMediaImport(request);
+                    break;
+                case "pair-applied":
+                    if (request.GetProperty("requestId").GetString() == lastCommittedImportId)
+                    {
+                        mediaServer?.ReleasePrevious(previousMediaUrl);
+                        previousMediaUrl = null;
+                        previousSource = null;
+                        lastCommittedImportId = null;
+                    }
                     break;
                 case "project-validated":
                     if (source != null && projectSaveLocked &&
@@ -504,18 +536,6 @@ internal sealed class ReaderWindow : Window
         var stem = filename[..^".script.json".Length];
         if (string.IsNullOrWhiteSpace(stem) || stem is "." or "..")
             throw new InvalidDataException("标准字幕文件缺少有效名称。");
-        var names = Directory.EnumerateFiles(folder, "*", SearchOption.TopDirectoryOnly).ToArray();
-        string? media = null;
-        string? mediaKind = null;
-        foreach (var ext in new[] { ".mp4", ".mkv", ".mp3", ".wav" })
-        {
-            media = names.FirstOrDefault(candidate => string.Equals(Path.GetFileName(candidate), stem + ext,
-                StringComparison.OrdinalIgnoreCase));
-            if (media != null) { mediaKind = ext is ".mp3" or ".wav" ? "audio" : "video"; break; }
-        }
-        if (media == null || mediaKind == null)
-            throw new FileNotFoundException($"未找到同名媒体。字幕：{filename}；所在目录：{folder}；尝试查找：{string.Join("、", new[] { ".mp4", ".mkv", ".mp3", ".wav" }.Select(ext => stem + ext))}。请核对文件名。");
-
         var bytes = File.ReadAllBytes(subtitle);
         var transcript = Encoding.UTF8.GetString(bytes).TrimStart('\uFEFF');
         using (var parsed = JsonDocument.Parse(transcript))
@@ -539,14 +559,113 @@ internal sealed class ReaderWindow : Window
         // Read the project before switching the active media token/source. If the
         // project is inaccessible, the previously loaded pair remains usable.
         var projectContent = File.Exists(projectPath) ? File.ReadAllText(projectPath) : null;
-        var mediaUrl = (mediaServer ?? throw new InvalidOperationException("媒体服务未初始化。")).Select(media);
-        source = new Source(media, subtitle, fingerprint, projectPath, mediaKind);
-        projectSaveLocked = projectContent != null;
+        // Pre-register candidate tokens without touching the active playback token.
+        var names = Directory.EnumerateFiles(folder, "*", SearchOption.TopDirectoryOnly).ToArray();
+        var server = mediaServer ?? throw new InvalidOperationException("媒体服务未初始化。");
+        var candidates = new List<MediaCandidate>();
+        try
+        {
+            foreach (var ext in new[] { ".mp4", ".mkv", ".m4a", ".mp3", ".wav" })
+            {
+                var media = names.FirstOrDefault(candidate => string.Equals(Path.GetFileName(candidate), stem + ext,
+                    StringComparison.OrdinalIgnoreCase));
+                if (media == null) continue;
+                var kind = ext is ".mp4" or ".mkv" ? "video" : "audio";
+                try { candidates.Add(new MediaCandidate(media, kind, server.PrepareCandidate(media))); }
+                catch (Exception error) when (error is IOException or UnauthorizedAccessException)
+                {
+                    AppLog.WriteException("Media.PrepareCandidate", error);
+                    // A candidate may disappear or become unreadable after enumeration.
+                    // It must not prevent later formats from being tried.
+                }
+            }
+            if (candidates.Count == 0)
+                throw new FileNotFoundException($"找不到同名媒体：{string.Join("、", new[] { ".mp4", ".mkv", ".m4a", ".mp3", ".wav" }.Select(ext => stem + ext))}");
+            var id = Guid.NewGuid().ToString("N");
+            pendingMediaImport = new PendingMediaImport(id, subtitle, transcript, fingerprint, projectPath, projectContent, candidates);
+            Send(new
+            {
+                kind = "import-candidates", requestId = id, subtitleName = filename, transcript,
+                candidates = candidates.Select((candidate, index) => new
+                {
+                    index, mediaName = Path.GetFileName(candidate.Path), mediaKind = candidate.Kind, mediaUrl = candidate.Url
+                }).ToArray()
+            });
+        }
+        catch
+        {
+            foreach (var candidate in candidates) server.ReleaseCandidate(candidate.Url);
+            pendingMediaImport = null;
+            throw;
+        }
+    }
+
+    private void CancelPendingMediaImport()
+    {
+        var pending = pendingMediaImport;
+        pendingMediaImport = null;
+        if (pending is null || mediaServer is null) return;
+        foreach (var candidate in pending.Candidates)
+            mediaServer.ReleaseCandidate(candidate.Url);
+    }
+
+    private void CompleteMediaImport(JsonElement request)
+    {
+        var pending = pendingMediaImport;
+        if (pending is null || pending.Id != request.GetProperty("requestId").GetString()) return;
+        var index = request.GetProperty("index").GetInt32();
+        if (index < 0 || index >= pending.Candidates.Count) return;
+        var selected = pending.Candidates[index];
+        if (!File.Exists(selected.Path))
+            throw new FileNotFoundException("媒体在解码验证后被移动或删除。", selected.Path);
+        var server = mediaServer ?? throw new InvalidOperationException("媒体服务未初始化。");
+        // Never overwrite a newer in-flight import with a stale result.
+        server.ReleasePrevious(previousMediaUrl);
+        previousMediaUrl = server.ActiveUrl;
+        previousSource = source;
+        previousProjectSaveLocked = projectSaveLocked;
+        server.CommitCandidate(selected.Url);
+        foreach (var candidate in pending.Candidates)
+            if (candidate.Url != selected.Url) server.ReleaseCandidate(candidate.Url);
+        pendingMediaImport = null;
+        lastCommittedImportId = pending.Id;
+        source = new Source(selected.Path, pending.Subtitle, pending.Fingerprint, pending.ProjectPath, selected.Kind);
+        projectSaveLocked = pending.ProjectContent != null;
         Send(new
         {
-            kind = "pair", mediaName = Path.GetFileName(media), mediaKind, subtitleName = filename,
-            mediaUrl, transcript, fingerprint, project = projectContent
+            kind = "pair", requestId = pending.Id, mediaName = Path.GetFileName(selected.Path),
+            mediaKind = selected.Kind, subtitleName = Path.GetFileName(pending.Subtitle),
+            mediaUrl = selected.Url, transcript = pending.Transcript, fingerprint = pending.Fingerprint,
+            project = pending.ProjectContent
         });
+    }
+
+    private void RollbackMediaImport(JsonElement request)
+    {
+        if (lastCommittedImportId != request.GetProperty("requestId").GetString()) return;
+        var server = mediaServer;
+        if (server is not null)
+        {
+            var invalidUrl = server.ActiveUrl;
+            if (previousMediaUrl is not null) server.CommitCandidate(previousMediaUrl);
+            else server.ResetActive();
+            server.ReleasePrevious(invalidUrl);
+        }
+        source = previousSource;
+        projectSaveLocked = previousProjectSaveLocked;
+        previousSource = null;
+        previousMediaUrl = null;
+        lastCommittedImportId = null;
+    }
+
+    private void FailMediaImport(JsonElement request)
+    {
+        var pending = pendingMediaImport;
+        if (pending is null || pending.Id != request.GetProperty("requestId").GetString()) return;
+        var reason = request.GetProperty("reason").GetString() ?? "全部候选媒体均未能通过解码验证。";
+        if (reason.Length > 3000) reason = reason[..3000];
+        CancelPendingMediaImport();
+        FluentDialog.ShowMessage(this, "媒体导入失败", reason, icon: FluentDialogIcon.Warning);
     }
 
     private Source CheckSource(JsonElement project)
