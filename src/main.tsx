@@ -95,6 +95,12 @@ function App(){
  const shortcutRef=useRef<(e:KeyboardEvent)=>void>(()=>{});
  const mediaRef=useRef<HTMLMediaElement|null>(null);const inputRef=useRef<HTMLInputElement>(null);
  const activeProbeRef=useRef<{id:string;controller:AbortController}|null>(null);
+ const importBaseStateRef=useRef<{currentRevision:number;draftChanged:boolean}>({currentRevision:0,draftChanged:false});
+ const expectedDesktopImportIdRef=useRef<string|null>(null);
+ const changedDuringImport=()=>{
+  const base=importBaseStateRef.current,now=projectEditStateRef.current;
+  return base.currentRevision!==now.currentRevision||base.draftChanged!==now.draftChanged;
+ };
  // Browser blob URLs are released only after their old React media elements unmount.
  useEffect(()=>()=>{if(mediaUrl.startsWith('blob:'))URL.revokeObjectURL(mediaUrl)},[mediaUrl]);
  const nextNoticeId=useRef(1);const exportNoticeId=useRef<number|null>(null);
@@ -246,12 +252,18 @@ function App(){
   cancelPendingProbe();
   const controller=new AbortController();
   activeProbeRef.current={id:data.requestId,controller};
+  expectedDesktopImportIdRef.current=data.requestId;
   try{
    // Reject invalid subtitle before probing media, preserving the visible old pair.
    parseScriptToVideo(JSON.parse(data.transcript));
    const candidates=data.candidates.map(c=>({...c,name:c.mediaName,kind:c.mediaKind}));
    const result=await probeInPriority(candidates,async item=>item.mediaUrl,controller.signal);
    if(controller.signal.aborted)return;
+   if(changedDuringImport()){
+    desktop?.postMessage({kind:'import-cancel',requestId:data.requestId});
+    notify('导入期间原工程发生了新的修改，已取消本次导入以保护编辑内容。',true);
+    return;
+   }
    if(result.selected){
     desktop?.postMessage({kind:'import-selected',requestId:data.requestId,index:result.selected.item.index});
     if(result.failures.length)notify(`已跳过 ${result.failures.length} 个无法播放的候选媒体，正在打开 ${result.selected.item.mediaName}`);
@@ -266,6 +278,13 @@ function App(){
   }
  };
  const applyPair=(data:Extract<DesktopMessage,{kind:'pair'}>)=>{
+  if(data.requestId&&data.requestId!==expectedDesktopImportIdRef.current){
+   desktop?.postMessage({kind:'pair-rejected',requestId:data.requestId});return;
+  }
+  if(data.requestId&&changedDuringImport()){
+   desktop?.postMessage({kind:'pair-rejected',requestId:data.requestId});
+   notify('导入完成前原工程被修改，已保留原工程。',true);return;
+  }
   try{const input=JSON.parse(data.transcript),parsed=parseScriptToVideo(input);
    const next=createProject(data.mediaName,data.subtitleName,parsed.words);next.style=settingsToStyle(appSettingsRef.current);next.canvas={...appSettingsRef.current.output};next.source.subtitleSha256=data.fingerprint;next.mediaKind=data.mediaKind;
    let current=next,currentWords=parsed.words,blocked=false;
@@ -298,6 +317,7 @@ function App(){
  async function openBrowserJson(file:File){
   const controller=new AbortController(),id='browser-'+String(Date.now())+'-'+String(Math.random());
   activeProbeRef.current={id,controller};
+  importBaseStateRef.current={currentRevision:projectEditStateRef.current.currentRevision,draftChanged:projectEditStateRef.current.draftChanged};
   const urls=new Map<string,string>();
   let keepUrl:string|null=null;
   try{
@@ -314,6 +334,7 @@ function App(){
    },controller.signal);
    if(!probe.selected)throw Error('全部同名媒体均无法播放：'+probe.failures.map(f=>f.name+'：'+f.reason).join('；'));
    if(controller.signal.aborted)return;
+   if(changedDuringImport())throw Error('导入期间原工程发生新的修改，已取消导入。');
    const match=probe.selected.item,url=urls.get(match.name)!;
    const next=createProject(match.name,file.name,parsed.words);
    next.style=settingsToStyle(appSettingsRef.current);next.canvas={...appSettingsRef.current.output};next.mediaKind=match.kind;
@@ -332,6 +353,8 @@ function App(){
 
  const openSubtitleFile=(file:File)=>{
   cancelPendingProbe();
+  expectedDesktopImportIdRef.current=null;
+  importBaseStateRef.current={currentRevision:projectEditStateRef.current.currentRevision,draftChanged:projectEditStateRef.current.draftChanged};
   if(desktop)desktop.postMessageWithAdditionalObjects({kind:'open'},[file]);
   else void openBrowserJson(file);
  };
