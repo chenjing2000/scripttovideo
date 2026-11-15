@@ -4,8 +4,9 @@ import {ReaderCanvas} from './ui/ReaderCanvas';
 import {StyleSettings} from './ui/StyleSettings';
 import {Dialog} from './ui/Dialog';
 import type {DialogAction} from './ui/Dialog';
-import {parseScriptToVideo,applyOverrides,createProject,updateWord,exportPlainText,saveProjectView,validateProject,paginate,measureWithCanvas,DEFAULT_STYLE,normalizeProjectStyle,WIDTH,HEIGHT,validCanvas,transcriptStem,selectCompanion,provisionalVideoHeight,describeMediaError,missingCompanionMessage} from './core';
+import {parseScriptToVideo,applyOverrides,createProject,updateWord,exportPlainText,saveProjectView,validateProject,paginate,measureWithCanvas,DEFAULT_STYLE,normalizeProjectStyle,WIDTH,HEIGHT,validCanvas,transcriptStem,findMediaCandidates,provisionalVideoHeight,describeMediaError,missingCompanionMessage} from './core';
 import type {Word,Project} from './core';
+import {probeInPriority} from './core/media-probe';
 import {resolvePlayerShortcut} from './core/player-shortcuts';
 import './style.css';
 import {getWorkspaceLayout} from './core/workspace-layout';
@@ -15,7 +16,8 @@ import {createProjectEditState,markProjectEdited,setProjectDraftChanged,acknowle
 import {settingsDialogRect,nextSettingsWidth,requiredSettingsOuterWidth} from './core/settings-dialog-geometry';
 import type {AppSettings} from './core/app-settings';
 type DesktopMessage =
- | {kind:'pair';mediaName:string;mediaKind:'video'|'audio';subtitleName:string;transcript:string;fingerprint:string;project:string|null;mediaUrl:string}
+ | {kind:'pair';requestId?:string;mediaName:string;mediaKind:'video'|'audio';subtitleName:string;transcript:string;fingerprint:string;project:string|null;mediaUrl:string}
+ | {kind:'import-candidates';requestId:string;subtitleName:string;transcript:string;candidates:Array<{index:number;mediaName:string;mediaKind:'video'|'audio';mediaUrl:string}>}
  | {kind:'settings';settings:unknown}
  | {kind:'saved';message:string;revision:number}
  | {kind:'text-exported';message:string}
@@ -92,6 +94,9 @@ function App(){
  const [viewport,setViewport]=useState({width:window.innerWidth,height:window.innerHeight});const [notices,setNotices]=useState<Notice[]>([]);
  const shortcutRef=useRef<(e:KeyboardEvent)=>void>(()=>{});
  const mediaRef=useRef<HTMLMediaElement|null>(null);const inputRef=useRef<HTMLInputElement>(null);
+ const activeProbeRef=useRef<{id:string;controller:AbortController}|null>(null);
+ // Browser blob URLs are released only after their old React media elements unmount.
+ useEffect(()=>()=>{if(mediaUrl.startsWith('blob:'))URL.revokeObjectURL(mediaUrl)},[mediaUrl]);
  const nextNoticeId=useRef(1);const exportNoticeId=useRef<number|null>(null);
  const canvasWidth=project?.canvas.width??appSettings.output.width,canvasHeight=project?.canvas.height??appSettings.output.height;
  useEffect(()=>{const update=()=>setViewport({width:window.innerWidth,height:window.innerHeight});window.addEventListener('resize',update);return()=>window.removeEventListener('resize',update)},[]);
@@ -232,6 +237,34 @@ function App(){
   setExporting(true);setExportTaskNotice('正在准备导出…');
   desktop.postMessage({kind:'export',project:saveProjectView(project,exportWords),duration,videoHeight:mediaHeight,pagePlan:exportPlan});
  };
+ const cancelPendingProbe=()=>{
+  const active=activeProbeRef.current;if(!active)return;
+  activeProbeRef.current=null;active.controller.abort();
+  desktop?.postMessage({kind:'import-cancel',requestId:active.id});
+ };
+ const runDesktopProbe=async(data:Extract<DesktopMessage,{kind:'import-candidates'}>)=>{
+  cancelPendingProbe();
+  const controller=new AbortController();
+  activeProbeRef.current={id:data.requestId,controller};
+  try{
+   // Reject invalid subtitle before probing media, preserving the visible old pair.
+   parseScriptToVideo(JSON.parse(data.transcript));
+   const candidates=data.candidates.map(c=>({...c,name:c.mediaName,kind:c.mediaKind}));
+   const result=await probeInPriority(candidates,async item=>item.mediaUrl,controller.signal);
+   if(controller.signal.aborted)return;
+   if(result.selected){
+    desktop?.postMessage({kind:'import-selected',requestId:data.requestId,index:result.selected.item.index});
+    if(result.failures.length)notify(`已跳过 ${result.failures.length} 个无法播放的候选媒体，正在打开 ${result.selected.item.mediaName}`);
+   }else{
+    const details=result.failures.map(f=>`${f.name}：${f.reason}`).join('\\n');
+    desktop?.postMessage({kind:'import-failed',requestId:data.requestId,reason:`同名媒体均无法通过初始解码验证。\\n${details}`});
+   }
+  }catch(error){
+   if(!controller.signal.aborted)desktop?.postMessage({kind:'import-failed',requestId:data.requestId,reason:`字幕或媒体探测失败：${String(error)}`});
+  }finally{
+   if(activeProbeRef.current?.id===data.requestId)activeProbeRef.current=null;
+  }
+ };
  const applyPair=(data:Extract<DesktopMessage,{kind:'pair'}>)=>{
   try{const input=JSON.parse(data.transcript),parsed=parseScriptToVideo(input);
    const next=createProject(data.mediaName,data.subtitleName,parsed.words);next.style=settingsToStyle(appSettingsRef.current);next.canvas={...appSettingsRef.current.output};next.source.subtitleSha256=data.fingerprint;next.mediaKind=data.mediaKind;
@@ -248,36 +281,57 @@ function App(){
    }catch(e){blocked=true;notify(`工程读取失败，已禁止覆盖原工程文件：${String(e)}`,true)}}
    setProjectLoadBlocked(blocked);
    setMediaUrl(data.mediaUrl);setMediaName(data.mediaName);setKind(data.mediaKind);setProject(current);setWords(currentWords);setEditing(null);setWordTool(null);setToolLeaving(false);resetProjectDirtyState();setDuration(0);setVideoRatio(null);setMediaState('loading');setTime(0);setPlaying(false);
+   if(data.requestId)window.setTimeout(()=>desktop?.postMessage({kind:'pair-applied',requestId:data.requestId}),0);
    notify(`已找到媒体：${data.mediaName}（${data.mediaKind==='audio'?'音频':'视频'}模式），正在读取媒体信息；${parsed.words.length} 个单词`);
   }catch(e){
-   // The host has already selected this pair's media URL. Never leave the previous
-   // pair visible if the new transcript fails validation.
-   setMediaUrl('');setMediaName('');setKind('video');setProject(null);setWords([]);
-   setEditing(null);setWordTool(null);setToolLeaving(false);resetProjectDirtyState();setDuration(0);setVideoRatio(null);
-   setMediaState('error');setTime(0);setPlaying(false);setProjectLoadBlocked(false);
+   // A failed or malformed new pair must never discard the user's current project.
+   if(data.requestId)desktop?.postMessage({kind:'pair-rejected',requestId:data.requestId});
    notify(`字幕读取失败：${String(e)}`,true);
   }
  };
- useEffect(()=>{const receive=({data}:MessageEvent<DesktopMessage>)=>{if(data.kind==='settings'){if(validateSettings(data.settings)){loadedSettingsRef.current=true;appSettingsRef.current=data.settings;setAppSettings(data.settings)}}else if(data.kind==='pair')applyPair(data);else if(data.kind==='saved'){
+ useEffect(()=>{const receive=({data}:MessageEvent<DesktopMessage>)=>{if(data.kind==='settings'){if(validateSettings(data.settings)){loadedSettingsRef.current=true;appSettingsRef.current=data.settings;setAppSettings(data.settings)}}else if(data.kind==='import-candidates')void runDesktopProbe(data);else if(data.kind==='pair')applyPair(data);else if(data.kind==='saved'){
    const nextState=acknowledgeProjectSave(projectEditStateRef.current,data.revision);
    updateProjectEditState(nextState);
    notify(hasUnsavedProjectChanges(nextState)?`${data.message}；当前工程仍有未保存修改`:data.message);
   }else if(data.kind==='text-exported')notify(data.message);else if(data.kind==='text-export-error')notify(data.message,true);else if(data.kind==='dependency-confirm')setDependency({mode:'confirm',...data});else if(data.kind==='dependency-progress')setDependency({mode:'progress',title:data.title,message:data.message});else if(data.kind==='dependency-cancelling'){const d=dependencyDialogRef.current;if(d?.mode==='progress')setDependency({mode:'cancelling',title:d.title,message:'正在停止安装任务并清理临时文件……'})}else if(data.kind==='dependency-end')setDependency(null);else if(data.kind==='export-cancelling')setExportTaskNotice('正在取消导出，等待渲染进程退出并清理缓存…',false);else if(data.kind==='dependency-failed')setDependency({mode:'error',message:data.message});else if(data.kind==='status'){setExporting(data.busy);if(data.busy){if(data.error)notify(data.message,true);else setExportTaskNotice(data.message,data.canCancel!==false)}else{clearExportTaskNotice();if(!data.error&&dependencyDialogRef.current?.mode==='progress')setDependency(null);if(!dependencyDialogRef.current||dependencyDialogRef.current.mode!=='error')notify(data.message,!!data.error)}}};desktop?.addEventListener('message',receive);return()=>desktop?.removeEventListener('message',receive)},[]);
  useEffect(()=>{desktop?.postMessage({kind:'ready'})},[]);
  async function openBrowserJson(file:File){
-  try{const input=JSON.parse(await file.text());const parsed=parseScriptToVideo(input);const stem=transcriptStem(file.name);
-   // Browser File API cannot read siblings of a user-selected file without separate permission.
+  const controller=new AbortController(),id='browser-'+String(Date.now())+'-'+String(Math.random());
+  activeProbeRef.current={id,controller};
+  const urls=new Map<string,string>();
+  let keepUrl:string|null=null;
+  try{
+   const input=JSON.parse(await file.text()),parsed=parseScriptToVideo(input),stem=transcriptStem(file.name);
    const picker=(window as Window&{showDirectoryPicker?:()=>Promise<FileSystemDirectoryHandle>}).showDirectoryPicker;
    if(!picker)throw Error('浏览器不能自动访问同目录媒体；请使用 Windows 桌面版。');
-   const directory=await picker();const names:string[]=[];for await(const [name] of (directory as any).entries())names.push(name);
-   const match=selectCompanion(file.name,names);if(!match)throw Error(missingCompanionMessage(stem));
-   const handle=await directory.getFileHandle(match.name),media=await handle.getFile(),url=URL.createObjectURL(media);
-   const next=createProject(match.name,file.name,parsed.words);next.style=settingsToStyle(appSettingsRef.current);next.canvas={...appSettingsRef.current.output};next.mediaKind=match.kind;
+   const directory=await picker();
+   const names:string[]=[];for await(const [name] of (directory as any).entries())names.push(name);
+   const candidates=findMediaCandidates(file.name,names);
+   if(!candidates.length)throw Error(missingCompanionMessage(stem));
+   const probe=await probeInPriority(candidates,async item=>{
+    const handle=await directory.getFileHandle(item.name),media=await handle.getFile();
+    const url=URL.createObjectURL(media);urls.set(item.name,url);return url;
+   },controller.signal);
+   if(!probe.selected)throw Error('全部同名媒体均无法播放：'+probe.failures.map(f=>f.name+'：'+f.reason).join('；'));
+   if(controller.signal.aborted)return;
+   const match=probe.selected.item,url=urls.get(match.name)!;
+   const next=createProject(match.name,file.name,parsed.words);
+   next.style=settingsToStyle(appSettingsRef.current);next.canvas={...appSettingsRef.current.output};next.mediaKind=match.kind;
+   keepUrl=url;
    setProjectLoadBlocked(false);
-   setMediaUrl(old=>{if(old.startsWith('blob:'))URL.revokeObjectURL(old);return url});setMediaName(match.name);setKind(match.kind);setProject(next);setWords(parsed.words);setEditing(null);setWordTool(null);resetProjectDirtyState();setVideoRatio(null);setMediaState('loading');setDuration(0);notify(`已找到媒体：${match.name}（${match.kind==='audio'?'音频':'视频'}模式），正在读取媒体信息`);
-  }catch(e){notify(`导入失败：${String(e)}`,true)}
+   setMediaUrl(url);setMediaName(match.name);setKind(match.kind);setProject(next);
+   setWords(parsed.words);setEditing(null);setWordTool(null);resetProjectDirtyState();
+   setVideoRatio(null);setMediaState('loading');setDuration(0);
+   notify(`已找到可播放媒体：${match.name}（${match.kind==='audio'?'音频':'视频'}模式）`);
+  }catch(e){if(!controller.signal.aborted)notify(`导入失败：${String(e)}`,true)}
+  finally{
+   for(const url of urls.values())if(url!==keepUrl)URL.revokeObjectURL(url);
+   if(activeProbeRef.current?.id===id)activeProbeRef.current=null;
+  }
  }
+
  const openSubtitleFile=(file:File)=>{
+  cancelPendingProbe();
   if(desktop)desktop.postMessageWithAdditionalObjects({kind:'open'},[file]);
   else void openBrowserJson(file);
  };
