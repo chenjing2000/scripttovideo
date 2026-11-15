@@ -1,4 +1,4 @@
-# ScriptToVideo — current data model (M6.16)
+# ScriptToVideo — current data model (M6.17)
 
 ## Subtitle input
 

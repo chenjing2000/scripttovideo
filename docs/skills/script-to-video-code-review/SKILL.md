@@ -30,8 +30,8 @@ Use this Skill for end-to-end code inspection and targeted fixes. **Never interp
 - Word-style justification: measure actual glyph widths; assign explicit **word x coordinates**, not flex wrapping or independently computed CSS gaps. True paragraph last line stays left aligned; paragraph continuation at a page break is not paragraph end. First-line indent defaults to 4ch, exactly once per paragraph.
 - Fill each page with the maximum number of complete measured lines. No widow/orphan or sentence-boundary scores; paragraph gap is counted only when actually displayed. Keep text inside bounds.
 - Page switching is deterministic from timestamps, preview seeking and export frame times. Ensure no replay-dependent state and no premature reveal of the next page.
-- Validate play/pause/stop, frame steps, seek ±10/±30s, volume, mute, normal speed and the open-file keyboard command. JSON is the only import entry: search exact-stem same-directory MP4 → MKV → MP3 → WAV. Ctrl+F remains unbound. Ignore shortcuts while typing/editing; do not override operating-system shortcuts unnecessarily.
-- Guard against missing/invalid MP4/MKV/MP3/WAV/JSON, export failures, process hangs, duplicate sound tracks, cancellation, resource leaks and overwrites. Snapshot export inputs so subsequent edits do not affect a running render.
+- Validate play/pause/stop, frame steps, seek ±10/±30s, volume, mute, normal speed and the open-file keyboard command. JSON is the only import entry: search exact-stem same-directory MP4 → MKV → M4A → MP3 → WAV, skipping initially undecodable candidates. Ctrl+F remains unbound. Ignore shortcuts while typing/editing; do not override operating-system shortcuts unnecessarily.
+- Guard against missing/invalid MP4/MKV/M4A/MP3/WAV/JSON, export failures, process hangs, duplicate sound tracks, cancellation, resource leaks and overwrites. Snapshot export inputs so subsequent edits do not affect a running render.
 
 ## 4. Maintainability and minimal repairs
 
