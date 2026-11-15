@@ -1,4 +1,4 @@
-namespace TranscriptStudio.Export;
+namespace ScriptToVideo.Export;
 
 internal enum ExportStatus
 {

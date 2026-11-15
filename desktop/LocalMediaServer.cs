@@ -2,7 +2,7 @@ using System.Diagnostics;
 using System.IO;
 using Microsoft.Web.WebView2.Core;
 
-namespace TranscriptStudio;
+namespace ScriptToVideo;
 
 /// <summary>
 /// Serves only the currently selected media file over a dedicated WebView2 request
@@ -11,9 +11,9 @@ namespace TranscriptStudio;
 /// </summary>
 internal sealed class LocalMediaServer : IDisposable
 {
-    private const string MediaHost = "media.transcript-studio.test";
+    private const string MediaHost = "media.script-to-video.test";
     private const string Prefix = "https://" + MediaHost + "/media/";
-    private const string AllowedOrigin = "https://reader.transcript-studio.local";
+    private const string AllowedOrigin = "https://reader.script-to-video.local";
     private readonly CoreWebView2 browser;
     private string? selectedPath;
     private string? selectedToken;
@@ -96,13 +96,13 @@ internal sealed class LocalMediaServer : IDisposable
             }
             Reply(e, responseBody ?? Stream.Null, partial ? 206 : 200, partial ? "Partial Content" : "OK", headers);
             responseBody = null; // Ownership transferred to WebView2.
-            Trace.WriteLine($"Transcript Studio media: {request.Method} {(partial ? "206" : "200")} {Path.GetFileName(selectedPath)} range={rangeHeader ?? "all"}");
+            Trace.WriteLine($"ScriptToVideo media: {request.Method} {(partial ? "206" : "200")} {Path.GetFileName(selectedPath)} range={rangeHeader ?? "all"}");
         }
         catch (Exception error)
         {
             responseBody?.Dispose();
             file?.Dispose();
-            Trace.WriteLine("Transcript Studio media read failed: " + error);
+            Trace.WriteLine("ScriptToVideo media read failed: " + error);
             Reply(e, Stream.Null, 500, "Media Read Error", "Content-Length: 0");
         }
     }

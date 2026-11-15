@@ -1,7 +1,7 @@
 using System.Diagnostics;
 using System.Text;
 
-namespace TranscriptStudio.Export;
+namespace ScriptToVideo.Export;
 
 internal sealed class ExportProcessManager
 {

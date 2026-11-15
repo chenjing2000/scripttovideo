@@ -2,7 +2,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Text;
 
-namespace TranscriptStudio.AppLifecycle;
+namespace ScriptToVideo.AppLifecycle;
 
 /// <summary>
 /// Small best-effort diagnostic log for startup, tray and shutdown lifecycle events.
@@ -18,7 +18,7 @@ internal static class AppLog
         {
             var directory = Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                "TranscriptStudio", "logs");
+                "ScriptToVideo", "logs");
             Directory.CreateDirectory(directory);
             var path = Path.Combine(directory, $"{DateTime.Now:yyyy-MM-dd}.log");
             var line = $"{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff} " +
@@ -29,7 +29,7 @@ internal static class AppLog
         }
         catch (Exception error)
         {
-            Trace.WriteLine($"Transcript Studio log write failed: {error.Message}");
+            Trace.WriteLine($"ScriptToVideo log write failed: {error.Message}");
         }
     }
 

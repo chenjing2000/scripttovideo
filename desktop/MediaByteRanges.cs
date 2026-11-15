@@ -1,6 +1,6 @@
 using System.Globalization;
 
-namespace TranscriptStudio;
+namespace ScriptToVideo;
 
 /// <summary>Pure HTTP single-byte-range parser. Multiple ranges are intentionally rejected.</summary>
 internal static class MediaByteRanges
