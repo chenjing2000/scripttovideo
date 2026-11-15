@@ -6,7 +6,11 @@ export function ReaderCanvas({words,style,time,videoHeight,video,canvasWidth,can
  const availableHeight=canvasHeight-videoHeight;
  const visible=useMemo(()=>words.filter(w=>!w.hidden),[words]);
  const plan=useMemo(()=>{
-  if(pagePlan&&pagePlan.viewportWidth===canvasWidth&&pagePlan.viewportHeight===availableHeight&&isPagePlan(pagePlan,visible))return pagePlan;
+  if(pagePlan!==undefined){
+   if(pagePlan.viewportWidth!==canvasWidth||pagePlan.viewportHeight!==availableHeight||!isPagePlan(pagePlan,visible))
+    throw new Error('Invalid export page-plan snapshot: viewport or visible word coverage does not match');
+   return pagePlan;
+  }
   if(availableHeight<=0)return null;
   return paginate(words,style,canvasWidth,availableHeight,measureWithCanvas(style.fontFamily,style.fontSize,style.fontWeight));
  },[pagePlan,words,visible,style,canvasWidth,availableHeight]);
