@@ -90,8 +90,8 @@ test('Code review: invalid settings backups never overwrite an earlier backup',(
 test('Code review: local media endpoint is token-bound to one selected basename, not a folder mapping',()=>{
  assert.match(media,/var path = Path\.GetFullPath\(absoluteFilePath\)/);
  assert.match(media,/segments\.Length != 3/);
- assert.match(media,/!string\.Equals\(segments\[1\], selectedToken, StringComparison\.Ordinal\)/);
- assert.match(media,/Uri\.UnescapeDataString\(segments\[2\]\), Path\.GetFileName\(selectedPath\)/);
+ assert.match(media,/!tokenPaths\\.TryGetValue\\(segments\\[1\\], out var requestedPath\\)/);
+ assert.match(media,/Uri\\.UnescapeDataString\\(segments\\[2\\]\\), Path\\.GetFileName\\(requestedPath\\)/);
  assert.match(reader,/Directory\.EnumerateFiles\(folder, "\*", SearchOption\.TopDirectoryOnly\)/);
  assert.doesNotMatch(reader,/SetVirtualHostNameToFolderMapping\([^\n]*media/i);
 });
