@@ -843,9 +843,10 @@ internal sealed class ReaderWindow : Window
         {
             // Kill only this installation process tree, including npm.cmd's child node processes.
             try { if (!process.HasExited) process.Kill(entireProcessTree:true); } catch (InvalidOperationException) { }
-            try { await process.WaitForExitAsync(); } catch (InvalidOperationException) { }
-            // Always drain redirected streams after termination so pipes and handles are released.
-            try { await Task.WhenAll(standard,errors); } catch (IOException) { }
+            // Bound process exit and redirected-stream draining together.
+            try { await Task.WhenAll(process.WaitForExitAsync(), standard, errors).WaitAsync(TimeSpan.FromSeconds(10)); }
+            catch (TimeoutException error) { AppLog.WriteException("Dependency.CleanupTimeout", error); }
+            catch (IOException error) { AppLog.WriteException("Dependency.Cleanup", error); }
             if (cancellationToken.IsCancellationRequested) throw new OperationCanceledException(cancellationToken);
             throw new TimeoutException("依赖准备操作超时，请检查网络或安装状态。");
         }
@@ -1174,8 +1175,8 @@ internal sealed class ReaderWindow : Window
             // Retain failed commit output for recovery; otherwise clean this task directory.
             if (committed || task.Status == ExportStatus.Cancelled || (task.Status == ExportStatus.Failed && !preserveFailedOutput))
                 TryDeleteDirectory(task.CacheDirectory);
-            exportTasks.Complete(task, task.Status);
             task.Dispose();
+            exportTasks.Complete(task, task.Status);
         }
     }
 
