@@ -50,3 +50,9 @@ test('M6.17: CLI explicitly supports M4A as audio but no unsupported formats',()
  assert.match(cli,/\['\.mp4','\.mkv','\.m4a','\.mp3','\.wav'\]/);
  assert.match(cli,/\['\.m4a','\.mp3','\.wav'\]\.includes\(ext\)/);
 });
+
+test('M6.17: all-failure dialog uses newline escapes, not literal backslash-n',()=>{
+ assert.ok(ui.includes("join('\\n')"));
+ assert.ok(ui.includes('验证。\\n${details}'));
+ assert.ok(!ui.includes("join('\\\\n')"));
+});

@@ -274,8 +274,8 @@ function App(){
     desktop?.postMessage({kind:'import-selected',requestId:data.requestId,index:result.selected.item.index});
     if(result.failures.length)notify(`已跳过 ${result.failures.length} 个无法播放的候选媒体，正在打开 ${result.selected.item.mediaName}`);
    }else{
-    const details=result.failures.map(f=>`${f.name}：${f.reason}`).join('\\n');
-    desktop?.postMessage({kind:'import-failed',requestId:data.requestId,reason:`同名媒体均无法通过初始解码验证。\\n${details}`});
+    const details=result.failures.map(f=>`${f.name}：${f.reason}`).join('\n');
+    desktop?.postMessage({kind:'import-failed',requestId:data.requestId,reason:`同名媒体均无法通过初始解码验证。\n${details}`});
    }
   }catch(error){
    if(!controller.signal.aborted)desktop?.postMessage({kind:'import-failed',requestId:data.requestId,reason:`字幕或媒体探测失败：${String(error)}`});
