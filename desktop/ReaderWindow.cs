@@ -571,7 +571,13 @@ internal sealed class ReaderWindow : Window
                     StringComparison.OrdinalIgnoreCase));
                 if (media == null) continue;
                 var kind = ext is ".mp4" or ".mkv" ? "video" : "audio";
-                candidates.Add(new MediaCandidate(media, kind, server.PrepareCandidate(media)));
+                try { candidates.Add(new MediaCandidate(media, kind, server.PrepareCandidate(media))); }
+                catch (Exception error) when (error is IOException or UnauthorizedAccessException)
+                {
+                    AppLog.WriteException("Media.PrepareCandidate", error);
+                    // A candidate may disappear or become unreadable after enumeration.
+                    // It must not prevent later formats from being tried.
+                }
             }
             if (candidates.Count == 0)
                 throw new FileNotFoundException($"找不到同名媒体：{string.Join("、", new[] { ".mp4", ".mkv", ".m4a", ".mp3", ".wav" }.Select(ext => stem + ext))}");
