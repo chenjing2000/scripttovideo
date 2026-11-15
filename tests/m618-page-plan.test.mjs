@@ -36,3 +36,8 @@ test('CR-010: CLI preflights snapshots before Remotion bundling',()=>{
  assert.match(cli,/assertExportPagePlan\(pagePlan,input,project,width,height-videoHeight\)/);
  assert.ok(cli.indexOf('assertExportPagePlan(pagePlan')<cli.indexOf("await import('@remotion/bundler')"));
 });
+
+test('CR-010: desktop publish embeds the CLI page-plan validator',()=>{
+ const project=readFileSync('desktop/ScriptToVideo.csproj','utf8');
+ assert.match(project,/EmbeddedResource Include="\.\.\/scripts\/page-plan-validation\.mjs" LogicalName="TSRUNTIME\/scripts\/page-plan-validation\.mjs"/);
+});
