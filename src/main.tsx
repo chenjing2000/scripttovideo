@@ -98,12 +98,17 @@ function App(){
  const activeProbeRef=useRef<{id:string;controller:AbortController}|null>(null);
  const importBaseStateRef=useRef<{currentRevision:number;draftChanged:boolean}>({currentRevision:0,draftChanged:false});
  const expectedDesktopImportIdRef=useRef<string|null>(null);
+ const committedPairAckRef=useRef<string|null>(null);
  const changedDuringImport=()=>{
   const base=importBaseStateRef.current,now=projectEditStateRef.current;
   return base.currentRevision!==now.currentRevision||base.draftChanged!==now.draftChanged;
  };
  // Browser blob URLs are released only after their old React media elements unmount.
- useEffect(()=>()=>{if(mediaUrl.startsWith('blob:'))URL.revokeObjectURL(mediaUrl)},[mediaUrl]);
+ useEffect(()=>{
+  // Release the old media-server token only after React has committed the new media element.
+  if(committedPairAckRef.current){desktop?.postMessage({kind:'pair-applied',requestId:committedPairAckRef.current});committedPairAckRef.current=null}
+  return ()=>{if(mediaUrl.startsWith('blob:'))URL.revokeObjectURL(mediaUrl)};
+ },[mediaUrl]);
  const nextNoticeId=useRef(1);const exportNoticeId=useRef<number|null>(null);
  const canvasWidth=project?.canvas.width??appSettings.output.width,canvasHeight=project?.canvas.height??appSettings.output.height;
  useEffect(()=>{const update=()=>setViewport({width:window.innerWidth,height:window.innerHeight});window.addEventListener('resize',update);return()=>window.removeEventListener('resize',update)},[]);
@@ -301,7 +306,7 @@ function App(){
    }catch(e){blocked=true;notify(`工程读取失败，已禁止覆盖原工程文件：${String(e)}`,true)}}
    setProjectLoadBlocked(blocked);
    setMediaUrl(data.mediaUrl);setMediaName(data.mediaName);setKind(data.mediaKind);setProject(current);setWords(currentWords);setEditing(null);setWordTool(null);setToolLeaving(false);resetProjectDirtyState();setDuration(0);setVideoRatio(null);setMediaState('loading');setTime(0);setPlaying(false);
-   if(data.requestId)window.setTimeout(()=>desktop?.postMessage({kind:'pair-applied',requestId:data.requestId}),0);
+   if(data.requestId)committedPairAckRef.current=data.requestId;
    notify(`已找到媒体：${data.mediaName}（${data.mediaKind==='audio'?'音频':'视频'}模式），正在读取媒体信息；${parsed.words.length} 个单词`);
   }catch(e){
    // A failed or malformed new pair must never discard the user's current project.
