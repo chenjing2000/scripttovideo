@@ -107,6 +107,10 @@ def preview(data):
     if current:paras.append(' '.join(current))
     return '\n\n'.join(paras)+'\n'
 
+def ensure_text_preview(path):
+    if path is not None and path.suffix.lower() != '.txt':
+        fail(f'自然段预览文件必须以 .txt 结尾：{path}')
+
 def inspect(args):
     ensure_safe_output_paths([args.input],[args.out])
     src=load(args.input);entries=words_of(src)
@@ -130,6 +134,7 @@ def read_decisions(path,ids):
     return decision
 
 def build(args):
+    ensure_text_preview(args.preview)
     ensure_safe_output_paths([args.input,args.boundaries],[args.output,args.preview])
     raw=load(args.input)
     if not isinstance(raw,dict) or any(k in raw for k in ('enscript','evr','script_to_video','paragraphs')): fail('build 只接受原始 WhisperX，不支持旧格式迁移')
@@ -153,6 +158,7 @@ def build(args):
 
 def edit(args):
     """Re-apply the complete reviewed boundary set to an existing v2 file."""
+    ensure_text_preview(args.preview)
     ensure_safe_output_paths([args.input,args.boundaries],[args.output,args.preview])
     original=load(args.input)
     entries=check(original,args.input)
@@ -175,6 +181,7 @@ def edit(args):
     print(f'重新分段成功：{len(entries)} 词，{len(decision["breakAfterWordIds"])+1} 段')
 
 def validate(args):
+    ensure_text_preview(args.preview)
     ensure_safe_output_paths([args.input,args.source],[args.preview])
     data=load(args.input);entries=check(data,args.input)
     if args.source:

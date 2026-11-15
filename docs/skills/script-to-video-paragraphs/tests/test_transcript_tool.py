@@ -22,13 +22,44 @@ class TestTranscriptTool(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder:
             d=Path(folder);src=d/'input.json';src.write_text(json.dumps(self.raw),encoding='utf-8')
             decisions=d/'decisions.json';decisions.write_text(json.dumps({'breakAfterWordIds':['s3w2','s10w38']}),encoding='utf-8')
-            out=d/'input.script.json';preview=d/'input.paragraphs.md'
+            out=d/'input.script.json';preview=d/'input.paragraphs.txt'
             args=type('Args',(),{'input':src,'boundaries':decisions,'output':out,'preview':preview,'force':False})
             mod.build(args);mod.validate(type('VArgs',(),{'input':out,'source':src,'preview':None}))
             self.assertEqual(len(mod.check(mod.load(out))),200)
             self.assertTrue(mod.load(out)['segments'][3]['words'][2]['breakParagraph'])
             self.assertNotIn('breakParagraph',mod.load(out)['segments'][-1]['words'][-1])
             self.assertIn('\n\n',preview.read_text(encoding='utf-8'))
+    def test_preview_is_plain_text_with_exact_paragraph_spacing(self):
+        fixture=SOURCE.with_name('6 Minute English 01-seg1.script.json')
+        data=mod.load(fixture)
+        content=mod.preview(data)
+        self.assertTrue(content.endswith('\\n'))
+        self.assertFalse(content.endswith('\\n\\n'))
+        self.assertNotIn('\\r',content)
+        paragraphs=content.rstrip('\\n').split('\\n\\n')
+        expected=1+sum(word.get('breakParagraph') is True for _,word in mod.words_of(data))
+        self.assertEqual(len(paragraphs),expected)
+        self.assertTrue(all(paragraph and '\\n' not in paragraph for paragraph in paragraphs))
+
+    def test_preview_suffix_must_be_txt_for_build_edit_validate(self):
+        with tempfile.TemporaryDirectory() as folder:
+            d=Path(folder)
+            source=d/'raw.json';source.write_text(json.dumps(self.raw),encoding='utf-8')
+            decision=d/'decisions.json';decision.write_text(json.dumps({'breakAfterWordIds':['s3w2']}),encoding='utf-8')
+            original=SOURCE.with_name('6 Minute English 01-seg1.script.json')
+            for command,inputs in [
+                (mod.build, {'input':source,'boundaries':decision,'output':d/'new.script.json','force':False}),
+                (mod.edit, {'input':original,'boundaries':decision,'output':d/'revised.script.json','force':False}),
+                (mod.validate, {'input':original,'source':source})
+            ]:
+                args=type('Args',(),{**inputs,'preview':d/'invalid.paragraphs.md'})
+                with self.assertRaises(mod.ValidationError):command(args)
+            self.assertFalse((d/'new.script.json').exists())
+            self.assertFalse((d/'revised.script.json').exists())
+            self.assertFalse((d/'invalid.paragraphs.md').exists())
+            mod.ensure_text_preview(d/'VALID.TXT')
+            mod.ensure_text_preview(None)
+
     def test_edit_changes_only_word_break_markers(self):
         with tempfile.TemporaryDirectory() as folder:
             d=Path(folder)
