@@ -1140,32 +1140,23 @@ internal sealed class ReaderWindow : Window
 
             task.Status = ExportStatus.Committing;
             Send(new { kind = "status", message = "视频验证完成，正在保存正式文件…", busy = true, canCancel = false, taskId = task.Id });
-            var hadExistingOutput = File.Exists(task.OutputPath);
+            string finalOutput;
             try
             {
-                if (hadExistingOutput)
-                {
-                    var backup = task.OutputPath + ".replace-backup-" + task.Id;
-                    File.Replace(task.TemporaryOutputPath, task.OutputPath, backup, ignoreMetadataErrors: true);
-                    TryDeleteFile(backup);
-                }
-                else
-                {
-                    File.Move(task.TemporaryOutputPath, task.OutputPath);
-                }
+                finalOutput = UniqueOutputCommit.Commit(task.TemporaryOutputPath, task.OutputPath);
             }
             catch (Exception error)
             {
-                // Keep a completed render available for manual recovery if the final move fails.
+                // A validated render must remain recoverable if the final commit fails.
                 preserveFailedOutput = File.Exists(task.TemporaryOutputPath);
-                var detail = hadExistingOutput ? "原有正式视频已保留。" : "正式视频尚未生成。";
+                var detail = "已有正式视频未受影响。";
                 if (preserveFailedOutput)
                     detail += $"新视频暂存于：{task.TemporaryOutputPath}";
                 throw new IOException($"无法保存正式视频：{error.Message}。{detail}", error);
             }
             committed = true;
             task.Status = ExportStatus.Completed;
-            Send(new { kind = "status", message = $"已导出至 {task.OutputPath}", busy = false, taskId = task.Id });
+            Send(new { kind = "status", message = $"已导出至 {finalOutput}", busy = false, taskId = task.Id });
         }
         catch (OperationCanceledException)
         {
