@@ -7,7 +7,8 @@ internal sealed class ExportTaskManager : IDisposable
     private bool shuttingDown;
 
     public ExportTask? Active => active;
-    public bool IsBusy => active is not null && !active.IsTerminal;
+    // Keep ownership until all task cleanup has finished.
+    public bool IsBusy => active is not null;
 
     public ExportTask Start(Func<ExportTask> create)
     {
