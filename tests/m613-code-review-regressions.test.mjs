@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {createHash} from 'node:crypto';
 import {createRequire} from 'node:module';
-import {assertProjectForExport} from '../scripts/transcript-studio-contract.mjs';
+import {assertProjectForExport} from '../scripts/script-to-video-contract.mjs';
 
 const ui=readFileSync('src/main.tsx','utf8');
 const reader=readFileSync('desktop/ReaderWindow.cs','utf8');
@@ -61,11 +61,11 @@ test('Code review: standalone export checks saved project media kind',()=>{
 
 test('Code review: direct export CLI rejects projects with bad source, media kind, style or overrides',()=>{
  const require=createRequire(import.meta.url),core=require('../.tmp-core/index.js');
- const subtitleName='6 Minute English 01-seg1.transcript-studio.json';
+ const subtitleName='6 Minute English 01-seg1.script.json';
  const mediaName='6 Minute English 01-seg1.mp4';
- const bytes=readFileSync('fixtures/6 Minute English 01-seg1.transcript-studio.json');
+ const bytes=readFileSync('fixtures/6 Minute English 01-seg1.script.json');
  const transcript=JSON.parse(bytes.toString('utf8'));
- const words=core.parseTranscriptStudio(transcript).words;
+ const words=core.parseScriptToVideo(transcript).words;
  const project=core.createProject(mediaName,subtitleName,words);
  project.source.subtitleSha256=createHash('sha256').update(bytes).digest('hex');
  project.mediaKind='video';

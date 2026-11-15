@@ -84,7 +84,7 @@ test('the MP4 commit phase explicitly disables cancellation in the notice',()=>{
 });
 test('lightweight local lifecycle logging is used without a third-party logger',()=>{
  const log=read('desktop/AppLifecycle/AppLog.cs');
- assert.match(log,/"TranscriptStudio", "logs"/);
+ assert.match(log,/"ScriptToVideo", "logs"/);
  assert.match(host,/DispatcherUnhandledException/);
  assert.match(tray,/AppLog\.Write/);
  assert.match(single,/AppLog\.Write/);

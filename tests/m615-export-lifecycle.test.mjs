@@ -57,7 +57,7 @@ test('M6.15 validation does not depend on an external ffprobe executable',()=>{
 });
 
 test('M6.15 disables NuGet vulnerability feed auditing for this personal desktop app',()=>{
- const project=readFileSync('desktop/TranscriptStudio.csproj','utf8');
+ const project=readFileSync('desktop/ScriptToVideo.csproj','utf8');
  assert.match(project,/<NuGetAudit>false<\/NuGetAudit>/);
 });
 
