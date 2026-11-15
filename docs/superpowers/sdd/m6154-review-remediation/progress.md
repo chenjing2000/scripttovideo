@@ -1,6 +1,6 @@
 # SDD ledger — plan: docs/superpowers/plans/2026-11-05-m6155-review-remediation.md
 
-- Baseline: `TranscriptStudio_M6154_1_WinForms_Tray_Hotfix.zip`, extracted to an isolated copy. Original archive remains unchanged; archive contains no `.git`.
+- Baseline: `ScriptToVideo_M6154_1_WinForms_Tray_Hotfix.zip`, extracted to an isolated copy. Original archive remains unchanged; archive contains no `.git`.
 - Pre-flight: Tasks 1–4 touch `ReaderWindow.cs` and `main.tsx`; implement in order to avoid overlapping state/message edits. Task 3 depends on the unsaved-state helpers introduced in Task 2. Task 4 is independent of save revision semantics but shares message dispatch.
 - Ruling: Use a compact `dirty-state` WebView message rather than adding a host-to-JS close query or a new state framework; React owns edit truth and WPF only needs the current boolean to guard close.
 - Ruling: Treat only a draft whose text differs from the current word as unsaved; an opened editor with unchanged text does not trigger a discard warning.

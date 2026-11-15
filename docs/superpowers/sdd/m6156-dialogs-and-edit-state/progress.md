@@ -1,6 +1,6 @@
 # SDD ledger — plan: docs/superpowers/plans/2026-11-05-m6156-dialogs-and-edit-state.md
 
-- Baseline: `TranscriptStudio_M6155_Review_Remediation.zip`, extracted to `/mnt/data/TranscriptStudio_M6156_Work/TranscriptStudio`; original archive left unchanged; no `.git` is present.
+- Baseline: `ScriptToVideo_M6155_Review_Remediation.zip`, extracted to `/mnt/data/ScriptToVideo_M6156_Work/ScriptToVideo`; original archive left unchanged; no `.git` is present.
 - Spec: `docs/superpowers/specs/2026-11-05-m6156-dialogs-and-edit-state-design.md`.
 - Execution: inline in the isolated extracted copy; user explicitly requested implementation and does not want Git operations.
 - Pre-flight: Task 1 produces the edit-state helper consumed by React's dirty indicator and save handling. Task 2 and Task 3 are independent platform-specific dialog migrations but share the design tokens in the spec. Task 4 depends on Task 3 only for the warning line and documentation.

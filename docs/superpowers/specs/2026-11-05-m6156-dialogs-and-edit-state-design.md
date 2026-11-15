@@ -2,14 +2,14 @@
 
 ## Intent
 
-Improve the reliability and visual consistency of Transcript Studio's confirmation dialogs, and make unsaved project changes visible in both the React toolbar and the native WPF window title. The work builds on the user's tested M6.15.5 source archive.
+Improve the reliability and visual consistency of ScriptToVideo's confirmation dialogs, and make unsaved project changes visible in both the React toolbar and the native WPF window title. The work builds on the user's tested M6.15.5 source archive.
 
 ## Confirmed current behavior and code findings
 
-- `ReaderWindow` sets `Title = "Transcript Studio"` once in its constructor. The WPF title never reacts to the `dirty-state` messages it already receives.
+- `ReaderWindow` sets `Title = "ScriptToVideo"` once in its constructor. The WPF title never reacts to the `dirty-state` messages it already receives.
 - The React toolbar's dot is conditional on `dirty || hasUnsavedWordDraft(words, edit)`. The user's observation that it remains unchanged is not covered by the M6.15.5 tests; those tests check source patterns and isolated predicates rather than the full revision/draft state transitions.
 - Project dirty state is split across a boolean, a ref, an edit revision ref, an edit draft, and WebView2 messages. Save acknowledgements can only clear the boolean when the revision matches, but there is no first-class `savedRevision` state.
-- Importing another subtitle still uses `window.confirm()`, which exposes the WebView2 origin (`reader.transcript-studio.local`) in the browser-owned confirmation.
+- Importing another subtitle still uses `window.confirm()`, which exposes the WebView2 origin (`reader.script-to-video.local`) in the browser-owned confirmation.
 - WPF close confirmation still uses `MessageBox`; export-exit confirmation is a hand-built WPF window with default focus on the destructive action.
 - Dependency dialogs already use React/CSS, but have a separate visual implementation.
 - WPF also has two informational/error `MessageBox` calls (startup failure and invalid settings recovery).
@@ -119,7 +119,7 @@ Rules:
 - Acknowledging an older revision preserves the unsaved state if `currentRevision` is newer.
 - Loading/replacing a project advances the global revision and sets `savedRevision` to that new revision. This invalidates acknowledgements from the previous project.
 - Unsaved is `currentRevision !== savedRevision || draftChanged`.
-- React sends this combined boolean to WPF whenever it changes. WPF updates both `hasUnsavedChanges` and `Title` (`Transcript Studio ●` / `Transcript Studio`).
+- React sends this combined boolean to WPF whenever it changes. WPF updates both `hasUnsavedChanges` and `Title` (`ScriptToVideo ●` / `ScriptToVideo`).
 
 ## Implementation boundaries
 

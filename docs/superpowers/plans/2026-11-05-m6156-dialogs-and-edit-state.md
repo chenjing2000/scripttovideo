@@ -70,7 +70,7 @@
   - Reset the state when a new project is loaded.
 
 - [x] **Step 5: Synchronize the WPF title**
-  - On `dirty-state`, set `hasUnsavedChanges` and update the title to `Transcript Studio ●` or `Transcript Studio`.
+  - On `dirty-state`, set `hasUnsavedChanges` and update the title to `ScriptToVideo ●` or `ScriptToVideo`.
   - Keep close behavior based on the same boolean.
 
 - [x] **Step 6: Run focused and full core tests**
@@ -177,7 +177,7 @@
   - Python Skill test command from `package.json`
   - `npm.cmd run typecheck`
   - `npm.cmd run build`
-  - `dotnet publish desktop/TranscriptStudio.csproj -c Release -o dist/wpf`
+  - `dotnet publish desktop/ScriptToVideo.csproj -c Release -o dist/wpf`
   - Record any unavailable toolchain/network limitation; do not claim an unrun check passed.
 
 ## Completion
