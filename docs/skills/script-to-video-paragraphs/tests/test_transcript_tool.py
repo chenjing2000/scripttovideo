@@ -33,13 +33,13 @@ class TestTranscriptTool(unittest.TestCase):
         fixture=SOURCE.with_name('6 Minute English 01-seg1.script.json')
         data=mod.load(fixture)
         content=mod.preview(data)
-        self.assertTrue(content.endswith('\\n'))
-        self.assertFalse(content.endswith('\\n\\n'))
-        self.assertNotIn('\\r',content)
-        paragraphs=content.rstrip('\\n').split('\\n\\n')
+        self.assertTrue(content.endswith('\n'))
+        self.assertFalse(content.endswith('\n\n'))
+        self.assertNotIn('\r',content)
+        paragraphs=content.rstrip('\n').split('\n\n')
         expected=1+sum(word.get('breakParagraph') is True for _,word in mod.words_of(data))
         self.assertEqual(len(paragraphs),expected)
-        self.assertTrue(all(paragraph and '\\n' not in paragraph for paragraph in paragraphs))
+        self.assertTrue(all(paragraph and '\n' not in paragraph for paragraph in paragraphs))
 
     def test_preview_suffix_must_be_txt_for_build_edit_validate(self):
         with tempfile.TemporaryDirectory() as folder:
