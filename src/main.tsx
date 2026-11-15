@@ -85,6 +85,7 @@ function App(){
  const [appSettings,setAppSettings]=useState<AppSettings>(DEFAULT_SETTINGS);const appSettingsRef=useRef<AppSettings>(DEFAULT_SETTINGS);const loadedSettingsRef=useRef(false);
  const [dependencyDialog,setDependencyDialog]=useState<DependencyDialog|null>(null);
  const [pendingImportFile,setPendingImportFile]=useState<File|null>(null);
+ const [importing,setImporting]=useState(false);
  const dependencyDialogRef=useRef<DependencyDialog|null>(null);
  const [settingsOpen,setSettingsOpen]=useState(false);
  const [settingsPosition,setSettingsPosition]=useState<{x:number;y:number}|null>(null);
@@ -245,13 +246,13 @@ function App(){
  };
  const cancelPendingProbe=()=>{
   const active=activeProbeRef.current;if(!active)return;
-  activeProbeRef.current=null;active.controller.abort();
+  activeProbeRef.current=null;active.controller.abort();setImporting(false);
   desktop?.postMessage({kind:'import-cancel',requestId:active.id});
  };
  const runDesktopProbe=async(data:Extract<DesktopMessage,{kind:'import-candidates'}>)=>{
   cancelPendingProbe();
   const controller=new AbortController();
-  activeProbeRef.current={id:data.requestId,controller};
+  activeProbeRef.current={id:data.requestId,controller};setImporting(true);
   expectedDesktopImportIdRef.current=data.requestId;
   try{
    // Reject invalid subtitle before probing media, preserving the visible old pair.
@@ -274,7 +275,7 @@ function App(){
   }catch(error){
    if(!controller.signal.aborted)desktop?.postMessage({kind:'import-failed',requestId:data.requestId,reason:`字幕或媒体探测失败：${String(error)}`});
   }finally{
-   if(activeProbeRef.current?.id===data.requestId)activeProbeRef.current=null;
+   if(activeProbeRef.current?.id===data.requestId){activeProbeRef.current=null;setImporting(false)}
   }
  };
  const applyPair=(data:Extract<DesktopMessage,{kind:'pair'}>)=>{
@@ -316,7 +317,7 @@ function App(){
  useEffect(()=>{desktop?.postMessage({kind:'ready'})},[]);
  async function openBrowserJson(file:File){
   const controller=new AbortController(),id='browser-'+String(Date.now())+'-'+String(Math.random());
-  activeProbeRef.current={id,controller};
+  activeProbeRef.current={id,controller};setImporting(true);
   importBaseStateRef.current={currentRevision:projectEditStateRef.current.currentRevision,draftChanged:projectEditStateRef.current.draftChanged};
   const urls=new Map<string,string>();
   let keepUrl:string|null=null;
@@ -347,7 +348,7 @@ function App(){
   }catch(e){if(!controller.signal.aborted)notify(`导入失败：${String(e)}`,true)}
   finally{
    for(const url of urls.values())if(url!==keepUrl)URL.revokeObjectURL(url);
-   if(activeProbeRef.current?.id===id)activeProbeRef.current=null;
+   if(activeProbeRef.current?.id===id){activeProbeRef.current=null;setImporting(false)}
   }
  }
 
@@ -478,7 +479,7 @@ function App(){
     <span className="transport-time">{timeLabel(time)} / {timeLabel(duration)}</span>
     <div className="transport-row"><input aria-label="进度" type="range" min={0} max={duration||1} step="0.01" value={time} onChange={e=>seek(Number(e.target.value))}/>{iconButton(playing?'pause':'play',playing?'暂停 Space':'播放 Space',toggle)}{iconButton('stop','停止 X',stop)}</div>
    </div></section>
-   <aside><div className="toolbar"><span className="app-label">ScriptToVideo {hasUnsavedProjectChanges(projectEditState)?'●':''}</span>{iconButton('settings','设置',openSettings)}{iconButton('import',mediaName?`导入 JSON Ctrl+O · 当前媒体：${mediaName}`:'导入 JSON Ctrl+O',openPicker,exporting)}{iconButton('save','保存工程 Ctrl+S',doSave,!project||exporting||projectLoadBlocked)}{iconButton('text-export','导出正文 TXT',doExportText,!project||exporting)}{iconButton('export','导出 MP4',doExport,!project||exporting||projectLoadBlocked)}</div>
+   <aside><div className="toolbar"><span className="app-label">ScriptToVideo {hasUnsavedProjectChanges(projectEditState)?'●':''}</span>{iconButton('settings','设置',openSettings)}{iconButton('import',mediaName?`导入 JSON Ctrl+O · 当前媒体：${mediaName}`:'导入 JSON Ctrl+O',openPicker,exporting)}{importing&&iconButton('stop','取消当前媒体导入',cancelPendingProbe)}{iconButton('save','保存工程 Ctrl+S',doSave,!project||exporting||projectLoadBlocked)}{iconButton('text-export','导出正文 TXT',doExportText,!project||exporting)}{iconButton('export','导出 MP4',doExport,!project||exporting||projectLoadBlocked)}</div>
     <div className="panel"><div ref={transcriptRef} className="transcript" style={{fontFamily:appSettings.rightFont.family,fontSize:editorFontSize,fontWeight:400,lineHeight:1.5,color:appSettings.rightFont.color,backgroundColor:appSettings.rightFont.backgroundColor}}>
      {words.map(w=><React.Fragment key={w.id}>{w.hidden?null:edit?.id===w.id?<InlineWordEditor key={w.id} text={edit.text} fontFamily={appSettings.rightFont.family} fontSize={editorFontSize} color={appSettings.rightFont.color} availableWidth={editorAvailableWidth}
        onText={text=>setEditing({id:w.id,text})} onCommit={commitEditing} onCancel={cancelEditing}/>
