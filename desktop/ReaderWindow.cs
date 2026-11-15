@@ -969,7 +969,7 @@ internal sealed class ReaderWindow : Window
                 start.ArgumentList.Add(pagePlanSnapshot);
             }
 
-            var evidence = Environment.GetEnvironmentVariable("TRANSCRIPT_STUDIO_M1_EVIDENCE");
+            var evidence = Environment.GetEnvironmentVariable("SCRIPT_TO_VIDEO_M1_EVIDENCE");
             if (!string.IsNullOrEmpty(evidence))
                 await M1Capture.SaveAsync(view.CoreWebView2, evidence, request);
 
