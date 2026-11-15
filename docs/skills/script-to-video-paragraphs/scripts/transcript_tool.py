@@ -132,7 +132,7 @@ def read_decisions(path,ids):
 def build(args):
     ensure_safe_output_paths([args.input,args.boundaries],[args.output,args.preview])
     raw=load(args.input)
-    if not isinstance(raw,dict) or any(k in raw for k in ('enscript','script_to_video','paragraphs')): fail('build 只接受原始 WhisperX，不支持旧格式迁移')
+    if not isinstance(raw,dict) or any(k in raw for k in ('enscript','evr','script_to_video','paragraphs')): fail('build 只接受原始 WhisperX，不支持旧格式迁移')
     entries=words_of(raw)
     decision=read_decisions(args.boundaries,[ident for ident,_ in entries])
     if args.output.resolve()==args.input.resolve(): fail('禁止覆盖原始字幕')

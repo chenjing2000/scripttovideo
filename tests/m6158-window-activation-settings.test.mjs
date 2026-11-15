@@ -43,9 +43,9 @@ test('M6.15.8: global settings use the ScriptToVideo filename and format marker'
 });
 
 test('M6.16: settings use only ScriptToVideo filename and marker', () => {
-  assert.match(host, /SettingsFileName = "scripttovideo\\.settings\\.json"/);
+  assert.ok(host.includes('SettingsFileName = "scripttovideo.settings.json"'));
   assert.match(host, /SettingsFormat = "scripttovideo-settings"/);
   assert.match(host, /format = SettingsFormat, schemaVersion = 1/);
   assert.doesNotMatch(host, /LegacySettingsFileName|LegacySettingsFormat|TryMigrateLegacySettings/);
-  assert.match(host, /return CreateDefaultSettings\\(\\);/);
+  assert.ok(host.includes('return CreateDefaultSettings();'));
 });

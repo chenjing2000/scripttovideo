@@ -1,4 +1,4 @@
-# ScriptToVideo — M6.15.8
+# ScriptToVideo — M6.16
 
 > Current source includes the WPF single-instance/tray lifecycle, project-local export cache, cancellable rendering, validated MP4 commit, revision-based unsaved-state tracking and unified Fluent dialogs with viewport-safe layout. See `M6.15_RELEASE_NOTES.md`, `docs/M615_EXPORT_LIFECYCLE.md`, and `docs/M614_SINGLE_INSTANCE_AND_TRAY.md`.
 
@@ -52,6 +52,6 @@ The left canvas preview keeps the project output aspect ratio and is never less 
 
 ## Framework-dependent deployment
 
-Portable application preferences: `scripttovideo.settings.json` next to `ScriptToVideo.exe` (created on first launch). On upgrade, a valid `voicetranscript.settings.json` is migrated to the new filename and `scripttovideo-settings` format marker; the original legacy file is retained as a backup. For `Lesson.script.json`, the current work directory is `Lesson/`, containing `Lesson.project.json`, `Lesson.exported.mp4` (after MP4 export), `Lesson.article.txt` (after text export), and a `cache/` directory for temporary render data. This is the M6.12 breaking storage layout; the legacy `.script-to-video/projects/.../project.settings.json` path is not read or migrated.
+Portable application preferences: `scripttovideo.settings.json` next to `ScriptToVideo.exe` (created on first launch). M6.16 is a breaking release: old subtitle, project, and settings formats are not loaded or migrated. The program accepts only `<stem>.script.json` with the `script_to_video` v2 marker and a matching current `.project.json`. The current work directory is `Lesson/`, containing `Lesson.project.json`, `Lesson.exported.mp4`, `Lesson.article.txt`, and temporary `cache/`.
 The right editor font family/size/colors are independent of video typography; standard left-font and output defaults are stored globally but existing projects retain their own layouts.
 Windows deployment: `npm.cmd run verify` then `dotnet publish desktop/ScriptToVideo.csproj -c Release -r win-x64 --self-contained false -p:PublishSingleFile=true -o dist/wpf`. Distribute the resulting EXE after verifying the single-file output. The user installs .NET Desktop Runtime 10 and WebView2; Node.js 22+ is required only to export MP4. No system prerequisites are automatically installed by the app. On the first export, the program can prepare locked npm packages and Remotion's rendering browser with consent. See `docs/M65_SETTINGS_AND_DEPLOYMENT.md`.
