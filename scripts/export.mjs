@@ -5,15 +5,15 @@ import {createCliTaskCacheDir} from './cli-cache.mjs';
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 function getArg(name){const i=process.argv.indexOf(`--${name}`);return i<0?undefined:process.argv[i+1]}
 const media=getArg('media'),json=getArg('json'),output=getArg('out'),projectPath=getArg('project'),cacheArg=getArg('cache-dir');
-if(!media||!json||!output){console.error('Usage: npm run export -- --media INPUT.mp4|mkv|mp3|wav --json FILE.script.json --out OUTPUT.mp4 [--project FILE.project.json] [--cache-dir DIRECTORY]');process.exit(2)}
+if(!media||!json||!output){console.error('Usage: npm run export -- --media INPUT.mp4|mkv|m4a|mp3|wav --json FILE.script.json --out OUTPUT.mp4 [--project FILE.project.json] [--cache-dir DIRECTORY]');process.exit(2)}
 const cacheRoot=cacheArg?path.resolve(cacheArg):path.join(path.dirname(path.resolve(output)),'.script-to-video-cache');
 let publicDir,bundleLocation;
 try{
  const subtitleBytes=await readFile(json),input=JSON.parse(subtitleBytes.toString('utf8').replace(/^\uFEFF/,''));assertScriptToVideo(input);
  const stem=path.basename(json).slice(0,-'.script.json'.length);
  if(!path.basename(json).toLowerCase().endsWith('.script.json')||path.basename(media,path.extname(media)).toLowerCase()!==stem.toLowerCase())throw Error('Media and .script.json must have the same stem');
- const ext=path.extname(media).toLowerCase();if(!['.mp4','.mkv','.mp3','.wav'].includes(ext))throw Error('Unsupported media extension');
- const mediaKind=['.mp3','.wav'].includes(ext)?'audio':'video';
+ const ext=path.extname(media).toLowerCase();if(!['.mp4','.mkv','.m4a','.mp3','.wav'].includes(ext))throw Error('Unsupported media extension');
+ const mediaKind=['.m4a','.mp3','.wav'].includes(ext)?'audio':'video';
  const project=projectPath?JSON.parse(await readFile(projectPath,'utf8')):undefined;
  if(projectPath)assertProjectForExport(project,{mediaName:path.basename(media),subtitleName:path.basename(json),subtitleBytes,mediaKind,transcript:input});
  const width=project?.canvas?.width??1200,height=project?.canvas?.height??1600;

@@ -24,7 +24,7 @@ For `lesson01.script.json`, the current path is:
 ```text
 <subtitle-directory>/
 ├── lesson01.script.json
-├── lesson01.mp4                 # or .mkv / .mp3 / .wav
+├── lesson01.mp4                 # or .mkv / .m4a / .mp3 / .wav
 └── lesson01/
     ├── lesson01.project.json
     ├── lesson01.exported.mp4       # created after successful MP4 export
