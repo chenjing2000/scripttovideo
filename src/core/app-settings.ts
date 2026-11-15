@@ -1,7 +1,7 @@
 import {DEFAULT_STYLE, WIDTH, HEIGHT} from './types';
 import type {ReadingStyle} from './types';
-export const SETTINGS_FILENAME = 'transcriptstudio.settings.json';
-export const SETTINGS_FORMAT = 'transcriptstudio-settings' as const;
+export const SETTINGS_FILENAME = 'scripttovideo.settings.json';
+export const SETTINGS_FORMAT = 'scripttovideo-settings' as const;
 export type RightFont = {family:string;size:number;color:string;backgroundColor:string};
 export type AppSettings = {format:typeof SETTINGS_FORMAT;schemaVersion:1;leftFont:{family:string;size:number;color:string;highlightColor:string};rightFont:RightFont;paragraph:{firstLineIndentEm:number;lineHeight:1.2|1.3|1.4|1.5;gap:number;alignment:'justify'|'left'};page:{paddingY:number;paddingX:number;backgroundColor:string};output:{width:number;height:number}};
 export const DEFAULT_SETTINGS:AppSettings={format:SETTINGS_FORMAT,schemaVersion:1,leftFont:{family:'Arial',size:40,color:'#293847',highlightColor:'#B81A35'},rightFont:{family:'Arial',size:16,color:'#293847',backgroundColor:'#F7F4EC'},paragraph:{firstLineIndentEm:2,lineHeight:1.4,gap:20,alignment:'justify'},page:{paddingY:30,paddingX:36,backgroundColor:'#F7F4EC'},output:{width:WIDTH,height:HEIGHT}};

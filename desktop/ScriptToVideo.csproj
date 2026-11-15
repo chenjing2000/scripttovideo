@@ -7,8 +7,8 @@
     <Nullable>enable</Nullable>
     <NuGetAudit>false</NuGetAudit>
     <ImplicitUsings>enable</ImplicitUsings>
-    <AssemblyName>TranscriptStudio</AssemblyName>
-    <RootNamespace>TranscriptStudio</RootNamespace>
+    <AssemblyName>ScriptToVideo</AssemblyName>
+    <RootNamespace>ScriptToVideo</RootNamespace>
     <ApplicationIcon>assets/app.ico</ApplicationIcon>
     <SelfContained>false</SelfContained>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
@@ -29,7 +29,7 @@
     <EmbeddedResource Include="../scripts/ensure-browser.mjs" LogicalName="TSRUNTIME/scripts/ensure-browser.mjs" />
     <EmbeddedResource Include="../scripts/export.mjs" LogicalName="TSRUNTIME/scripts/export.mjs" />
     <EmbeddedResource Include="../scripts/cli-cache.mjs" LogicalName="TSRUNTIME/scripts/cli-cache.mjs" />
-    <EmbeddedResource Include="../scripts/transcript-studio-contract.mjs" LogicalName="TSRUNTIME/scripts/transcript-studio-contract.mjs" />
+    <EmbeddedResource Include="../scripts/script-to-video-contract.mjs" LogicalName="TSRUNTIME/scripts/script-to-video-contract.mjs" />
     <EmbeddedResource Include="../src/**/*" LogicalName="TSRUNTIME/src/%(RecursiveDir)%(Filename)%(Extension)" />
   </ItemGroup>
 </Project>
