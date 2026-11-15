@@ -222,6 +222,7 @@ internal sealed class ReaderWindow : Window
             var environment = await CoreWebView2Environment.CreateAsync(userDataFolder: profile);
             await view.EnsureCoreWebView2Async(environment);
             var browser = view.CoreWebView2;
+            browser.Settings.AreDefaultContextMenusEnabled = false;
             browser.SetVirtualHostNameToFolderMapping(AppHost, ui, CoreWebView2HostResourceAccessKind.DenyCors);
             browser.NavigationStarting += (_, e) => e.Cancel = e.Uri != AppUrl;
             browser.NewWindowRequested += (_, e) => e.Handled = true;
