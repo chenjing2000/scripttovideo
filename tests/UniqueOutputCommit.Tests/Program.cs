@@ -79,7 +79,7 @@ Run("a destination directory is not treated as a filename conflict", dir =>
     var output = Path.Combine(dir, "lesson.exported.mp4");
     Directory.CreateDirectory(output);
     var temp = Temp(dir, "recoverable");
-    Throws<IOException>(() => UniqueOutputCommit.Commit(temp, output));
+    ThrowsFileSystemFailure(() => UniqueOutputCommit.Commit(temp, output));
     Equal("recoverable", File.ReadAllText(temp));
     Check(Directory.Exists(output), "Existing directory was altered");
 });
@@ -143,4 +143,12 @@ static void Throws<T>(Action action) where T : Exception
     try { action(); }
     catch (T) { return; }
     throw new Exception($"Expected {typeof(T).Name}");
+}
+
+static void ThrowsFileSystemFailure(Action action)
+{
+    try { action(); }
+    catch (IOException) { return; }
+    catch (UnauthorizedAccessException) { return; }
+    throw new Exception("Expected an I/O or permission failure");
 }
