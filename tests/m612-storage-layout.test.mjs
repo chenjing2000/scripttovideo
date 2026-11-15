@@ -6,7 +6,7 @@ const cs=readFileSync('desktop/ReaderWindow.cs','utf8');
 const ui=readFileSync('src/main.tsx','utf8');
 
 test('M6.12: exact JSON suffix becomes shared work-folder and both output names',()=>{
- assert.equal(transcriptStem('lesson01.transcript-studio.json'),'lesson01');
+ assert.equal(transcriptStem('lesson01.script.json'),'lesson01');
  assert.equal(transcriptStem('My Lesson.TRANSCRIPT-STUDIO.JSON'),'My Lesson');
  assert.throws(()=>transcriptStem('lesson01.json'));
  assert.match(cs,/var workFolder = Path.Combine\(folder, stem\)/);
@@ -14,7 +14,7 @@ test('M6.12: exact JSON suffix becomes shared work-folder and both output names'
  assert.match(cs,/var articlePath = Path.Combine\(workFolder, stem \+ "\.article\.txt"\)/);
 });
 test('M6.12: legacy path is not searched or migrated and schema stays v2',()=>{
- assert.doesNotMatch(cs,/"\.transcript-studio", "projects"/);
+ assert.doesNotMatch(cs,/"\.script-to-video", "projects"/);
  assert.doesNotMatch(cs,/project\.settings\.json/);
  assert.match(cs,/schema\.GetInt32\(\) != 2/);
  assert.match(ui,/saveProjectView\(project,currentWords\)/);
