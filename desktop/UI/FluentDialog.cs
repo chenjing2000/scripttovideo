@@ -11,7 +11,7 @@ using Brushes = System.Windows.Media.Brushes;
 using Color = System.Windows.Media.Color;
 using FontFamily = System.Windows.Media.FontFamily;
 
-namespace TranscriptStudio.UI;
+namespace ScriptToVideo.UI;
 
 internal enum FluentDialogIcon
 {

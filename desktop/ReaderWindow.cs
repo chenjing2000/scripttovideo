@@ -9,19 +9,19 @@ using System.Text.Json.Nodes;
 using System.Windows;
 using System.Windows.Controls;
 using Microsoft.Web.WebView2.Core;
-using TranscriptStudio.AppLifecycle;
-using TranscriptStudio.Export;
-using TranscriptStudio.UI;
+using ScriptToVideo.AppLifecycle;
+using ScriptToVideo.Export;
+using ScriptToVideo.UI;
 using System.Windows.Threading;
 using Microsoft.Web.WebView2.Wpf;
 using Button = System.Windows.Controls.Button;
 using Orientation = System.Windows.Controls.Orientation;
 
-namespace TranscriptStudio;
+namespace ScriptToVideo;
 
 internal sealed class ReaderWindow : Window
 {
-    private const string AppHost = "reader.transcript-studio.local";
+    private const string AppHost = "reader.script-to-video.local";
     private const string AppUrl = "https://" + AppHost + "/index.html";
     private readonly WebView2 view = new();
     private readonly TrayIconManager trayIcon;
@@ -41,12 +41,9 @@ internal sealed class ReaderWindow : Window
     private long pendingDependencyDecisionId;
     // Active only during application-owned dependency preparation; never cancel arbitrary Node processes.
     private CancellationTokenSource? dependencyInstallCancellation;
-    private const string SettingsFileName = "transcriptstudio.settings.json";
-    private const string SettingsFormat = "transcriptstudio-settings";
-    private const string LegacySettingsFileName = "voicetranscript.settings.json";
-    private const string LegacySettingsFormat = "voicetranscript-settings";
+    private const string SettingsFileName = "scripttovideo.settings.json";
+    private const string SettingsFormat = "scripttovideo-settings";
     private readonly string settingsFile = Path.Combine(AppContext.BaseDirectory, SettingsFileName);
-    private readonly string legacySettingsFile = Path.Combine(AppContext.BaseDirectory, LegacySettingsFileName);
     private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true };
     private static readonly object DefaultSettings = new
     {
@@ -110,7 +107,7 @@ internal sealed class ReaderWindow : Window
 
     private ReaderWindow()
     {
-        Title = "Transcript Studio";
+        Title = "ScriptToVideo";
         Width = 1100;
         Height = 820;
         // Updated from the responsive preview constraints after WebView2 loads.
@@ -201,7 +198,7 @@ internal sealed class ReaderWindow : Window
         try
         {
             var ui = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                "TranscriptStudio", "ui", typeof(ReaderWindow).Assembly.GetName().Version?.ToString() ?? "1");
+                "ScriptToVideo", "ui", typeof(ReaderWindow).Assembly.GetName().Version?.ToString() ?? "1");
             ExtractResources("TSUI/", ui);
             // Configuration is intentionally portable: it always lives next to the EXE.
             LoadOrCreateSettings();
@@ -209,7 +206,7 @@ internal sealed class ReaderWindow : Window
                 throw new FileNotFoundException("缺少打包后的界面。请先运行前端构建。");
 
             var profile = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                "TranscriptStudio", "WebView2");
+                "ScriptToVideo", "WebView2");
             try { _ = CoreWebView2Environment.GetAvailableBrowserVersionString(); }
             catch (Exception e) { throw new InvalidOperationException(
                 "缺少 Microsoft Edge WebView2 Runtime。请自行安装：https://developer.microsoft.com/microsoft-edge/webview2/ 。安装后重新启动。", e); }
@@ -434,55 +431,7 @@ internal sealed class ReaderWindow : Window
             FluentDialog.ShowMessage(this, "配置已重置", $"配置格式无效，已备份至：{backup}。将重新生成默认设置。", icon: FluentDialogIcon.Warning);
             return CreateDefaultSettings();
         }
-
-        if (!File.Exists(settingsFile) && File.Exists(legacySettingsFile))
-        {
-            if (TryMigrateLegacySettings(out var migrated))
-                return migrated;
-
-            var backup = BackupInvalidSettingsFile(legacySettingsFile);
-            FluentDialog.ShowMessage(this, "旧配置无法迁移", $"旧版全局设置格式无效，已备份至：{backup}。将重新生成默认设置。", icon: FluentDialogIcon.Warning);
-        }
-
         return CreateDefaultSettings();
-    }
-
-    private bool TryMigrateLegacySettings(out string migrated)
-    {
-        migrated = string.Empty;
-        var content = File.ReadAllText(legacySettingsFile);
-
-        try
-        {
-            if (JsonNode.Parse(content) is not JsonObject candidate ||
-                candidate["format"]?.GetValue<string>() != LegacySettingsFormat ||
-                candidate["schemaVersion"]?.GetValue<int>() != 1 ||
-                JsonNode.Parse(JsonSerializer.Serialize(DefaultSettings)) is not JsonObject fallback)
-                return false;
-
-            // Preserve all valid user values, fill only fields absent from the old file,
-            // and change only the application-owned format marker.
-            FillMissing(candidate, fallback);
-            candidate["format"] = SettingsFormat;
-            migrated = candidate.ToJsonString(JsonOptions);
-
-            using var migratedDoc = JsonDocument.Parse(migrated);
-            if (!ValidSettings(migratedDoc.RootElement))
-            {
-                migrated = string.Empty;
-                return false;
-            }
-
-            AtomicWrite(settingsFile, migrated);
-            AppLog.Write("Settings", $"Migrated global settings to '{settingsFile}'. The legacy file '{legacySettingsFile}' was retained.");
-            return true;
-        }
-        catch (Exception error) when (error is JsonException or InvalidOperationException or FormatException)
-        {
-            AppLog.WriteException("Settings.MigrateLegacy", error);
-            migrated = string.Empty;
-            return false;
-        }
     }
 
     private static string BackupInvalidSettingsFile(string file)
@@ -548,11 +497,11 @@ internal sealed class ReaderWindow : Window
 
     private void OpenPair(string subtitle)
     {
-        if (!subtitle.EndsWith(".transcript-studio.json", StringComparison.OrdinalIgnoreCase) || !File.Exists(subtitle))
-            throw new FileNotFoundException("请选择 .transcript-studio.json 格式的标准字幕。");
+        if (!subtitle.EndsWith(".script.json", StringComparison.OrdinalIgnoreCase) || !File.Exists(subtitle))
+            throw new FileNotFoundException("请选择 .script.json 格式的标准字幕。");
         var folder = Path.GetDirectoryName(Path.GetFullPath(subtitle))!;
         var filename = Path.GetFileName(subtitle);
-        var stem = filename[..^".transcript-studio.json".Length];
+        var stem = filename[..^".script.json".Length];
         if (string.IsNullOrWhiteSpace(stem) || stem is "." or "..")
             throw new InvalidDataException("标准字幕文件缺少有效名称。");
         var names = Directory.EnumerateFiles(folder, "*", SearchOption.TopDirectoryOnly).ToArray();
@@ -573,11 +522,11 @@ internal sealed class ReaderWindow : Window
         {
             var root = parsed.RootElement;
             if (!root.TryGetProperty("language", out var language) || language.GetString() != "en" ||
-                !root.TryGetProperty("transcript_studio", out var meta) || meta.ValueKind != JsonValueKind.Object ||
-                !meta.TryGetProperty("format", out var format) || format.GetString() != "transcript-studio" ||
+                !root.TryGetProperty("script_to_video", out var meta) || meta.ValueKind != JsonValueKind.Object ||
+                !meta.TryGetProperty("format", out var format) || format.GetString() != "script-to-video" ||
                 !meta.TryGetProperty("schemaVersion", out var version) || version.GetInt32() != 2 ||
-                root.TryGetProperty("video_transcript", out _) || root.TryGetProperty("evr", out _))
-                throw new InvalidOperationException("字幕不是 Transcript Studio v2 标准格式。");
+                root.TryGetProperty("video_transcript", out _) || root.TryGetProperty("enscript", out _))
+                throw new InvalidOperationException("字幕不是 ScriptToVideo v2 标准格式。");
         }
         var fingerprint = Convert.ToHexString(SHA256.HashData(bytes));
         // M6.12 is a breaking storage-layout change: do not search or migrate legacy projects.
@@ -603,9 +552,9 @@ internal sealed class ReaderWindow : Window
     private Source CheckSource(JsonElement project)
     {
         var current = source ?? throw new InvalidOperationException("请先打开素材。");
-        if (!project.TryGetProperty("format", out var projectFormat) || projectFormat.GetString() != "transcript-studio-project" ||
+        if (!project.TryGetProperty("format", out var projectFormat) || projectFormat.GetString() != "script-to-video-project" ||
             !project.TryGetProperty("schemaVersion", out var schema) || schema.ValueKind != JsonValueKind.Number || schema.GetInt32() != 2)
-            throw new InvalidOperationException("不支持的工程版本：必须为 Transcript Studio Project v2。");
+            throw new InvalidOperationException("不支持的工程版本：必须为 ScriptToVideo Project v2。");
         if (!project.TryGetProperty("source", out var projectSource) ||
             projectSource.ValueKind != JsonValueKind.Object ||
             !projectSource.TryGetProperty("videoName", out var mediaName) ||
@@ -627,7 +576,7 @@ internal sealed class ReaderWindow : Window
 
     private void UpdateWindowTitle()
     {
-        Title = hasUnsavedChanges ? "Transcript Studio ●" : "Transcript Studio";
+        Title = hasUnsavedChanges ? "ScriptToVideo ●" : "ScriptToVideo";
     }
 
     private void SaveProject(JsonElement project, long revision)
@@ -690,11 +639,11 @@ internal sealed class ReaderWindow : Window
         {
             if (!await ConfirmDependencyAsync(
                 "安装视频导出模块", "视频导出组件尚未安装",
-                "Transcript Studio 将通过 npm 官方软件包仓库安装所需的视频导出模块。此操作需要网络连接，可能持续一段时间。",
+                "ScriptToVideo 将通过 npm 官方软件包仓库安装所需的视频导出模块。此操作需要网络连接，可能持续一段时间。",
                 "安装模块"))
                 throw new OperationCanceledException();
             cancellationToken.ThrowIfCancellationRequested();
-            Send(new { kind="dependency-progress", title="正在安装视频导出模块", message="正在通过 npm 安装 Transcript Studio 的视频导出依赖……" });
+            Send(new { kind="dependency-progress", title="正在安装视频导出模块", message="正在通过 npm 安装 ScriptToVideo 的视频导出依赖……" });
             Send(new { kind="status",message="正在准备视频导出依赖（npm ci）…",busy=true });
             var staging = Path.Combine(runtime,".npm-install-"+Guid.NewGuid().ToString("N"));
             var activeModules = Path.Combine(runtime,"node_modules");
@@ -1020,7 +969,7 @@ internal sealed class ReaderWindow : Window
                 start.ArgumentList.Add(pagePlanSnapshot);
             }
 
-            var evidence = Environment.GetEnvironmentVariable("TRANSCRIPT_STUDIO_M1_EVIDENCE");
+            var evidence = Environment.GetEnvironmentVariable("SCRIPT_TO_VIDEO_M1_EVIDENCE");
             if (!string.IsNullOrEmpty(evidence))
                 await M1Capture.SaveAsync(view.CoreWebView2, evidence, request);
 

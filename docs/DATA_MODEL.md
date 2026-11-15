@@ -1,12 +1,12 @@
-# Transcript Studio — current data model (M6.15.8)
+# ScriptToVideo — current data model (M6.16)
 
 ## Subtitle input
 
-The app accepts only `<stem>.transcript-studio.json` with:
+The app accepts only `<stem>.script.json` with:
 
 - `language: "en"`;
-- `transcript_studio.format: "transcript-studio"`;
-- `transcript_studio.schemaVersion: 2`;
+- `script_to_video.format: "script-to-video"`;
+- `script_to_video.schemaVersion: 2`;
 - word-local `segments[].words[].breakParagraph: true` markers.
 
 An omitted `breakParagraph` means no boundary. `false`, `null`, strings and numbers are invalid in subtitle input. The final word cannot carry a marker. `word_segments` remains an unchanged WhisperX copy without paragraph markers. The parser generates internal IDs `s<segmentIndex>w<wordIndex>`; IDs are not written into source words.
@@ -17,13 +17,13 @@ Each parsed word contains its stable ID, segment ID, original text, display text
 
 ## Project model
 
-Project files remain `format: "transcript-studio-project"`, `schemaVersion: 2`. They contain source media/subtitle names, subtitle SHA-256, sparse word overrides, canvas dimensions, reading style and export settings.
+Project files remain `format: "script-to-video-project"`, `schemaVersion: 2`. They contain source media/subtitle names, subtitle SHA-256, sparse word overrides, canvas dimensions, reading style and export settings.
 
-For `lesson01.transcript-studio.json`, the current path is:
+For `lesson01.script.json`, the current path is:
 
 ```text
 <subtitle-directory>/
-├── lesson01.transcript-studio.json
+├── lesson01.script.json
 ├── lesson01.mp4                 # or .mkv / .mp3 / .wav
 └── lesson01/
     ├── lesson01.project.json
@@ -32,7 +32,7 @@ For `lesson01.transcript-studio.json`, the current path is:
     └── cache/                      # temporary task data; failed renders may be retained for recovery
 ```
 
-M6.12 intentionally removed legacy project discovery and migration. The old `.transcript-studio/projects/<stem>/project.settings.json` path is not read, moved or deleted. The new work directory is created on first project save, plain-text export or MP4 export, not on import. Existing project files at the new path are validated before the host unlocks overwrite; a corrupt or mismatched project is not silently replaced.
+The application accepts only the current ScriptToVideo v2 project layout and does not discover or migrate old project directories. Work directories are created only on the first save or export. A malformed existing project blocks overwrite.
 
 An override can contain `display`, `hidden` and/or `breakParagraph`. `breakParagraph: true` adds a boundary, `false` removes a source boundary, and omission inherits the source value. Source subtitle bytes remain unchanged.
 
@@ -46,4 +46,4 @@ The WPF host passes an immutable project and page-plan snapshot to Remotion. The
 
 ## Global settings
 
-`transcriptstudio.settings.json` lives beside `TranscriptStudio.exe`, is created with defaults on first launch and is atomically replaced after valid setting changes. Its JSON marker is `transcriptstudio-settings` (schema version 1). When upgrading from an installation that has only `voicetranscript.settings.json`, the host validates the legacy file, fills missing fields from defaults, changes the format marker, and atomically writes the new file. The original legacy file is retained unchanged after successful migration. Global settings are separate from per-subtitle project files.
+`scripttovideo.settings.json` lives beside `ScriptToVideo.exe`, is created with defaults on first launch and is atomically replaced after valid setting changes. Its JSON marker is `scripttovideo-settings` (schema version 1). There is no legacy settings migration in M6.16. Existing settings from earlier releases remain untouched and are not loaded. Global settings are separate from per-subtitle project files.

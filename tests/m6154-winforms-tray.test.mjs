@@ -5,7 +5,7 @@ import {readFileSync} from 'node:fs';
 const read = path => readFileSync(path, 'utf8');
 const tray = read('desktop/AppLifecycle/TrayIconManager.cs');
 const host = read('desktop/ReaderWindow.cs');
-const project = read('desktop/TranscriptStudio.csproj');
+const project = read('desktop/ScriptToVideo.csproj');
 
 test('M6.15.4 enables the built-in Windows Forms desktop framework without adding a tray package', () => {
   assert.match(project, /<UseWPF>true<\/UseWPF>/);

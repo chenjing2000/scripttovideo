@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {calculateWordEditorWidth,paragraphActionLabel} from '../.tmp-core/word-editing.js';
-import {parseTranscriptStudio,updateWord,buildOverrides,applyOverrides} from '../.tmp-core/transcript.js';
+import {parseScriptToVideo,updateWord,buildOverrides,applyOverrides} from '../.tmp-core/transcript.js';
 
 test('M6.6 editor width includes safety padding, has a minimum, and grows until available width',()=>{
  assert.equal(calculateWordEditorWidth(0,300),24);
@@ -16,8 +16,8 @@ test('M6.6 paragraph button label reflects current effective break',()=>{
  assert.equal(paragraphActionLabel(true),'取消分段');
 });
 test('M6.6 removing a source paragraph break survives project overrides',()=>{
- const input={language:'en',transcript_studio:{format:'transcript-studio',schemaVersion:2},segments:[{words:[{word:'First',start:1,end:1.4,breakParagraph:true},{word:'Second',start:1.5,end:1.8}]}]};
- const parsed=parseTranscriptStudio(input);
+ const input={language:'en',script_to_video:{format:'script-to-video',schemaVersion:2},segments:[{words:[{word:'First',start:1,end:1.4,breakParagraph:true},{word:'Second',start:1.5,end:1.8}]}]};
+ const parsed=parseScriptToVideo(input);
  const changed=parsed.words.map((w,i)=>i===0?{...w,breakParagraph:false}:w);
  const overrides=buildOverrides(changed);
  assert.equal(overrides.s0w0.breakParagraph,false);
@@ -25,8 +25,8 @@ test('M6.6 removing a source paragraph break survives project overrides',()=>{
  assert.equal(parsed.words[0].breakParagraph,true);
 });
 test('M6.6 editing never mutates original timestamps and rejects multiple words',()=>{
- const input={language:'en',transcript_studio:{format:'transcript-studio',schemaVersion:2},segments:[{words:[{word:'person',start:4.036,end:4.057},{word:'talks',start:4.06,end:4.2}]}]};
- const parsed=parseTranscriptStudio(input);const result=updateWord(parsed.words,'s0w0','persons');
+ const input={language:'en',script_to_video:{format:'script-to-video',schemaVersion:2},segments:[{words:[{word:'person',start:4.036,end:4.057},{word:'talks',start:4.06,end:4.2}]}]};
+ const parsed=parseScriptToVideo(input);const result=updateWord(parsed.words,'s0w0','persons');
  assert.equal(result[0].display,'persons');
  assert.equal(result[0].start,4.036);assert.equal(result[0].end,4.057);
  assert.equal(parsed.words[0].display,'person');

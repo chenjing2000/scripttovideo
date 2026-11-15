@@ -3,7 +3,7 @@ using System.IO.Pipes;
 using System.Security.Cryptography;
 using System.Text;
 
-namespace TranscriptStudio.AppLifecycle;
+namespace ScriptToVideo.AppLifecycle;
 
 /// <summary>
 /// Enforces one application process per Windows user and forwards later launches
@@ -11,7 +11,7 @@ namespace TranscriptStudio.AppLifecycle;
 /// </summary>
 internal sealed class SingleInstanceManager : IDisposable
 {
-    private const string PipeSuffix = "TranscriptStudio.Activate";
+    private const string PipeSuffix = "ScriptToVideo.Activate";
     private readonly Mutex mutex;
     private readonly string pipeName;
     private readonly CancellationTokenSource stop = new();
@@ -23,7 +23,7 @@ internal sealed class SingleInstanceManager : IDisposable
     {
         var identity = $"{Environment.UserDomainName}\\{Environment.UserName}";
         var userKey = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(identity)))[..16];
-        var name = $"TranscriptStudio-{userKey}";
+        var name = $"ScriptToVideo-{userKey}";
         mutex = new Mutex(initiallyOwned: true, name: $@"Local\{name}", createdNew: out ownsMutex);
         pipeName = $"{name}-{PipeSuffix}";
         AppLog.Write("SingleInstance", $"Instance mutex acquired: {ownsMutex}.");

@@ -1,4 +1,4 @@
-# Transcript Studio — player shortcuts
+# ScriptToVideo — player shortcuts
 
 Shortcuts apply when focus is **not** inside a text field, select, content-editable area or seek slider. `Ctrl+S` saves the editing project (existing behavior). Frame stepping pauses playback; the frame duration is based on the project export fps (default 30). Stop pauses and seeks to 0. Seek commands clamp to the media duration. Volume step is 5 percentage points.
 

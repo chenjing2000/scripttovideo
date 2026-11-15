@@ -1,6 +1,6 @@
 # SDD ledger — plan: docs/superpowers/plans/2026-11-05-m6154-winforms-notifyicon.md
 
-- Baseline: `TranscriptStudio_M6153_AppLog_Build_Fix.zip`; source was extracted to an isolated working copy. The archive has no `.git` directory.
+- Baseline: `ScriptToVideo_M6153_AppLog_Build_Fix.zip`; source was extracted to an isolated working copy. The archive has no `.git` directory.
 - Pre-flight: Task 1 produces the unchanged `TrayIconManager` constructor used by Task 2; Task 2 consumes that constructor only through `ReaderWindow`. No signature change is needed.
 - Ruling: Keep the WPF custom menu and replace only the tray icon backend — this preserves the user's existing visual design and limits the change to the requested integration; if wrong, only menu placement and tray event handling would need revisiting.
 - Ruling: Remove the explicit `SetForegroundWindow` P/Invoke and use WPF activation only, with a temporary Topmost toggle restored immediately if needed — the user prefers minimizing direct Win32 usage; Windows foreground restrictions still apply and must be checked on Windows.

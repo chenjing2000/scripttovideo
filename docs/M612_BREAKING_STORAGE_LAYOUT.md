@@ -1,21 +1,21 @@
-# Transcript Studio M6.12 — Breaking storage-layout change
+# ScriptToVideo M6.12 — Breaking storage-layout change
 
-M6.12 intentionally does **not** discover, import, or migrate the old `.transcript-studio/projects/<media-name>/project.settings.json` layout. The internal project schema remains `transcript-studio-project` version 2: the breaking change concerns file discovery and persistence paths, not the JSON shape. Existing legacy files are not deleted.
+M6.12 intentionally does **not** discover, import, or migrate the old `.script-to-video/projects/<media-name>/project.settings.json` layout. The internal project schema remains `script-to-video-project` version 2: the breaking change concerns file discovery and persistence paths, not the JSON shape. Existing legacy files are not deleted.
 
 ## Required file layout
 
-For `D:\EnglishVideos\lesson01.transcript-studio.json` (with corresponding `lesson01.mp4`, `.mkv`, `.mp3`, or `.wav`):
+For `D:\EnglishVideos\lesson01.script.json` (with corresponding `lesson01.mp4`, `.mkv`, `.mp3`, or `.wav`):
 
 ```text
 D:\EnglishVideos\
-├── lesson01.transcript-studio.json
+├── lesson01.script.json
 ├── lesson01.mp4
 └── lesson01\
     ├── lesson01.project.json
     └── lesson01.article.txt
 ```
 
-Only `*.transcript-studio.json` is accepted. The directory stem is derived by stripping that **entire suffix**, case-insensitively. Work directories are created on first save/export, never during import. Both files use the same work directory even if the user currently has a video loaded.
+Only `*.script.json` is accepted. The directory stem is derived by stripping that **entire suffix**, case-insensitively. Work directories are created on first save/export, never during import. Both files use the same work directory even if the user currently has a video loaded.
 
 ## Later MP4 storage update (M6.15)
 
@@ -35,12 +35,12 @@ M6.12 left the then-current MP4 output behavior unchanged. M6.15 subsequently mo
 
 ## Windows acceptance checklist
 
-1. Import `lesson01.transcript-studio.json` with a companion media file. No work directory should be created merely by importing.
+1. Import `lesson01.script.json` with a companion media file. No work directory should be created merely by importing.
 2. Save project: confirm `<stem>/<stem>.project.json` is written and can be reloaded on reopening the JSON.
 3. Edit words and paragraph breaks, export plain text: confirm `<stem>/<stem>.article.txt` is written without a file picker, in UTF-8 without BOM, with CRLF and an empty line between paragraphs.
 4. Export plain text twice and verify the fixed target file is replaced with current text.
 5. Place a malformed `<stem>.project.json` in the new directory and reopen the source: verify an explicit error and disabled project save; confirm the damaged file stays unchanged.
-6. Place an old `.transcript-studio/projects/.../project.settings.json` only, reopen source: verify that it is not loaded or altered.
+6. Place an old `.script-to-video/projects/.../project.settings.json` only, reopen source: verify that it is not loaded or altered.
 7. Test a JSON location without write permissions and confirm a clear failure instead of falling back to another directory.
 8. Check the five right-toolbar button positions and verify MP4 export still works.
 

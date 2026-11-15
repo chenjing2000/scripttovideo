@@ -16,7 +16,7 @@ test('M6.15.6: React unsaved marker derives from the single project edit state',
 
 test('M6.15.6: native WPF title follows the same dirty-state message',()=>{
  assert.match(host,/hasUnsavedChanges\s*=\s*request\.GetProperty\("dirty"\)\.GetBoolean\(\);[\s\S]*UpdateWindowTitle\(\)/);
- assert.match(host,/Title\s*=\s*hasUnsavedChanges\s*\?\s*"Transcript Studio ●"\s*:\s*"Transcript Studio"/);
+ assert.match(host,/Title\s*=\s*hasUnsavedChanges\s*\?\s*"ScriptToVideo ●"\s*:\s*"ScriptToVideo"/);
 });
 
 test('M6.15.6: subtitle import no longer uses browser-owned confirmation',()=>{
@@ -51,7 +51,7 @@ test('M6.15.6: dependency dialog is rendered through the shared React shell',()=
  const dependencyMarkup=app.slice(start,end);
  assert.match(dependencyMarkup,/<Dialog/);
  assert.match(dependencyMarkup,/视频导出环境准备/);
- assert.doesNotMatch(dependencyMarkup,/Transcript Studio · 环境准备/);
+ assert.doesNotMatch(dependencyMarkup,/ScriptToVideo · 环境准备/);
 });
 
 test('M6.15.6: WPF notices use one reusable Fluent dialog, not MessageBox or inline windows',()=>{

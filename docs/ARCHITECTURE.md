@@ -1,4 +1,4 @@
-# Transcript Studio — current architecture (M6.15.8)
+# ScriptToVideo — current architecture (M6.15.8)
 
 ## Runtime boundaries
 
@@ -7,15 +7,15 @@
 - **Core (`src/core/`)**: Transcript v2 parsing, word overrides, deterministic pagination, page-plan validation, plain-text conversion, media discovery rules, settings validation and workspace geometry.
 - **Media bridge (`desktop/LocalMediaServer.cs`)**: exposes only the currently selected media file through a tokenized WebView2 resource URL with HTTP byte-range support. It does not map or expose the containing folder.
 - **Rendering (`src/ui/ReaderCanvas.tsx`, `src/remotion/`)**: the preview and Remotion composition use the same reader component. Export receives an immutable project and page-plan snapshot; invalid or source-mismatched page plans are rejected by the reader and recomputed.
-- **Export (`scripts/export.mjs`)**: independently validates Transcript Studio v2 and any supplied project, verifies subtitle SHA-256 and media kind, and bundles the Remotion composition. It creates a per-invocation `job-*` directory beneath the selected/default CLI cache root. CLI job caches are intentionally retained for inspection (there is no `finally` cleanup in the CLI); the desktop host independently removes its task cache after success/cancellation and preserves a failed commit output when needed.
-- **Skills**: `docs/skills/transcript-studio-paragraphs/` prepares and validates subtitle v2; `docs/skills/transcript-studio-code-review/` defines the end-to-end review and verification workflow.
+- **Export (`scripts/export.mjs`)**: independently validates ScriptToVideo v2 and any supplied project, verifies subtitle SHA-256 and media kind, and bundles the Remotion composition. It creates a per-invocation `job-*` directory beneath the selected/default CLI cache root. CLI job caches are intentionally retained for inspection (there is no `finally` cleanup in the CLI); the desktop host independently removes its task cache after success/cancellation and preserves a failed commit output when needed.
+- **Skills**: `docs/skills/script-to-video-paragraphs/` prepares and validates subtitle v2; `docs/skills/script-to-video-code-review/` defines the end-to-end review and verification workflow.
 
 ## Persistence
 
-- Global preferences: `transcriptstudio.settings.json` beside `TranscriptStudio.exe`, with JSON marker `transcriptstudio-settings`. A valid legacy `voicetranscript.settings.json` is migrated only when the new file is absent; the original legacy file is retained after successful migration.
-- For `lesson01.transcript-studio.json`, the only current project path is `lesson01/lesson01.project.json` beside the source JSON.
+- Global preferences: `scripttovideo.settings.json` beside `ScriptToVideo.exe`, with JSON marker `scripttovideo-settings`. A valid legacy `voicetranscript.settings.json` is migrated only when the new file is absent; the original legacy file is retained after successful migration.
+- For `lesson01.script.json`, the only current project path is `lesson01/lesson01.project.json` beside the source JSON.
 - Plain text export is written directly to `lesson01/lesson01.article.txt` in the same work directory, UTF-8 without BOM and CRLF line endings.
-- M6.12 is a breaking storage-layout change. The old `.transcript-studio/projects/.../project.settings.json` path is not searched or migrated. The project JSON contract remains v2.
+- M6.12 is a breaking storage-layout change. The old `.script-to-video/projects/.../project.settings.json` path is not searched or migrated. The project JSON contract remains v2.
 - The work directory is created on project save, plain-text export or MP4 export, not on import.
 
 ## Export status and notices
@@ -32,7 +32,7 @@ Core tests and the subtitle Skill tests are portable. Full TSX/Vite typecheck/bu
 - `desktop/AppLifecycle/SingleInstanceManager.cs` owns a per-Windows-user named Mutex and activation named pipe. A secondary launch sends `ACTIVATE` and exits; it never creates another WPF window.
 - `desktop/AppLifecycle/TrayIconManager.cs` owns a WinForms `NotifyIcon` for the notification-area icon and a compact 70-DIP WPF context window. NotifyIcon mouse events defer window work through the WPF Dispatcher; menu actions run only after the menu's `Closed` event. The menu contains only Open and Exit; hover uses `#FFFBC7`.
 - The application explicitly uses `ShutdownMode.OnMainWindowClose` and identifies the reader as `Application.MainWindow`. Minimizing hides it from the taskbar and restores its normal window state without closing WebView2 or reloading React. Tray activation restores taskbar visibility, shows the existing window, restores its state and requests foreground activation.
-- The tray icon is disposed when the main window closes. The single-instance listener is cancelled and joined before the mutex is released after the WPF message loop exits. A small best-effort log under `%LOCALAPPDATA%/TranscriptStudio/logs/` records lifecycle and unhandled-exception diagnostics.
+- The tray icon is disposed when the main window closes. The single-instance listener is cancelled and joined before the mutex is released after the WPF message loop exits. A small best-effort log under `%LOCALAPPDATA%/ScriptToVideo/logs/` records lifecycle and unhandled-exception diagnostics.
 - The tray icon uses the .NET Windows Forms `NotifyIcon` component; the main window and custom tray menu remain WPF. WinForms is limited to tray icon events and cursor/screen lookup. No application-owned Shell/user32 P/Invoke or third-party tray package is used.
 
 ## M6.14 milestone
@@ -61,7 +61,7 @@ M6.14 introduced single-instance startup, tray behavior and hide/restore lifecyc
 
 - `src/core/project-edit-state.ts` owns the immutable edit-state transitions: current revision, saved revision and changed inline draft. A project replacement advances the global revision and marks that new revision saved, so acknowledgements from the previous project cannot change the new project's state.
 - React derives the right-pane marker and import guard from `hasUnsavedProjectChanges`. It sends the same combined state to the WPF host through the existing `dirty-state` message.
-- WPF uses that message both for close protection and to update the native window title (`Transcript Studio ●` when unsaved).
+- WPF uses that message both for close protection and to update the native window title (`ScriptToVideo ●` when unsaved).
 - `src/ui/Dialog.tsx` is the shared React modal shell for subtitle-import confirmation and dependency preparation. The draggable Settings panel remains a separate component but uses the same Fluent design tokens.
 - `desktop/UI/FluentDialog.cs` provides the WPF confirmation and notice window. Its native title bar remains OS-owned; the custom content surface uses the same font, colors, button hierarchy and spacing as React.
 - Confirmations always default to the safe action. Escape/title-bar close never performs a destructive action; subtitle import additionally treats backdrop dismissal as Cancel.

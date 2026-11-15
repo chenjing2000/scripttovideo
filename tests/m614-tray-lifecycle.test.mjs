@@ -5,7 +5,7 @@ import {readFileSync} from 'node:fs';
 const host = readFileSync('desktop/ReaderWindow.cs', 'utf8');
 const single = readFileSync('desktop/AppLifecycle/SingleInstanceManager.cs', 'utf8');
 const tray = readFileSync('desktop/AppLifecycle/TrayIconManager.cs', 'utf8');
-const project = readFileSync('desktop/TranscriptStudio.csproj', 'utf8');
+const project = readFileSync('desktop/ScriptToVideo.csproj', 'utf8');
 
 test('M6.14: application acquires single-instance ownership before creating the WPF window', () => {
   assert.match(host, /new SingleInstanceManager\(\)/);

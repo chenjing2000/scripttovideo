@@ -33,11 +33,11 @@ Browser-only fallback downloads a TXT Blob instead of showing a native Windows d
 ## Validation
 
 ```bat
-cd /d C:\Projects\TranscriptStudio
+cd /d C:\Projects\ScriptToVideo
 npm.cmd ci
 npm.cmd run verify
-dotnet publish desktop/TranscriptStudio.csproj -c Release -r win-x64 --self-contained false -o dist/wpf
-dist\wpf\TranscriptStudio.exe
+dotnet publish desktop/ScriptToVideo.csproj -c Release -r win-x64 --self-contained false -o dist/wpf
+dist\wpf\ScriptToVideo.exe
 ```
 
 Manually verify: current icon order; hover title; export ordinary text and edited words; export while a word edit is active (valid/invalid); punctuation and paragraph breaks including a hidden word carrying a boundary; UTF-8 without BOM and CRLF bytes; direct fixed-path overwrite; preserve unsaved-project indicator; existing MP4 export still works.

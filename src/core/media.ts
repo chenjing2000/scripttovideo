@@ -1,5 +1,5 @@
 /** Media discovery contract used by desktop and tested independently. */
-export const TRANSCRIPT_SUFFIX = '.transcript-studio.json';
+export const TRANSCRIPT_SUFFIX = '.script.json';
 export const MEDIA_PRIORITY = ['.mp4', '.mkv', '.mp3', '.wav'] as const;
 export type MediaKind = 'video'|'audio';
 export function transcriptStem(filename:string):string {

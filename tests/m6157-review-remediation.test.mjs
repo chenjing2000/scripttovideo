@@ -7,26 +7,26 @@ import {readFileSync} from 'node:fs';
 import {createRequire} from 'node:module';
 
 const require = createRequire(import.meta.url);
-const {parseTranscriptStudio, updateWord} = require('../.tmp-core/transcript.js');
+const {parseScriptToVideo, updateWord} = require('../.tmp-core/transcript.js');
 const input = {
-  language:'en', transcript_studio:{format:'transcript-studio',schemaVersion:2},
+  language:'en', script_to_video:{format:'script-to-video',schemaVersion:2},
   segments:[{words:[{word:'person',start:0,end:0.4},{word:'talks',start:0.5,end:0.8}]}]
 };
 
 test('M6.15.7: pressing Enter without changing the word leaves the revision unchanged',()=>{
-  const words=parseTranscriptStudio(input).words;
+  const words=parseScriptToVideo(input).words;
   assert.strictEqual(updateWord(words,'s0w0','person'),words,
     'commitEditing relies on array identity to decide whether to increment currentRevision');
 });
 
 test('M6.15.7: editing then restoring the original word is not a committed change',()=>{
-  const words=parseTranscriptStudio(input).words;
+  const words=parseScriptToVideo(input).words;
   assert.strictEqual(updateWord(words,'s0w0','  person  '),words,
     'trimmed input equal to current display must preserve the array reference');
 });
 
 test('M6.15.7: a real edit returns new words and preserves source timestamps',()=>{
-  const words=parseTranscriptStudio(input).words;
+  const words=parseScriptToVideo(input).words;
   const changed=updateWord(words,'s0w0','persons');
   assert.notStrictEqual(changed,words);
   assert.equal(changed[0].display,'persons');
@@ -74,6 +74,6 @@ test('M6.15.7: render directory absence does not prevent temp cache cleanup',()=
 
 
 test('M6.15.7: desktop runtime bundles the new CLI cache helper',()=>{
-  const project=readFileSync('desktop/TranscriptStudio.csproj','utf8');
+  const project=readFileSync('desktop/ScriptToVideo.csproj','utf8');
   assert.match(project,/Include="\.\.\/scripts\/cli-cache\.mjs"\s+LogicalName="TSRUNTIME\/scripts\/cli-cache\.mjs"/);
 });

@@ -1,15 +1,15 @@
 import {DEFAULT_STYLE} from './types';import type {Project,Word} from './types';import {buildOverrides} from './transcript';
 import {WIDTH,HEIGHT} from './types';
-export function createProject(videoName:string,subtitleName:string,words:Word[]):Project{return {format:'transcript-studio-project',schemaVersion:2,source:{videoName,subtitleName},overrides:buildOverrides(words),canvas:{width:WIDTH,height:HEIGHT},style:{...DEFAULT_STYLE},export:{fps:30,quality:'standard'}}}
+export function createProject(videoName:string,subtitleName:string,words:Word[]):Project{return {format:'script-to-video-project',schemaVersion:2,source:{videoName,subtitleName},overrides:buildOverrides(words),canvas:{width:WIDTH,height:HEIGHT},style:{...DEFAULT_STYLE},export:{fps:30,quality:'standard'}}}
 export function saveProjectView(project:Project,words:Word[]):Project{return {...project,overrides:buildOverrides(words),savedAt:new Date().toISOString()}}
 export function normalizeProjectStyle(project:Project):Project {return {...project,canvas:project.canvas??{width:WIDTH,height:HEIGHT},style:{...DEFAULT_STYLE,...project.style,...(project.style.firstLineIndentCh===undefined&&project.style.firstLineIndentEm===undefined?{firstLineIndentEm:2}:{})}};}
 /** Reject malformed saved projects before they reach layout, editing or export. */
 export function validateProject(value:unknown,words?:readonly Word[]):value is Project{
  if(!value||typeof value!=='object'||Array.isArray(value))return false;
  const p=value as Partial<Project>;
- if(p.format!=='transcript-studio-project'||p.schemaVersion!==2)return false;
+ if(p.format!=='script-to-video-project'||p.schemaVersion!==2)return false;
  if(!p.source||typeof p.source.videoName!=='string'||!p.source.videoName.trim()||
-    typeof p.source.subtitleName!=='string'||!p.source.subtitleName.toLowerCase().endsWith('.transcript-studio.json')||
+    typeof p.source.subtitleName!=='string'||!p.source.subtitleName.toLowerCase().endsWith('.script.json')||
     (p.source.subtitleSha256!==undefined&&
      (typeof p.source.subtitleSha256!=='string'||!/^[a-f0-9]{64}$/i.test(p.source.subtitleSha256))))return false;
  if(p.mediaKind!==undefined&&p.mediaKind!=='video'&&p.mediaKind!=='audio')return false;

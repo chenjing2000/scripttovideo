@@ -7,7 +7,7 @@ function runExport(extraArgs = []) {
   return spawnSync(process.execPath, [
     'scripts/export.mjs',
     '--media', 'missing-input.mp4',
-    '--json', 'missing-input.transcript-studio.json',
+    '--json', 'missing-input.script.json',
     '--out', 'out/Lesson.exported.mp4',
     ...extraArgs
   ], {encoding: 'utf8'});
@@ -29,6 +29,6 @@ test('CLI export continues to accept an explicit cache directory', () => {
 
 test('CLI default cache is placed beside the absolute output path', () => {
   const source = readFileSync('scripts/export.mjs', 'utf8');
-  assert.match(source, /path\.join\(path\.dirname\(path\.resolve\(output\)\),\s*['"]\.transcript-studio-cache['"]\)/);
+  assert.match(source, /path\.join\(path\.dirname\(path\.resolve\(output\)\),\s*['"]\.script-to-video-cache['"]\)/);
   assert.match(source, /cacheArg\s*\?\s*path\.resolve\(cacheArg\)/);
 });

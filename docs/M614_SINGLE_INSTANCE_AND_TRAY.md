@@ -30,7 +30,7 @@
 7. Choose `退出`; confirm the process ends and the tray icon disappears.
 8. Repeat while a project and media are loaded; verify minimizing/restoring does not recreate WebView2 or reset the current UI state.
 9. Start two launches close together during initial startup; verify the second launch exits and the first instance is eventually activated.
-10. Restart Windows Explorer from Task Manager while the app is running; verify the tray icon reappears without restarting Transcript Studio, and its double-click/right-click actions still work.
+10. Restart Windows Explorer from Task Manager while the app is running; verify the tray icon reappears without restarting ScriptToVideo, and its double-click/right-click actions still work.
 
 
 ## M6.14.1 compiler-diagnostic corrections
@@ -56,7 +56,7 @@ The follow-up source package includes explicit `System.IO` and WPF type qualific
 - Double-click and the Open menu item share the same reader-window activation method.
 - A tray-originated Exit request during an active export displays the existing close-confirmation dialog on screen even though the reader window is hidden. Choosing Continue leaves the application in the tray.
 - The named-pipe listener is cancelled and joined before the per-user mutex is released. There is no fixed two-second wait.
-- Lifecycle and unhandled-exception diagnostics are written best-effort to `%LOCALAPPDATA%/TranscriptStudio/logs/`.
+- Lifecycle and unhandled-exception diagnostics are written best-effort to `%LOCALAPPDATA%/ScriptToVideo/logs/`.
 
 ## M6.15.3 Windows acceptance checklist
 
@@ -67,7 +67,7 @@ The follow-up source package includes explicit `System.IO` and WPF type qualific
 5. Open and close the tray menu repeatedly, including clicking outside it; no menu-close action may accidentally exit the application.
 6. Confirm the tray menu width is 70 DIP and its two items remain fully visible.
 7. Restart Windows Explorer and confirm the icon and both actions are restored.
-8. Inspect the daily log under `%LOCALAPPDATA%/TranscriptStudio/logs/` if any lifecycle test fails.
+8. Inspect the daily log under `%LOCALAPPDATA%/ScriptToVideo/logs/` if any lifecycle test fails.
 
 ## Current tray implementation (M6.15.4)
 

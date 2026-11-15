@@ -1,4 +1,4 @@
-namespace TranscriptStudio.Export;
+namespace ScriptToVideo.Export;
 
 /// <summary>Owns the application's single active export task.</summary>
 internal sealed class ExportTaskManager : IDisposable

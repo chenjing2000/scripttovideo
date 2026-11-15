@@ -23,8 +23,8 @@ This archive also incorporates the previously delivered NETSDK1176 patch: `Enabl
 ```bat
 npm.cmd ci
 npm.cmd run verify
-dotnet publish desktop/TranscriptStudio.csproj -c Release -r win-x64 --self-contained false -o dist/wpf
-dist\wpf\TranscriptStudio.exe
+dotnet publish desktop/ScriptToVideo.csproj -c Release -r win-x64 --self-contained false -o dist/wpf
+dist\wpf\ScriptToVideo.exe
 ```
 
 Check all five groups, especially third-column alignment, long font names, centered input text, round color swatches, and window scrolling on smaller screens.

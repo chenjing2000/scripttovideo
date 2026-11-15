@@ -13,7 +13,7 @@ using FontFamily = System.Windows.Media.FontFamily;
 using Orientation = System.Windows.Controls.Orientation;
 using Cursors = System.Windows.Input.Cursors;
 
-namespace TranscriptStudio.AppLifecycle;
+namespace ScriptToVideo.AppLifecycle;
 
 /// <summary>
 /// Uses the framework NotifyIcon for the notification-area icon and keeps
@@ -39,7 +39,7 @@ internal sealed class TrayIconManager : IDisposable
         notifyIcon = new Forms.NotifyIcon
         {
             Icon = trayIconImage,
-            Text = "Transcript Studio"
+            Text = "ScriptToVideo"
         };
         notifyIcon.MouseDoubleClick += OnMouseDoubleClick;
         notifyIcon.MouseUp += OnMouseUp;

@@ -1,4 +1,4 @@
-# Transcript Studio M6: preview typography and media diagnostics
+# ScriptToVideo M6: preview typography and media diagnostics
 
 ## Fixed
 
@@ -11,7 +11,7 @@
 
 ## Windows acceptance checklist
 
-1. Place `Example.transcript-studio.json` next to `Example.mp4`; open JSON. The notice must identify `Example.mp4`, the preview must show a loading slot and then video, and the right editor text should be visually the same size/weight/family as the left text after scaling.
+1. Place `Example.script.json` next to `Example.mp4`; open JSON. The notice must identify `Example.mp4`, the preview must show a loading slot and then video, and the right editor text should be visually the same size/weight/family as the left text after scaling.
 2. Drag the window horizontally, vertically and diagonally. The left preview should scale to the available space; the editor's **on-screen text** should scale with it without changing the MP4 canvas size or pagination.
 3. Open a JSON file with no matching companion. The persistent error must list the four expected exact filenames and source directory.
 4. Open a JSON matched to a corrupted video file. A video loading/error region should remain; the persistent notice should name the actual file and contain the media error reason. It must **not** enter audio mode.
@@ -30,11 +30,11 @@
 To validate in Windows CMD:
 
 ```bat
-cd /d E:\Projects\TranscriptStudio
+cd /d E:\Projects\ScriptToVideo
 npm.cmd ci
 npm.cmd run verify
-dotnet publish desktop/TranscriptStudio.csproj -c Release -o dist/wpf
-dist\wpf\TranscriptStudio.exe
+dotnet publish desktop/ScriptToVideo.csproj -c Release -o dist/wpf
+dist\wpf\ScriptToVideo.exe
 ```
 
 Git commit messages must be in English. No Git commit/push was performed in this delivery.
