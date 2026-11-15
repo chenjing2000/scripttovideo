@@ -1,14 +1,14 @@
-import type {Transcript,TranscriptStudioInput,Word,Project} from './types';
+import type {Transcript,ScriptToVideoInput,Word,Project} from './types';
 const valid = (n:unknown):n is number => typeof n==='number' && Number.isFinite(n);
 const record = (v:unknown):v is Record<string,unknown> => v!==null && typeof v==='object' && !Array.isArray(v);
-/** Transcript Studio v2 is the only supported subtitle format. */
-export function validateTranscriptStudio(input:unknown):asserts input is TranscriptStudioInput {
- if(!record(input))throw new Error('字幕必须是 Transcript Studio v2 JSON 对象');
- const meta=input.transcript_studio;
- if(!record(meta)||meta.format!=='transcript-studio'||meta.schemaVersion!==2)
-  throw new Error('仅支持 Transcript Studio v2：请使用 docs/skills/transcript-studio-paragraphs Skill 生成 *.transcript-studio.json');
- for(const key of Object.keys(meta))if(!['format','schemaVersion','displayOverrides'].includes(key))throw new Error(`不支持的 transcript_studio 字段：${key}`);
- if('evr' in input||'paragraphs' in input||'paragraphBreaksAfter' in input)throw new Error('禁止旧版自然段字段');
+/** ScriptToVideo v2 is the only supported subtitle format. */
+export function validateScriptToVideo(input:unknown):asserts input is ScriptToVideoInput {
+ if(!record(input))throw new Error('字幕必须是 ScriptToVideo v2 JSON 对象');
+ const meta=input.script_to_video;
+ if(!record(meta)||meta.format!=='script-to-video'||meta.schemaVersion!==2)
+  throw new Error('仅支持 ScriptToVideo v2：请使用 docs/skills/script-to-video-paragraphs Skill 生成 *.script.json');
+ for(const key of Object.keys(meta))if(!['format','schemaVersion','displayOverrides'].includes(key))throw new Error(`不支持的 script_to_video 字段：${key}`);
+ if('paragraphs' in input||'paragraphBreaksAfter' in input)throw new Error('禁止旧版自然段字段');
  if(input.language!=='en')throw new Error('仅支持 language: "en" 的英语字幕');
  if(!Array.isArray(input.segments)||!input.segments.length)throw new Error('必须包含非空 segments 数组');
  let lastStart=-Infinity,total=0;
@@ -40,10 +40,10 @@ export function validateTranscriptStudio(input:unknown):asserts input is Transcr
   }
  }
 }
-export function parseTranscriptStudio(input:unknown):Transcript {
- validateTranscriptStudio(input);
+export function parseScriptToVideo(input:unknown):Transcript {
+ validateScriptToVideo(input);
  const words:Word[]=[];
- const overrides=input.transcript_studio.displayOverrides??{};
+ const overrides=input.script_to_video.displayOverrides??{};
  input.segments.forEach((segment,si)=>segment.words.forEach((entry,wi)=>{
   const id=`s${si}w${wi}`,original=entry.word.trim(),breakParagraph=entry.breakParagraph===true;
   words.push({id,segmentId:`s${si}`,original,display:overrides[id]??original,sourceDisplay:overrides[id]??original,start:entry.start,end:entry.end,score:entry.score,hidden:false,breakParagraph,sourceBreakParagraph:breakParagraph});

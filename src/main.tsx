@@ -4,7 +4,7 @@ import {ReaderCanvas} from './ui/ReaderCanvas';
 import {StyleSettings} from './ui/StyleSettings';
 import {Dialog} from './ui/Dialog';
 import type {DialogAction} from './ui/Dialog';
-import {parseTranscriptStudio,applyOverrides,createProject,updateWord,exportPlainText,saveProjectView,validateProject,paginate,measureWithCanvas,DEFAULT_STYLE,normalizeProjectStyle,WIDTH,HEIGHT,validCanvas,transcriptStem,selectCompanion,provisionalVideoHeight,describeMediaError,missingCompanionMessage} from './core';
+import {parseScriptToVideo,applyOverrides,createProject,updateWord,exportPlainText,saveProjectView,validateProject,paginate,measureWithCanvas,DEFAULT_STYLE,normalizeProjectStyle,WIDTH,HEIGHT,validCanvas,transcriptStem,selectCompanion,provisionalVideoHeight,describeMediaError,missingCompanionMessage} from './core';
 import type {Word,Project} from './core';
 import {resolvePlayerShortcut} from './core/player-shortcuts';
 import './style.css';
@@ -233,7 +233,7 @@ function App(){
   desktop.postMessage({kind:'export',project:saveProjectView(project,exportWords),duration,videoHeight:mediaHeight,pagePlan:exportPlan});
  };
  const applyPair=(data:Extract<DesktopMessage,{kind:'pair'}>)=>{
-  try{const input=JSON.parse(data.transcript),parsed=parseTranscriptStudio(input);
+  try{const input=JSON.parse(data.transcript),parsed=parseScriptToVideo(input);
    const next=createProject(data.mediaName,data.subtitleName,parsed.words);next.style=settingsToStyle(appSettingsRef.current);next.canvas={...appSettingsRef.current.output};next.source.subtitleSha256=data.fingerprint;next.mediaKind=data.mediaKind;
    let current=next,currentWords=parsed.words,blocked=false;
    if(data.project!==null){try{
@@ -265,7 +265,7 @@ function App(){
   }else if(data.kind==='text-exported')notify(data.message);else if(data.kind==='text-export-error')notify(data.message,true);else if(data.kind==='dependency-confirm')setDependency({mode:'confirm',...data});else if(data.kind==='dependency-progress')setDependency({mode:'progress',title:data.title,message:data.message});else if(data.kind==='dependency-cancelling'){const d=dependencyDialogRef.current;if(d?.mode==='progress')setDependency({mode:'cancelling',title:d.title,message:'正在停止安装任务并清理临时文件……'})}else if(data.kind==='dependency-end')setDependency(null);else if(data.kind==='export-cancelling')setExportTaskNotice('正在取消导出，等待渲染进程退出并清理缓存…',false);else if(data.kind==='dependency-failed')setDependency({mode:'error',message:data.message});else if(data.kind==='status'){setExporting(data.busy);if(data.busy){if(data.error)notify(data.message,true);else setExportTaskNotice(data.message,data.canCancel!==false)}else{clearExportTaskNotice();if(!data.error&&dependencyDialogRef.current?.mode==='progress')setDependency(null);if(!dependencyDialogRef.current||dependencyDialogRef.current.mode!=='error')notify(data.message,!!data.error)}}};desktop?.addEventListener('message',receive);return()=>desktop?.removeEventListener('message',receive)},[]);
  useEffect(()=>{desktop?.postMessage({kind:'ready'})},[]);
  async function openBrowserJson(file:File){
-  try{const input=JSON.parse(await file.text());const parsed=parseTranscriptStudio(input);const stem=transcriptStem(file.name);
+  try{const input=JSON.parse(await file.text());const parsed=parseScriptToVideo(input);const stem=transcriptStem(file.name);
    // Browser File API cannot read siblings of a user-selected file without separate permission.
    const picker=(window as Window&{showDirectoryPicker?:()=>Promise<FileSystemDirectoryHandle>}).showDirectoryPicker;
    if(!picker)throw Error('浏览器不能自动访问同目录媒体；请使用 Windows 桌面版。');
@@ -388,7 +388,7 @@ function App(){
     :[{label:'关闭',variant:'primary',autoFocus:true,onClick:()=>setDependency(null)},
       {label:'重试',variant:'secondary',onClick:()=>{setDependency(null);setTimeout(()=>doExport(),0)}}];
  return <div className="app">
-  <input className="hidden-file-input" type="file" accept=".transcript-studio.json" ref={inputRef} onChange={e=>{const f=e.currentTarget.files?.[0];e.currentTarget.value='';if(f)requestOpenSubtitle(f)}}/>
+  <input className="hidden-file-input" type="file" accept=".script.json" ref={inputRef} onChange={e=>{const f=e.currentTarget.files?.[0];e.currentTarget.value='';if(f)requestOpenSubtitle(f)}}/>
   <main className="workspace" style={{gridTemplateColumns:`${geometry.frameWidth}px minmax(240px,1fr)`}}>
    <section className="preview" aria-label="阅读画布预览" style={{width:geometry.frameWidth,height:geometry.frameHeight}}>
     <div className="preview-stage" style={{width:geometry.previewWidth,height:geometry.previewHeight}}>
@@ -401,7 +401,7 @@ function App(){
     <span className="transport-time">{timeLabel(time)} / {timeLabel(duration)}</span>
     <div className="transport-row"><input aria-label="进度" type="range" min={0} max={duration||1} step="0.01" value={time} onChange={e=>seek(Number(e.target.value))}/>{iconButton(playing?'pause':'play',playing?'暂停 Space':'播放 Space',toggle)}{iconButton('stop','停止 X',stop)}</div>
    </div></section>
-   <aside><div className="toolbar"><span className="app-label">Transcript Studio {hasUnsavedProjectChanges(projectEditState)?'●':''}</span>{iconButton('settings','设置',openSettings)}{iconButton('import',mediaName?`导入 JSON Ctrl+O · 当前媒体：${mediaName}`:'导入 JSON Ctrl+O',openPicker,exporting)}{iconButton('save','保存工程 Ctrl+S',doSave,!project||exporting||projectLoadBlocked)}{iconButton('text-export','导出正文 TXT',doExportText,!project||exporting)}{iconButton('export','导出 MP4',doExport,!project||exporting||projectLoadBlocked)}</div>
+   <aside><div className="toolbar"><span className="app-label">ScriptToVideo {hasUnsavedProjectChanges(projectEditState)?'●':''}</span>{iconButton('settings','设置',openSettings)}{iconButton('import',mediaName?`导入 JSON Ctrl+O · 当前媒体：${mediaName}`:'导入 JSON Ctrl+O',openPicker,exporting)}{iconButton('save','保存工程 Ctrl+S',doSave,!project||exporting||projectLoadBlocked)}{iconButton('text-export','导出正文 TXT',doExportText,!project||exporting)}{iconButton('export','导出 MP4',doExport,!project||exporting||projectLoadBlocked)}</div>
     <div className="panel"><div ref={transcriptRef} className="transcript" style={{fontFamily:appSettings.rightFont.family,fontSize:editorFontSize,fontWeight:400,lineHeight:1.5,color:appSettings.rightFont.color,backgroundColor:appSettings.rightFont.backgroundColor}}>
      {words.map(w=><React.Fragment key={w.id}>{w.hidden?null:edit?.id===w.id?<InlineWordEditor key={w.id} text={edit.text} fontFamily={appSettings.rightFont.family} fontSize={editorFontSize} color={appSettings.rightFont.color} availableWidth={editorAvailableWidth}
        onText={text=>setEditing({id:w.id,text})} onCommit={commitEditing} onCancel={cancelEditing}/>
