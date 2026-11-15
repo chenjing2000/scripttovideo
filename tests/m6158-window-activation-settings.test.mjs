@@ -33,18 +33,18 @@ test('M6.15.8: delayed restoration never shows a window that was hidden in the t
   assert.match(activation, /AppLog\.WriteException\("Window\.RestoreAfterCancelledClose"/);
 });
 
-test('M6.15.8: global settings use the Transcript Studio filename and format marker', () => {
-  assert.equal(settings.SETTINGS_FILENAME, 'transcriptstudio.settings.json');
-  assert.equal(settings.DEFAULT_SETTINGS.format, 'transcriptstudio-settings');
+test('M6.15.8: global settings use the ScriptToVideo filename and format marker', () => {
+  assert.equal(settings.SETTINGS_FILENAME, 'scripttovideo.settings.json');
+  assert.equal(settings.DEFAULT_SETTINGS.format, 'scripttovideo-settings');
   assert.equal(settings.validateSettings(settings.DEFAULT_SETTINGS), true);
   assert.equal(settings.validateSettings({ ...settings.DEFAULT_SETTINGS, format: 'voicetranscript-settings' }), false);
   assert.match(appSettings, /format:SETTINGS_FORMAT/);
-  assert.match(appSettings, /SETTINGS_FILENAME = 'transcriptstudio\.settings\.json'/);
+  assert.match(appSettings, /SETTINGS_FILENAME = 'scripttovideo\.settings\.json'/);
 });
 
 test('M6.15.8: the host prefers the new settings file and migrates only when it is absent', () => {
-  assert.match(host, /SettingsFileName = "transcriptstudio\.settings\.json"/);
-  assert.match(host, /SettingsFormat = "transcriptstudio-settings"/);
+  assert.match(host, /SettingsFileName = "scripttovideo\.settings\.json"/);
+  assert.match(host, /SettingsFormat = "scripttovideo-settings"/);
   assert.match(host, /LegacySettingsFileName = "voicetranscript\.settings\.json"/);
   assert.match(host, /LegacySettingsFormat = "voicetranscript-settings"/);
   assert.match(host, /format = SettingsFormat, schemaVersion = 1/);
