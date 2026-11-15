@@ -11338,8 +11338,8 @@
     }
   ],
   "language": "en",
-  "transcript_studio": {
-    "format": "transcript-studio",
+  "script_to_video": {
+    "format": "script-to-video",
     "schemaVersion": 2
   }
 }
