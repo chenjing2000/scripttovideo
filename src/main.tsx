@@ -19,6 +19,7 @@ type DesktopMessage =
  | {kind:'pair';requestId?:string;mediaName:string;mediaKind:'video'|'audio';subtitleName:string;transcript:string;fingerprint:string;project:string|null;mediaUrl:string}
  | {kind:'import-candidates';requestId:string;subtitleName:string;transcript:string;candidates:Array<{index:number;mediaName:string;mediaKind:'video'|'audio';mediaUrl:string}>}
  | {kind:'settings';settings:unknown}
+ | {kind:'reload-failed';message:string}
  | {kind:'saved';message:string;revision:number}
  | {kind:'text-exported';message:string}
  | {kind:'text-export-error';message:string}
@@ -36,9 +37,10 @@ type DependencyDialog=
  | {mode:'progress';title:string;message:string}
  | {mode:'cancelling';title:string;message:string}
  | {mode:'error';message:string};
-function Icon({name}:{name:'settings'|'text-export'|'save'|'import'|'export'|'play'|'pause'|'stop'|'close'}){
+function Icon({name}:{name:'settings'|'reload'|'text-export'|'save'|'import'|'export'|'play'|'pause'|'stop'|'close'}){
  const paths:Record<typeof name,React.ReactNode>={
  settings:<><path d="M4 6h16M4 12h16M4 18h16"/><circle cx="9" cy="6" r="2" fill="#fff"/><circle cx="16" cy="12" r="2" fill="#fff"/><circle cx="10" cy="18" r="2" fill="#fff"/></>,
+ reload:<><path d="M20 11a8 8 0 1 0-2.3 6"/><path d="M20 4v7h-7"/></>,
  'text-export':<><path d="M5 3h9l5 5v13H5z"/><path d="M14 3v5h5M8 12h8M8 16h8"/></>,
  save:<><path d="M4 3h13l3 3v15H4z"/><path d="M7 3v7h10V3M7 21v-8h10v8"/></>,
  import:<><path d="M12 3v12m-4-4 4 4 4-4M4 17v4h16v-4"/></>,
@@ -85,6 +87,8 @@ function App(){
  const [appSettings,setAppSettings]=useState<AppSettings>(DEFAULT_SETTINGS);const appSettingsRef=useRef<AppSettings>(DEFAULT_SETTINGS);const loadedSettingsRef=useRef(false);
  const [dependencyDialog,setDependencyDialog]=useState<DependencyDialog|null>(null);
  const [pendingImportFile,setPendingImportFile]=useState<File|null>(null);
+ const [pendingReload,setPendingReload]=useState(false);
+ const [reloading,setReloading]=useState(false);
  const [importing,setImporting]=useState(false);
  const dependencyDialogRef=useRef<DependencyDialog|null>(null);
  const [settingsOpen,setSettingsOpen]=useState(false);
@@ -97,6 +101,8 @@ function App(){
  const mediaRef=useRef<HTMLMediaElement|null>(null);const inputRef=useRef<HTMLInputElement>(null);
  const activeProbeRef=useRef<{id:string;controller:AbortController}|null>(null);
  const importBaseStateRef=useRef<{currentRevision:number;draftChanged:boolean}>({currentRevision:0,draftChanged:false});
+ const reloadingRef=useRef(false);
+ const clearReload=()=>{reloadingRef.current=false;setReloading(false)};
  const expectedDesktopImportIdRef=useRef<string|null>(null);
  const committedPairAckRef=useRef<string|null>(null);
  const changedDuringImport=()=>{
@@ -197,8 +203,9 @@ function App(){
  const seek=(t:number)=>{const v=mediaRef.current;if(!v)return;v.currentTime=Math.max(0,Math.min(Number.isFinite(v.duration)?v.duration:t,t));setTime(v.currentTime)};
  const toggle=()=>{const v=mediaRef.current;if(v){if(v.paused)void v.play().catch(e=>notify(`播放失败：${String(e)}`,true));else v.pause()}};
  const stop=()=>{mediaRef.current?.pause();seek(0)};
- const openPicker=()=>{if(!exporting)inputRef.current?.click()};
+ const openPicker=()=>{if(!exporting&&!importing&&!reloading)inputRef.current?.click()};
  const doSave=()=>{if(exporting)return notify('视频导出期间暂不支持保存工程，请在导出完成后保存。',true);
+  if(importing||reloading)return notify('正在加载文件，请完成后再保存。',true);
   if(!project)return notify('尚未打开标准字幕',true);
   if(projectLoadBlocked)return notify('现有工程未能通过验证，已禁止覆盖。请检查工程文件并重新打开字幕。',true);
   let currentWords=words;const active=editRef.current;
@@ -266,6 +273,7 @@ function App(){
    const result=await probeInPriority(candidates,async item=>item.mediaUrl,controller.signal);
    if(controller.signal.aborted)return;
    if(changedDuringImport()){
+    clearReload();
     desktop?.postMessage({kind:'import-cancel',requestId:data.requestId});
     notify('导入期间原工程发生了新的修改，已取消本次导入以保护编辑内容。',true);
     return;
@@ -274,10 +282,12 @@ function App(){
     desktop?.postMessage({kind:'import-selected',requestId:data.requestId,index:result.selected.item.index});
     if(result.failures.length)notify(`已跳过 ${result.failures.length} 个无法播放的候选媒体，正在打开 ${result.selected.item.mediaName}`);
    }else{
+    clearReload();
     const details=result.failures.map(f=>`${f.name}：${f.reason}`).join('\n');
     desktop?.postMessage({kind:'import-failed',requestId:data.requestId,reason:`同名媒体均无法通过初始解码验证。\n${details}`});
    }
   }catch(error){
+   clearReload();
    if(!controller.signal.aborted)desktop?.postMessage({kind:'import-failed',requestId:data.requestId,reason:`字幕或媒体探测失败：${String(error)}`});
   }finally{
    if(activeProbeRef.current?.id===data.requestId){activeProbeRef.current=null;setImporting(false)}
@@ -285,11 +295,11 @@ function App(){
  };
  const applyPair=(data:Extract<DesktopMessage,{kind:'pair'}>)=>{
   if(data.requestId&&data.requestId!==expectedDesktopImportIdRef.current){
-   desktop?.postMessage({kind:'pair-rejected',requestId:data.requestId});return;
+   desktop?.postMessage({kind:'pair-rejected',requestId:data.requestId});clearReload();return;
   }
   if(data.requestId&&changedDuringImport()){
    desktop?.postMessage({kind:'pair-rejected',requestId:data.requestId});
-   notify('导入完成前原工程被修改，已保留原工程。',true);return;
+   clearReload();notify('导入完成前原工程被修改，已保留原工程。',true);return;
   }
   try{const input=JSON.parse(data.transcript),parsed=parseScriptToVideo(input);
    const next=createProject(data.mediaName,data.subtitleName,parsed.words);next.style=settingsToStyle(appSettingsRef.current);next.canvas={...appSettingsRef.current.output};next.source.subtitleSha256=data.fingerprint;next.mediaKind=data.mediaKind;
@@ -306,19 +316,22 @@ function App(){
    }catch(e){blocked=true;notify(`工程读取失败，已禁止覆盖原工程文件：${String(e)}`,true)}}
    setProjectLoadBlocked(blocked);
    setMediaUrl(data.mediaUrl);setMediaName(data.mediaName);setKind(data.mediaKind);setProject(current);setWords(currentWords);setEditing(null);setWordTool(null);setToolLeaving(false);resetProjectDirtyState();setDuration(0);setVideoRatio(null);setMediaState('loading');setTime(0);setPlaying(false);
+   transcriptRef.current?.scrollTo({top:0});
+   clearReload();
    if(data.requestId)committedPairAckRef.current=data.requestId;
    notify(`已找到媒体：${data.mediaName}（${data.mediaKind==='audio'?'音频':'视频'}模式），正在读取媒体信息；${parsed.words.length} 个单词`);
   }catch(e){
    // A failed or malformed new pair must never discard the user's current project.
    if(data.requestId)desktop?.postMessage({kind:'pair-rejected',requestId:data.requestId});
+   clearReload();
    notify(`字幕读取失败：${String(e)}`,true);
   }
  };
- useEffect(()=>{const receive=({data}:MessageEvent<DesktopMessage>)=>{if(data.kind==='settings'){if(validateSettings(data.settings)){loadedSettingsRef.current=true;appSettingsRef.current=data.settings;setAppSettings(data.settings)}}else if(data.kind==='import-candidates')void runDesktopProbe(data);else if(data.kind==='pair')applyPair(data);else if(data.kind==='saved'){
+ useEffect(()=>{const receive=({data}:MessageEvent<DesktopMessage>)=>{if(data.kind==='settings'){if(validateSettings(data.settings)){loadedSettingsRef.current=true;appSettingsRef.current=data.settings;setAppSettings(data.settings)}}else if(data.kind==='import-candidates')void runDesktopProbe(data);else if(data.kind==='pair')applyPair(data);else if(data.kind==='reload-failed'){clearReload();notify(`重新加载失败：${data.message}`,true);}else if(data.kind==='saved'){
    const nextState=acknowledgeProjectSave(projectEditStateRef.current,data.revision);
    updateProjectEditState(nextState);
    notify(hasUnsavedProjectChanges(nextState)?`${data.message}；当前工程仍有未保存修改`:data.message);
-  }else if(data.kind==='text-exported')notify(data.message);else if(data.kind==='text-export-error')notify(data.message,true);else if(data.kind==='dependency-confirm')setDependency({mode:'confirm',...data});else if(data.kind==='dependency-progress')setDependency({mode:'progress',title:data.title,message:data.message});else if(data.kind==='dependency-cancelling'){const d=dependencyDialogRef.current;if(d?.mode==='progress')setDependency({mode:'cancelling',title:d.title,message:'正在停止安装任务并清理临时文件……'})}else if(data.kind==='dependency-end')setDependency(null);else if(data.kind==='export-cancelling')setExportTaskNotice('正在取消导出，等待渲染进程退出并清理缓存…',false);else if(data.kind==='dependency-failed')setDependency({mode:'error',message:data.message});else if(data.kind==='status'){setExporting(data.busy);if(data.busy){if(data.error)notify(data.message,true);else setExportTaskNotice(data.message,data.canCancel!==false)}else{clearExportTaskNotice();if(!data.error&&dependencyDialogRef.current?.mode==='progress')setDependency(null);if(!dependencyDialogRef.current||dependencyDialogRef.current.mode!=='error')notify(data.message,!!data.error)}}};desktop?.addEventListener('message',receive);return()=>desktop?.removeEventListener('message',receive)},[]);
+  }else if(data.kind==='text-exported')notify(data.message);else if(data.kind==='text-export-error')notify(data.message,true);else if(data.kind==='dependency-confirm')setDependency({mode:'confirm',...data});else if(data.kind==='dependency-progress')setDependency({mode:'progress',title:data.title,message:data.message});else if(data.kind==='dependency-cancelling'){const d=dependencyDialogRef.current;if(d?.mode==='progress')setDependency({mode:'cancelling',title:d.title,message:'正在停止安装任务并清理临时文件……'})}else if(data.kind==='dependency-end')setDependency(null);else if(data.kind==='export-cancelling')setExportTaskNotice('正在取消导出，等待渲染进程退出并清理缓存…',false);else if(data.kind==='dependency-failed')setDependency({mode:'error',message:data.message});else if(data.kind==='status'){if(data.error&&!data.busy&&reloadingRef.current)clearReload();setExporting(data.busy);if(data.busy){if(data.error)notify(data.message,true);else setExportTaskNotice(data.message,data.canCancel!==false)}else{clearExportTaskNotice();if(!data.error&&dependencyDialogRef.current?.mode==='progress')setDependency(null);if(!dependencyDialogRef.current||dependencyDialogRef.current.mode!=='error')notify(data.message,!!data.error)}}};desktop?.addEventListener('message',receive);return()=>desktop?.removeEventListener('message',receive)},[]);
  useEffect(()=>{desktop?.postMessage({kind:'ready'})},[]);
  async function openBrowserJson(file:File){
   const controller=new AbortController(),id='browser-'+String(Date.now())+'-'+String(Math.random());
@@ -357,6 +370,18 @@ function App(){
   }
  }
 
+ const startReload=()=>{
+  if(!desktop||!project||exporting||importing||reloadingRef.current)return;
+  setPendingReload(false);
+  importBaseStateRef.current={currentRevision:projectEditStateRef.current.currentRevision,draftChanged:projectEditStateRef.current.draftChanged};
+  reloadingRef.current=true;setReloading(true);
+  desktop.postMessage({kind:'reload'});
+ };
+ const requestReload=()=>{
+  if(!desktop||!project||exporting||importing||reloadingRef.current)return;
+  if(hasUnsavedChanges()){setPendingReload(true);return}
+  startReload();
+ };
  const openSubtitleFile=(file:File)=>{
   cancelPendingProbe();
   expectedDesktopImportIdRef.current=null;
@@ -484,7 +509,7 @@ function App(){
     <span className="transport-time">{timeLabel(time)} / {timeLabel(duration)}</span>
     <div className="transport-row"><input aria-label="进度" type="range" min={0} max={duration||1} step="0.01" value={time} onChange={e=>seek(Number(e.target.value))}/>{iconButton(playing?'pause':'play',playing?'暂停 Space':'播放 Space',toggle)}{iconButton('stop','停止 X',stop)}</div>
    </div></section>
-   <aside><div className="toolbar"><span className="app-label">ScriptToVideo {hasUnsavedProjectChanges(projectEditState)?'●':''}</span>{iconButton('settings','设置',openSettings)}{iconButton('import',mediaName?`导入 JSON Ctrl+O · 当前媒体：${mediaName}`:'导入 JSON Ctrl+O',openPicker,exporting)}{importing&&iconButton('stop','取消当前媒体导入',cancelPendingProbe)}{iconButton('save','保存工程 Ctrl+S',doSave,!project||exporting||projectLoadBlocked)}{iconButton('text-export','导出正文 TXT',doExportText,!project||exporting)}{iconButton('export','导出 MP4',doExport,!project||exporting||projectLoadBlocked)}</div>
+   <aside><div className="toolbar"><span className="app-label">ScriptToVideo {hasUnsavedProjectChanges(projectEditState)?'●':''}</span>{iconButton('settings','设置',openSettings)}{iconButton('reload','重新加载当前文章',requestReload,!desktop||!project||exporting||importing||reloading)}{iconButton('import',mediaName?`导入 JSON Ctrl+O · 当前媒体：${mediaName}`:'导入 JSON Ctrl+O',openPicker,exporting||importing||reloading)}{importing&&!reloading&&iconButton('stop','取消当前媒体导入',cancelPendingProbe)}{iconButton('save','保存工程 Ctrl+S',doSave,!project||exporting||projectLoadBlocked||importing||reloading)}{iconButton('text-export','导出正文 TXT',doExportText,!project||exporting||importing||reloading)}{iconButton('export','导出 MP4',doExport,!project||exporting||projectLoadBlocked||importing||reloading)}</div>
     <div className="panel"><div ref={transcriptRef} className="transcript" style={{fontFamily:appSettings.rightFont.family,fontSize:editorFontSize,fontWeight:400,lineHeight:1.5,color:appSettings.rightFont.color,backgroundColor:appSettings.rightFont.backgroundColor}}>
      {words.map(w=><React.Fragment key={w.id}>{w.hidden?null:edit?.id===w.id?<InlineWordEditor key={w.id} text={edit.text} fontFamily={appSettings.rightFont.family} fontSize={editorFontSize} color={appSettings.rightFont.color} availableWidth={editorAvailableWidth}
        onText={text=>setEditing({id:w.id,text})} onCommit={commitEditing} onCancel={cancelEditing}/>
@@ -504,6 +529,14 @@ function App(){
     </div>
    </aside>
   </main>
+  {pendingReload&&<Dialog title="重新加载当前文章" subtitle="字幕工程" icon="warning"
+   onClose={()=>setPendingReload(false)} onEscape={()=>setPendingReload(false)} dismissOnBackdrop
+   actions={[
+    {label:'取消',variant:'primary',autoFocus:true,onClick:()=>setPendingReload(false)},
+    {label:'放弃修改并重新加载',variant:'danger',onClick:startReload}
+   ]}>
+   <p>当前文章存在未保存的修改。重新加载将读取磁盘上的文件，并放弃当前未保存的修改。刷新失败时将保留现有内容。</p>
+  </Dialog>}
   {pendingImportFile&&<Dialog title="打开其他字幕" subtitle="字幕工程" icon="warning"
    onClose={()=>resolvePendingImport(false)} onEscape={()=>resolvePendingImport(false)} dismissOnBackdrop
    actions={[
