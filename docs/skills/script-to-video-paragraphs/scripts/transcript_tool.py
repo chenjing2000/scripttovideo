@@ -84,7 +84,7 @@ def words_of(data):
 
 def check(data,path=None):
     entries=words_of(data)
-    if any(k in data for k in ('enscript','paragraphs','paragraphBreaksAfter')): fail('禁止旧版分段格式')
+    if any(k in data for k in ('enscript','evr','paragraphs','paragraphBreaksAfter')): fail('禁止旧版分段格式')
     meta=data.get('script_to_video')
     if not isinstance(meta,dict) or meta.get('format')!='script-to-video' or type(meta.get('schemaVersion')) is not int or meta['schemaVersion']!=2: fail('必须使用 ScriptToVideo v2')
     if set(meta)-{'format','schemaVersion','displayOverrides'}: fail('存在未知的 script_to_video 字段')

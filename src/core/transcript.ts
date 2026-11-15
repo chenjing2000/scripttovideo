@@ -8,7 +8,7 @@ export function validateScriptToVideo(input:unknown):asserts input is ScriptToVi
  if(!record(meta)||meta.format!=='script-to-video'||meta.schemaVersion!==2)
   throw new Error('仅支持 ScriptToVideo v2：请使用 docs/skills/script-to-video-paragraphs Skill 生成 *.script.json');
  for(const key of Object.keys(meta))if(!['format','schemaVersion','displayOverrides'].includes(key))throw new Error(`不支持的 script_to_video 字段：${key}`);
- if('paragraphs' in input||'paragraphBreaksAfter' in input)throw new Error('禁止旧版自然段字段');
+ if('enscript' in input||'evr' in input||'paragraphs' in input||'paragraphBreaksAfter' in input)throw new Error('禁止旧版自然段字段');
  if(input.language!=='en')throw new Error('仅支持 language: "en" 的英语字幕');
  if(!Array.isArray(input.segments)||!input.segments.length)throw new Error('必须包含非空 segments 数组');
  let lastStart=-Infinity,total=0;

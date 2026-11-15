@@ -6,7 +6,7 @@ export function assertScriptToVideo(input){
  if(!object(input)||!object(meta)||meta.format!=='script-to-video'||meta.schemaVersion!==2)
   throw new Error('仅支持 ScriptToVideo v2 (*.script.json)');
  if(Object.keys(meta).some(k=>!['format','schemaVersion','displayOverrides'].includes(k)))throw new Error('未知 script_to_video 字段');
- if('paragraphs' in input||'paragraphBreaksAfter' in input)throw new Error('禁止旧格式字段');
+ if('enscript' in input||'evr' in input||'paragraphs' in input||'paragraphBreaksAfter' in input)throw new Error('禁止旧格式字段');
  if(input.language!=='en'||!Array.isArray(input.segments)||!input.segments.length)throw new Error('必须包含英语 segments');
  const ids=new Set();let last=-Infinity,paragraphs=1,terminal;
  for(let si=0;si<input.segments.length;si++){

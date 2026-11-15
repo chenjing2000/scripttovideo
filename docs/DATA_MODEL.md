@@ -1,4 +1,4 @@
-# ScriptToVideo — current data model (M6.15.8)
+# ScriptToVideo — current data model (M6.16)
 
 ## Subtitle input
 
@@ -32,7 +32,7 @@ For `lesson01.script.json`, the current path is:
     └── cache/                      # temporary task data; failed renders may be retained for recovery
 ```
 
-M6.12 intentionally removed legacy project discovery and migration. The old `.script-to-video/projects/<stem>/project.settings.json` path is not read, moved or deleted. The new work directory is created on first project save, plain-text export or MP4 export, not on import. Existing project files at the new path are validated before the host unlocks overwrite; a corrupt or mismatched project is not silently replaced.
+The application accepts only the current ScriptToVideo v2 project layout and does not discover or migrate old project directories. Work directories are created only on the first save or export. A malformed existing project blocks overwrite.
 
 An override can contain `display`, `hidden` and/or `breakParagraph`. `breakParagraph: true` adds a boundary, `false` removes a source boundary, and omission inherits the source value. Source subtitle bytes remain unchanged.
 
@@ -46,4 +46,4 @@ The WPF host passes an immutable project and page-plan snapshot to Remotion. The
 
 ## Global settings
 
-`scripttovideo.settings.json` lives beside `ScriptToVideo.exe`, is created with defaults on first launch and is atomically replaced after valid setting changes. Its JSON marker is `scripttovideo-settings` (schema version 1). When upgrading from an installation that has only `voicetranscript.settings.json`, the host validates the legacy file, fills missing fields from defaults, changes the format marker, and atomically writes the new file. The original legacy file is retained unchanged after successful migration. Global settings are separate from per-subtitle project files.
+`scripttovideo.settings.json` lives beside `ScriptToVideo.exe`, is created with defaults on first launch and is atomically replaced after valid setting changes. Its JSON marker is `scripttovideo-settings` (schema version 1). There is no legacy settings migration in M6.16. Existing settings from earlier releases remain untouched and are not loaded. Global settings are separate from per-subtitle project files.

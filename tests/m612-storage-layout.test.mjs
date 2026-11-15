@@ -7,7 +7,7 @@ const ui=readFileSync('src/main.tsx','utf8');
 
 test('M6.12: exact JSON suffix becomes shared work-folder and both output names',()=>{
  assert.equal(transcriptStem('lesson01.script.json'),'lesson01');
- assert.equal(transcriptStem('My Lesson.TRANSCRIPT-STUDIO.JSON'),'My Lesson');
+ assert.equal(transcriptStem('My Lesson.SCRIPT.JSON'),'My Lesson');
  assert.throws(()=>transcriptStem('lesson01.json'));
  assert.match(cs,/var workFolder = Path.Combine\(folder, stem\)/);
  assert.match(cs,/var projectPath = Path.Combine\(workFolder, stem \+ "\.project\.json"\)/);
