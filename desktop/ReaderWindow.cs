@@ -311,6 +311,18 @@ internal sealed class ReaderWindow : Window
                     CancelPendingMediaImport();
                     OpenPair(file.Path);
                     break;
+                case "reload":
+                    try
+                    {
+                        var current = source ?? throw new InvalidOperationException("当前没有可重新加载的文章。");
+                        CancelPendingMediaImport();
+                        OpenPair(current.Transcript);
+                    }
+                    catch (Exception error)
+                    {
+                        Send(new { kind = "reload-failed", message = error.Message });
+                    }
+                    break;
                 case "import-selected":
                     CompleteMediaImport(request);
                     break;
