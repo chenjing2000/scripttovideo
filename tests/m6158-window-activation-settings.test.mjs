@@ -42,27 +42,10 @@ test('M6.15.8: global settings use the ScriptToVideo filename and format marker'
   assert.match(appSettings, /SETTINGS_FILENAME = 'scripttovideo\.settings\.json'/);
 });
 
-test('M6.15.8: the host prefers the new settings file and migrates only when it is absent', () => {
-  assert.match(host, /SettingsFileName = "scripttovideo\.settings\.json"/);
+test('M6.16: settings use only ScriptToVideo filename and marker', () => {
+  assert.match(host, /SettingsFileName = "scripttovideo\\.settings\\.json"/);
   assert.match(host, /SettingsFormat = "scripttovideo-settings"/);
-  assert.match(host, /LegacySettingsFileName = "voicetranscript\.settings\.json"/);
-  assert.match(host, /LegacySettingsFormat = "voicetranscript-settings"/);
   assert.match(host, /format = SettingsFormat, schemaVersion = 1/);
-  assert.match(host, /GetProperty\("format"\)\.GetString\(\) != SettingsFormat/);
-  assert.match(host, /if \(File\.Exists\(settingsFile\)\)[\s\S]*?if \(!File\.Exists\(settingsFile\) && File\.Exists\(legacySettingsFile\)\)/);
-  assert.match(host, /TryMigrateLegacySettings\(out var migrated\)/);
-});
-
-test('M6.15.8: legacy migration validates, fills missing defaults, writes new settings atomically and retains the old file', () => {
-  const migration = host.slice(
-    host.indexOf('private bool TryMigrateLegacySettings'),
-    host.indexOf('private static void FillMissing')
-  );
-  assert.match(migration, /LegacySettingsFormat/);
-  assert.match(migration, /candidate\["schemaVersion"\]/);
-  assert.match(migration, /FillMissing\(candidate, fallback\)/);
-  assert.match(migration, /candidate\["format"\]\s*=\s*SettingsFormat/);
-  assert.match(migration, /ValidSettings\(migratedDoc\.RootElement\)/);
-  assert.match(migration, /AtomicWrite\(settingsFile, migrated\)/);
-  assert.doesNotMatch(migration, /File\.(?:Move|Delete)\(legacySettingsFile/);
+  assert.doesNotMatch(host, /LegacySettingsFileName|LegacySettingsFormat|TryMigrateLegacySettings/);
+  assert.match(host, /return CreateDefaultSettings\\(\\);/);
 });
