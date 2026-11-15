@@ -23,13 +23,12 @@ test('Code review: MP4 export commits the active word and snapshots a matching p
  assert.match(body,/pagePlan:exportPlan/);
 });
 
-test('Code review: invalid incoming transcript clears the old visible pair',()=>{
+test('M6.17: invalid incoming transcript preserves the old visible pair',()=>{
  const start=ui.indexOf(' const applyPair=');
- const end=ui.indexOf('\n useEffect(()=>{const receive=',start);
+ const end=ui.indexOf('\\n useEffect(()=>{const receive=',start);
  const body=ui.slice(start,end);
- assert.match(body,/setMediaUrl\(''\)/);
- assert.match(body,/setProject\(null\)/);
- assert.match(body,/setWords\(\[\]\)/);
+ assert.doesNotMatch(body,/setMediaUrl\\(''\\)|setProject\\(null\\)|setWords\\(\\[\\]\\)/);
+ assert.match(body,/pair-rejected/);
  assert.match(body,/字幕读取失败/);
 });
 

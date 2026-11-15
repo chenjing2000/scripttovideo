@@ -32,6 +32,8 @@ internal sealed class ReaderWindow : Window
     private PendingMediaImport? pendingMediaImport;
     private string? previousMediaUrl;
     private string? lastCommittedImportId;
+    private Source? previousSource;
+    private bool previousProjectSaveLocked;
     private readonly ExportTaskManager exportTasks = new();
     private readonly ExportProcessManager exportProcesses = new();
     private bool isShuttingDown;
@@ -318,11 +320,15 @@ internal sealed class ReaderWindow : Window
                     if (pendingMediaImport?.Id == request.GetProperty("requestId").GetString())
                         CancelPendingMediaImport();
                     break;
+                case "pair-rejected":
+                    RollbackMediaImport(request);
+                    break;
                 case "pair-applied":
                     if (request.GetProperty("requestId").GetString() == lastCommittedImportId)
                     {
                         mediaServer?.ReleasePrevious(previousMediaUrl);
                         previousMediaUrl = null;
+                        previousSource = null;
                         lastCommittedImportId = null;
                     }
                     break;
@@ -610,6 +616,8 @@ internal sealed class ReaderWindow : Window
         // Never overwrite a newer in-flight import with a stale result.
         server.ReleasePrevious(previousMediaUrl);
         previousMediaUrl = server.ActiveUrl;
+        previousSource = source;
+        previousProjectSaveLocked = projectSaveLocked;
         server.CommitCandidate(selected.Url);
         foreach (var candidate in pending.Candidates)
             if (candidate.Url != selected.Url) server.ReleaseCandidate(candidate.Url);
@@ -624,6 +632,24 @@ internal sealed class ReaderWindow : Window
             mediaUrl = selected.Url, transcript = pending.Transcript, fingerprint = pending.Fingerprint,
             project = pending.ProjectContent
         });
+    }
+
+    private void RollbackMediaImport(JsonElement request)
+    {
+        if (lastCommittedImportId != request.GetProperty("requestId").GetString()) return;
+        var server = mediaServer;
+        if (server is not null)
+        {
+            var invalidUrl = server.ActiveUrl;
+            if (previousMediaUrl is not null) server.CommitCandidate(previousMediaUrl);
+            else server.ResetActive();
+            server.ReleasePrevious(invalidUrl);
+        }
+        source = previousSource;
+        projectSaveLocked = previousProjectSaveLocked;
+        previousSource = null;
+        previousMediaUrl = null;
+        lastCommittedImportId = null;
     }
 
     private void FailMediaImport(JsonElement request)

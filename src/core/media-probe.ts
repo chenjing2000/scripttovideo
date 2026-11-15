@@ -44,7 +44,7 @@ export function probePlayableMedia(url:string,kind:MediaKind,signal:AbortSignal,
   if(kind==='video'){
    element.onloadeddata=()=>{
     const v=element as HTMLVideoElement;
-    if(!validDuration()||v.videoWidth<=0||v.videoHeight<=0||v.readyState<HTMLMediaElement.HAVE_CURRENT_DATA)return;
+    if(!validDuration()||v.videoWidth<=0||v.videoHeight<=0||v.readyState<2)return;
     finish(undefined,{duration:v.duration,videoRatio:v.videoHeight/v.videoWidth});
    };
   }else{

@@ -62,6 +62,12 @@ internal sealed class LocalMediaServer : IDisposable
         if (token != selectedToken) tokenPaths.Remove(token);
     }
 
+    internal void ResetActive()
+    {
+        selectedToken = null;
+        selectedPath = null;
+    }
+
     internal string Select(string absoluteFilePath)
     {
         var url = PrepareCandidate(absoluteFilePath);
