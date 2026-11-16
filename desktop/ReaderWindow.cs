@@ -995,8 +995,11 @@ internal sealed class ReaderWindow : Window
         }
         if (Fingerprint(current.Transcript) != current.Fingerprint)
             throw new InvalidOperationException("原始字幕在迁移期间发生变化，拒绝替换工程。");
-        // If replacement fails, the original v2 project remains recoverable.
-        AtomicWrite(current.Project, v3.GetRawText());
+        // The final replacement must also be compare-and-swap: an external
+        // editor could change the v2 project after the preceding read check.
+        // On conflict, keep v2 intact; next open can resume migration using
+        // the already verified refined/TXT pair.
+        RefinedStorage.ReplaceIfUnchanged(current.Project, storedProject, v3.GetRawText());
         projectSaveLocked = true;
         var snapshot = ReadConfirmedPreparationSnapshot();
         Send(new { refinedSnapshot = snapshot.refined, textSnapshot = snapshot.text,
