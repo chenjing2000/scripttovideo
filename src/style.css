@@ -258,3 +258,12 @@ html,body,#root{height:100%;min-width:0;min-height:0}
 .notice button.notice-cancel-export{display:inline-flex;align-items:center;justify-content:center;align-self:center;flex:0 0 auto;width:auto;height:30px;min-width:44px;margin-left:auto;padding:4px 10px;border:1px solid #d9d4ca;background:#fff;border-radius:5px;color:#293847;font-family:inherit;font-size:13px;line-height:20px;white-space:nowrap;cursor:pointer}
 .notice button.notice-cancel-export:hover:not(:disabled){background:#fffbc7}
 .notice button.notice-cancel-export:disabled{opacity:.65;cursor:default}
+
+
+/* M6.22: title editing remains visible above the transcript. */
+.title-editor-wrap{display:flex;justify-content:center;align-items:flex-start;width:100%;padding:0 0 14px}
+.title-editor{display:block;width:80%;min-width:min(60px,100%);max-width:100%;min-height:70px;resize:vertical;
+ border:1px solid #b9c5ce;border-radius:6px;padding:10px 12px;box-sizing:border-box;
+ font-size:20px;line-height:1.4;text-align:center;overflow-wrap:anywhere}
+.title-editor:focus-visible{outline:2px solid #0f6cbd;outline-offset:1px}
+.title-editor:disabled{opacity:.65;cursor:default}
