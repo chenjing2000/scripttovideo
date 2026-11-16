@@ -14,7 +14,7 @@ Edit the title, word display, visibility and paragraph boundaries without rewrit
 
 ## Files
 
-For `lesson01.script.json`, the working directory contains `lesson01/lesson01.script.revise.json` (editable word/title content, v3), `lesson01/lesson01.txt` (derived plain text), and `lesson01/lesson01.project.json` (presentation settings, v3). MP4 output goes to `lesson01/lesson01.exported.mp4` or the next available numbered name; temporary render files are under `lesson01/cache/`. The original JSON and media remain untouched. Legacy v2 projects are migrated under guarded conditions; an older `.script.refined.json` filename is safely renamed after any unambiguous matching old save journal has been recovered. Conflicts block migration without overwriting files.
+For `lesson01.script.json`, the working directory contains `lesson01/lesson01.script.revise.json` (editable word/title content, v3), `lesson01/lesson01.txt` (derived plain text), and `lesson01/lesson01.project.json` (presentation settings, v3). MP4 output goes to `lesson01/lesson01.exported.mp4` or the next available numbered name; temporary render files are under `lesson01/cache/`. The original JSON and media remain untouched. This is a breaking change: existing project v2 files and old `.script.refined.json` working files are **not migrated**. Only source subtitle v2 and current project/revise v3 files are accepted. Current-version three-file save journals remain recoverable.
 
 ## Build on Windows (PowerShell)
 
@@ -30,7 +30,7 @@ dotnet publish desktop/ScriptToVideo.csproj -c Release -o dist/wpf
 CLI export takes an **explicit** media path (no discovery or fallback):
 
 ```powershell
-npm.cmd run export -- --media "video/lesson01.m4a" --json "video/lesson01.script.json" --out "video/lesson01.mp4"
+npm.cmd run export -- --media "video/lesson01.m4a" --source-json "video/lesson01.script.json" --json "video/lesson01/lesson01.script.revise.json" --project "video/lesson01/lesson01.project.json" --out "video/lesson01/lesson01.exported.mp4"
 ```
 
 ## Documentation
