@@ -2,7 +2,7 @@
   "language": "en",
   "script_to_video": {
     "format": "script-to-video",
-    "schemaVersion": 2
+    "schemaVersion": 3
   },
   "segments": [
     {
@@ -104,5 +104,6 @@
         }
       ]
     }
-  ]
+  ],
+  "title": ""
 }
