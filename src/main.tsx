@@ -324,8 +324,8 @@ function App(){
    activeRefinedSourceRef.current={fingerprint:data.fingerprint,subtitleName:data.subtitleName};
    // Until the v3 save transaction exists, the legacy v2 save action is unsafe
    // whenever refined is authoritative or being created.
-   if(desktop)
-    blocked=true;
+   setContentSaveUnavailable(Boolean(desktop));
+   setRefinedPreparationPending(Boolean(desktop));
    setProjectLoadBlocked(blocked);
    setMediaUrl(data.mediaUrl);setMediaName(data.mediaName);setKind(data.mediaKind);setProject(current);setWords(currentWords);setEditing(null);setWordTool(null);setToolLeaving(false);resetProjectDirtyState();setDuration(0);setVideoRatio(null);setMediaState('loading');setTime(0);setPlaying(false);
    transcriptRef.current?.scrollTo({top:0});
@@ -358,6 +358,7 @@ function App(){
  useEffect(()=>{const receive=({data}:MessageEvent<DesktopMessage>)=>{if(data.kind==='settings'){if(validateSettings(data.settings)){loadedSettingsRef.current=true;appSettingsRef.current=data.settings;setAppSettings(data.settings)}}else if(data.kind==='import-candidates')void runDesktopProbe(data);else if(data.kind==='pair')applyPair(data);else if(data.kind==='reload-failed'){clearReload();notify(`重新加载失败：${data.message}`,true);}else if(data.kind==='refined-created'||data.kind==='refined-text-repaired'||data.kind==='refined-create-failed'||data.kind==='refined-repair-failed'||data.kind==='refined-migrated'||data.kind==='refined-migrate-failed'){
    const active=activeRefinedSourceRef.current;
    if(active&&active.fingerprint===data.fingerprint&&active.subtitleName.toLowerCase()===data.subtitleName.toLowerCase()){
+    setRefinedPreparationPending(false);
     if(data.kind==='refined-create-failed'||data.kind==='refined-repair-failed'||data.kind==='refined-migrate-failed'){
      setProjectLoadBlocked(true);
      notify(`refined/TXT 操作失败，已暂停工程保存：${data.message}`,true);
