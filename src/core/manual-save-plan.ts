@@ -31,16 +31,22 @@ export function planManualSave(
  if(typeof previousText!=='string')throw new Error('缺少 TXT 磁盘快照');
  const refined=buildRefinedScript(original,title,words);
  const text=buildRefinedText(title,words);
- const project=toPresentationProject(currentProject);
+ const candidate=toPresentationProject(currentProject);
+ // savedAt is metadata, not a presentation edit. Do not rewrite a project
+ // merely because a caller generated a fresh save timestamp.
+ const {savedAt:_previousSavedAt,...previousPresentation}=previousProject??{};
+ const {savedAt:_candidateSavedAt,...candidatePresentation}=candidate;
+ void _previousSavedAt;void _candidateSavedAt;
  // Compare parsed JSON structure, not object identity or formatting.
  const canonical=(value:unknown):string=>JSON.stringify(value,(_,item)=>
   item&&typeof item==='object'&&!Array.isArray(item)
    ?Object.fromEntries(Object.entries(item).sort(([a],[b])=>a.localeCompare(b)))
    :item);
  const same=(a:unknown,b:unknown):boolean=>canonical(a)===canonical(b);
+ const projectChanged=previousProject===null||!same(previousPresentation,candidatePresentation);
  return {
-  refined,text,project,
+  refined,text,project:projectChanged?candidate:previousProject!,
   contentChanged:!same(previousRefined,refined)||previousText!==text,
-  projectChanged:previousProject===null||!same(previousProject,project)
+  projectChanged
  };
 }
