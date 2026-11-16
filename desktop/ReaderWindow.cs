@@ -843,8 +843,11 @@ internal sealed class ReaderWindow : Window
             Fingerprint(current.Transcript) != current.Fingerprint)
             throw new InvalidOperationException("字幕来源已变化，拒绝迁移。");
         var paths = RefinedStorage.Resolve(current.Transcript);
-        if (File.Exists(paths.Refined) || Directory.Exists(paths.Refined) ||
-            File.Exists(paths.Text) || Directory.Exists(paths.Text))
+        var recovery = request.TryGetProperty("recovery", out var recoveryFlag) &&
+            recoveryFlag.ValueKind == JsonValueKind.True;
+        if (Directory.Exists(paths.Refined) || Directory.Exists(paths.Text))
+            throw new IOException("迁移目标路径被目录占用，拒绝覆盖。");
+        if (!recovery && (File.Exists(paths.Refined) || File.Exists(paths.Text)))
             throw new IOException("迁移目标文件已存在，拒绝覆盖。");
         var storedProject = File.ReadAllText(current.Project, Encoding.UTF8);
         using var stored = JsonDocument.Parse(storedProject);
@@ -869,7 +872,23 @@ internal sealed class ReaderWindow : Window
         var txt = request.GetProperty("text").GetString()
             ?? throw new InvalidDataException("TXT 必须是字符串。");
         // Keep the old v2 project untouched until both content files are durable.
-        RefinedStorage.CreateInitial(paths, root.GetRawText(), txt);
+        if (recovery)
+        {
+            var existing = RefinedStorage.ReadExisting(paths)
+                ?? throw new FileNotFoundException("恢复迁移需要已有 refined。");
+            using var existingDoc = JsonDocument.Parse(existing);
+            if (!JsonElement.DeepEquals(existingDoc.RootElement, root))
+                throw new IOException("现有 refined 与预期迁移结果不同，拒绝恢复。");
+            if (File.Exists(paths.Text))
+            {
+                if (!string.Equals(File.ReadAllText(paths.Text, Encoding.UTF8), txt, StringComparison.Ordinal))
+                    throw new IOException("现有 TXT 与预期内容不同，拒绝恢复。");
+            }
+            else
+                RefinedStorage.CreateMissingText(paths, txt);
+        }
+        else
+            RefinedStorage.CreateInitial(paths, root.GetRawText(), txt);
         var persisted = RefinedStorage.ReadExisting(paths)
             ?? throw new IOException("refined 写入后无法读取。");
         using (var checkedRefined = JsonDocument.Parse(persisted))
