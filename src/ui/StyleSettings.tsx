@@ -2,7 +2,7 @@ import React,{useEffect,useState} from 'react';
 import type {AppSettings} from '../core/app-settings';
 import {FONT_OPTIONS,validateSettings} from '../core/app-settings';
 type Props={settings:AppSettings;onChange:(settings:AppSettings)=>void;onInvalid:(message:string)=>void};
-type Field={label:string;value:string;unit?:string;options?:Array<{label:string;value:string}>;type?:'color'|'number';digits?:number;min?:number;max?:number;step?:number;set:(s:AppSettings,v:string)=>AppSettings};
+type Field={label:string;value:string;unit?:string;options?:Array<{label:string;value:string}>;type?:'color'|'number'|'toggle';digits?:number;min?:number;max?:number;step?:number;set:(s:AppSettings,v:string)=>AppSettings};
 const choices=(v:readonly string[])=>v.map(x=>({label:x,value:x}));
 export function StyleSettings({settings:s,onChange,onInvalid}:Props){
  const [drafts,setDrafts]=useState<Record<string,string>>({});
@@ -19,7 +19,8 @@ export function StyleSettings({settings:s,onChange,onInvalid}:Props){
   numeric('大小',s.titleStyle.fontSize,(x,v)=>({...x,titleStyle:{...x.titleStyle,fontSize:Number(v),lineHeight:Math.max(x.titleStyle.lineHeight,Number(v))}}),3,1,200,'px'),
   clr('字体色',s.titleStyle.color,(x,v)=>({...x,titleStyle:{...x.titleStyle,color:'#'+v.toUpperCase()}})),
   numeric('行高',s.titleStyle.lineHeight,(x,v)=>({...x,titleStyle:{...x.titleStyle,lineHeight:Number(v)}}),3,s.titleStyle.fontSize,300,'px'),
-  numeric('标题间距',s.titleStyle.paragraphGap,(x,v)=>({...x,titleStyle:{...x.titleStyle,paragraphGap:Number(v)}}),3,0,200,'px')]],
+  numeric('标题间距',s.titleStyle.paragraphGap,(x,v)=>({...x,titleStyle:{...x.titleStyle,paragraphGap:Number(v)}}),3,0,200,'px'),
+  mk('粗体',String(s.titleStyle.bold),(x,v)=>({...x,titleStyle:{...x.titleStyle,bold:v==='true'}}),{type:'toggle'})]],
  ['左栏字体',[
   select('字体',s.leftFont.family,families,(x,v)=>({...x,leftFont:{...x.leftFont,family:v}})),
   numeric('大小',s.leftFont.size,(x,v)=>({...x,leftFont:{...x.leftFont,size:Number(v)}}),2,1,99,'px'),
@@ -44,6 +45,7 @@ export function StyleSettings({settings:s,onChange,onInvalid}:Props){
   numeric('高度',s.output.height,(x,v)=>({...x,output:{...x.output,height:Number(v)}}),4,320,3840,'px',2)]]];
  const render=(f:Field,index:number,title:string)=>{const key=`${title}-${index}`;const value=drafts[key]??f.value;
   const commit=()=>{if(value===f.value){setDrafts(d=>{const next={...d};delete next[key];return next});return}if(f.type==='number'&&(!/^\d{1,4}$/.test(value)||value.length>(f.digits??4)||Number(value)<(f.min??0)||Number(value)>(f.max??9999)||Number(value)%(f.step??1)!==0)){onInvalid(`${f.label}：数字范围或格式不正确`);return}if(f.type==='color'&&!/^[0-9A-Fa-f]{6}$/.test(value)){onInvalid(`${f.label}：请输入 6 位十六进制颜色`);return}change(key,f,value)};
+  if(f.type==='toggle')return <React.Fragment key={key}><div className="m65-toggle-holder"><button type="button" className={`m65-bold-toggle${value==='true'?' is-active':''}`} aria-pressed={value==='true'} onClick={()=>change(key,f,value==='true'?'false':'true')}>粗体</button></div></React.Fragment>;
   return <React.Fragment key={key}><label htmlFor={`m65-${key}`}>{f.label}</label><div className={`m65-value${f.type==='color'?' m65-value-color':''}${title==='段落设置'&&f.label==='段落对齐'?' m65-value-align':''}`}>{f.options?<select id={`m65-${key}`} value={f.value} onChange={e=>change(key,f,e.target.value)}>{f.options.map(o=><option key={o.value} value={o.value}>{o.label}</option>)}</select>:<input id={`m65-${key}`} inputMode={f.type==='number'?'numeric':'text'} value={value} maxLength={f.digits} onChange={e=>{const raw=e.target.value;if(f.type==='number'&&!/^\d*$/.test(raw))return;if(f.type==='color'&&!/^[0-9a-fA-F]*$/.test(raw))return;setDrafts(d=>({...d,[key]:raw}));}} onBlur={commit} onKeyDown={e=>{if(e.key==='Enter'){e.currentTarget.blur()}}}/>} {f.unit&&<span className="m65-unit">{f.unit}</span>}{f.type==='color'&&<span className="m65-swatch" style={{backgroundColor:/^[0-9a-fA-F]{6}$/.test(value)?'#'+value:f.value.startsWith('#')?f.value:'#ffffff'}}/>}</div></React.Fragment>};
  return <div className="m65-settings">{groups.map(([title,fields])=><section key={title} className="m65-group"><h4>{title}</h4><div className="m65-grid">{fields.map((f,i)=>render(f,i,title))}</div></section>)}<p className="m65-note">参数修改并通过校验后自动保存；右栏字体仅影响编辑区，输出视频使用左栏与页面设置。</p></div>;
 }
