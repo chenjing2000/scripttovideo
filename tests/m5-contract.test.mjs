@@ -9,7 +9,7 @@ const raw=JSON.parse(readFileSync('fixtures/6 Minute English 01-seg1.json','utf8
 const clone=structuredClone;
 function okay(d){const cli=assertScriptToVideo(d),parsed=core.parseScriptToVideo(d);assert.equal(cli.wordCount,parsed.words.length);return parsed;}
 function reject(d,pattern){assert.throws(()=>assertScriptToVideo(d),pattern);assert.throws(()=>core.parseScriptToVideo(d),pattern);}
-test('M5: v2 200 source anchor words/times preserved',()=>{
+test('M5: v3 200 source anchor words/times preserved',()=>{
  const t=okay(data);assert.equal(t.words.length,200);
  assert.deepEqual(t.words.map(w=>[w.original,w.start,w.end]),raw.segments.flatMap(s=>s.words.map(w=>[w.word.trim(),w.start,w.end])));
 });
@@ -17,9 +17,10 @@ test('M5: no break after animal lovers; In the UK shares paragraph',()=>{
  const t=okay(data);const a=t.words.find(w=>w.original==='lovers.');assert.equal(a.breakParagraph,false);
  assert.equal(t.words.find(w=>w.original==='without.').breakParagraph,true);
 });
-test('M5: only v2 accepted; raw, v1 and old fields rejected',()=>{
- reject(raw,/v2/);
- const a=clone(data);a.script_to_video.schemaVersion=1;reject(a,/v2/);
+test('M5: only v3 accepted; raw, v2, v1 and old fields rejected',()=>{
+ reject(raw,/v3/);
+ const a=clone(data);a.script_to_video.schemaVersion=1;reject(a,/v3/);
+ const old=clone(data);old.script_to_video.schemaVersion=2;reject(old,/v3/);
  const b=clone(data);b.enscript={format:'enscript-transcript',schemaVersion:1,paragraphBreaksAfter:[]};reject(b,/旧|禁止/);
  const c=clone(data);c.segments[0].words[0].paragraphAfter=true;reject(c,/旧/);
 });
@@ -45,9 +46,9 @@ test('M5: overrides can remove/add paragraph breaks, source stays untouched',()=
  assert.equal(core.validateProject(project),true);
  assert.equal(core.validateProject({...project,schemaVersion:1}),false);
 });
-test('M5: unknown schema keys and malformed displayOverrides rejected',()=>{
+test('M5: unknown schema keys and all displayOverrides rejected',()=>{
  const a=clone(data);a.script_to_video.extra=true;reject(a,/字段/);
- const b=clone(data);b.script_to_video.displayOverrides={'s4w0':'two words'};reject(b,/显示|覆盖/);
+ const b=clone(data);b.script_to_video.displayOverrides={'s4w0':'two words'};reject(b,/displayOverrides|字段|覆盖/);
 });
 test('M5: malformed or reversed source word timestamps rejected',()=>{
  const a=clone(data);a.segments[3].words[0].start=-10;reject(a,/时间/);
