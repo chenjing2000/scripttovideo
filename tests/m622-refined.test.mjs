@@ -6,6 +6,7 @@ const {parseScriptToVideo,validateScriptToVideo}=require('../.tmp-core/transcrip
 const {buildRefinedScript,buildRefinedText}=require('../.tmp-core/refined.js');
 const {prepareLegacyMigration,finalizeLegacyProject}=require('../.tmp-core/migration.js');
 const {createProject}=require('../.tmp-core/project.js');
+const {refinedFileNames}=require('../.tmp-core/refined-paths.js');
 const {validatePresentationProject}=require('../.tmp-core/project-v3.js');
 
 const source={script_to_video:{format:'script-to-video',schemaVersion:2},language:'en',segments:[{words:[{word:'Hello',start:0,end:0.4},{word:'world.',start:0.4,end:1}]}]};
@@ -65,4 +66,16 @@ test('M6.22: v3 presentation projects reject embedded subtitle overrides',()=>{
  assert.equal(validatePresentationProject({...clean,overrides:{}}),false);
  assert.equal(validatePresentationProject({...clean,schemaVersion:2}),false);
  assert.equal(validatePresentationProject({...clean,style:{...clean.style,fontSize:-1}}),false);
+});
+
+test('M6.22: canonical paths stay inside the existing work folder',()=>{
+ assert.deepEqual(refinedFileNames('lesson01.script.json'),{
+  workFolder:'lesson01',project:'lesson01.project.json',
+  refined:'lesson01.script.refined.json',text:'lesson01.txt'});
+ assert.throws(()=>refinedFileNames('../bad.script.json'),/无效/);
+ assert.throws(()=>refinedFileNames('bad.json'),/script.json/);
+});
+test('M6.22: refined rejects whitespace within one word',()=>{
+ const words=parseScriptToVideo(source).words.map((w,i)=>i===0?{...w,display:'two words'}:w);
+ assert.throws(()=>buildRefinedScript(source,'',words),/文字无效/);
 });
