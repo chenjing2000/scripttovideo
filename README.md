@@ -14,7 +14,7 @@ Edit the title, word display, visibility and paragraph boundaries without rewrit
 
 ## Files
 
-For `lesson01.script.json`, the working directory contains `lesson01/lesson01.script.revise.json` (editable word/title content, v3), `lesson01/lesson01.txt` (derived plain text), and `lesson01/lesson01.project.json` (presentation settings, v3). MP4 output goes to `lesson01/lesson01.exported.mp4` or the next available numbered name; temporary render files are under `lesson01/cache/`. The original JSON and media remain untouched. Legacy v2 projects are migrated under guarded conditions; an older `.script.refined.json` filename is safely renamed only when there is no conflicting target or pending old save journal.
+For `lesson01.script.json`, the working directory contains `lesson01/lesson01.script.revise.json` (editable word/title content, v3), `lesson01/lesson01.txt` (derived plain text), and `lesson01/lesson01.project.json` (presentation settings, v3). MP4 output goes to `lesson01/lesson01.exported.mp4` or the next available numbered name; temporary render files are under `lesson01/cache/`. The original JSON and media remain untouched. Legacy v2 projects are migrated under guarded conditions; an older `.script.refined.json` filename is safely renamed after any unambiguous matching old save journal has been recovered. Conflicts block migration without overwriting files.
 
 ## Build on Windows (PowerShell)
 
