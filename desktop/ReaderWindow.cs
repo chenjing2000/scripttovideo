@@ -351,6 +351,9 @@ internal sealed class ReaderWindow : Window
                         string.Equals(request.GetProperty("subtitleName").GetString(), Path.GetFileName(source.Transcript), StringComparison.OrdinalIgnoreCase))
                         projectSaveLocked = false;
                     break;
+                case "refined-create":
+                    CreateInitialRefined(request);
+                    break;
                 case "save":
                     SaveProject(request.GetProperty("project"), request.GetProperty("revision").GetInt64());
                     break;
@@ -725,6 +728,34 @@ internal sealed class ReaderWindow : Window
     private void UpdateWindowTitle()
     {
         Title = hasUnsavedChanges ? "ScriptToVideo ●" : "ScriptToVideo";
+    }
+
+    private void CreateInitialRefined(JsonElement request)
+    {
+        var current = source ?? throw new InvalidOperationException("没有正在打开的字幕。");
+        var fingerprint = request.GetProperty("fingerprint").GetString();
+        var subtitleName = request.GetProperty("subtitleName").GetString();
+        if (!string.Equals(fingerprint, current.Fingerprint, StringComparison.OrdinalIgnoreCase) ||
+            !string.Equals(subtitleName, Path.GetFileName(current.Transcript), StringComparison.OrdinalIgnoreCase) ||
+            Fingerprint(current.Transcript) != current.Fingerprint)
+            throw new InvalidOperationException("字幕来源已经变化，拒绝创建 refined。");
+        if (File.Exists(current.Project))
+            throw new InvalidOperationException("已有工程文件，必须先完成旧工程迁移校验，不能直接创建 refined。");
+        var refined = request.GetProperty("refined").GetRawText();
+        using var document = JsonDocument.Parse(refined);
+        var root = document.RootElement;
+        if (!root.TryGetProperty("script_to_video", out var meta) ||
+            !meta.TryGetProperty("schemaVersion", out var version) ||
+            version.GetInt32() != 3 ||
+            !root.TryGetProperty("title", out var title) || title.ValueKind != JsonValueKind.String)
+            throw new InvalidDataException("待创建的 refined 不是 v3 字幕。");
+        var text = request.GetProperty("text").GetString()
+            ?? throw new InvalidDataException("TXT 内容必须是字符串。");
+        var paths = RefinedStorage.Resolve(current.Transcript);
+        RefinedStorage.CreateInitial(paths, refined, text);
+        // Do not unlock project saves: the legacy v2 save path is still active.
+        Send(new { kind = "refined-created", fingerprint = current.Fingerprint,
+            subtitleName, message = "refined 和 TXT 已创建。" });
     }
 
     private void SaveProject(JsonElement project, long revision)
