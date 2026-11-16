@@ -13,8 +13,7 @@ export function validateScriptToVideo(input:unknown):asserts input is ScriptToVi
  if('enscript' in input||'evr' in input||'paragraphs' in input||'paragraphBreaksAfter' in input)throw new Error('禁止旧版自然段字段');
  if(input.language!=='en')throw new Error('仅支持 language: "en" 的英语字幕');
  if(!Array.isArray(input.segments)||!input.segments.length)throw new Error('必须包含非空 segments 数组');
- let lastStart=-Infinity,total=0;
- const ids=new Set<string>();
+ let lastStart=-Infinity;
  input.segments.forEach((segment,si)=>{
   if(!record(segment)||!Array.isArray(segment.words)||!segment.words.length)throw new Error(`segment ${si} 缺少 words`);
   if('paragraph_start' in segment||'paragraph_id' in segment||'breakParagraph' in segment)throw new Error(`segment ${si} 包含错误的分段字段`);
@@ -25,7 +24,7 @@ export function validateScriptToVideo(input:unknown):asserts input is ScriptToVi
    if('paragraphAfter' in w||'paragraph_start' in w||'paragraphBreaksAfter' in w)throw new Error(`${id} 存在旧版分段字段`);
    if('hidden' in w&&w.hidden!==true)throw new Error(`${id} 的 hidden 仅在 v3 中允许 true 或省略`);
    if('breakParagraph' in w&&w.breakParagraph!==true)throw new Error(`${id} 的 breakParagraph 只能是 true 或省略`);
-   lastStart=w.start;ids.add(id);total++;
+   lastStart=w.start;
   });
  });
  const segments=input.segments;
