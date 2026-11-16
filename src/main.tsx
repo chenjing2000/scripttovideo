@@ -30,7 +30,6 @@ type DesktopMessage =
  | {kind:'refined-migrated';fingerprint:string;subtitleName:string;message:string;operationId:number;refinedSnapshot:string;textSnapshot:string;projectSnapshot:string|null}
  | {kind:'refined-migrate-failed';fingerprint:string;subtitleName:string;message:string;operationId:number}
  | {kind:'project-bundle-saved'|'project-bundle-save-failed';message:string;operationId:number;revision:number;fingerprint:string;subtitleName:string}
- | {kind:'refined-saved'|'refined-save-failed'|'project-v3-saved'|'project-v3-save-failed';message:string;operationId:number;revision:number;fingerprint:string;subtitleName:string}
  | {kind:'status';message:string;busy:boolean;error?:boolean;canCancel?:boolean}
  | {kind:'dependency-confirm';id:number;title:string;heading:string;details:string;action:string}
  | {kind:'dependency-progress';title:string;message:string}
@@ -471,10 +470,6 @@ function App(){
      }
     }else notify(`保存失败：${data.message}`,true);
    }
-  }else if(data.kind==='refined-saved'||data.kind==='refined-save-failed'||data.kind==='project-v3-saved'||data.kind==='project-v3-save-failed'){
-   // Native v3 save operations are not yet dispatched by this UI. In
-   // particular, do not acknowledge an unsolicited or stale revision.
-   notify(`收到未匹配的新版保存响应（${data.kind}，操作 ${data.operationId}），已保持保存锁定。`,true);
   }else if(data.kind==='saved'){
    const nextState=acknowledgeProjectSave(projectEditStateRef.current,data.revision);
    updateProjectEditState(nextState);
