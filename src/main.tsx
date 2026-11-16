@@ -78,7 +78,7 @@ type WordToolSnapshot={id:string;text:string;start:number;end:number;breakParagr
 function App(){
  const [mediaUrl,setMediaUrl]=useState('');const [mediaName,setMediaName]=useState('');const [kind,setKind]=useState<'video'|'audio'>('video');
  const [videoRatio,setVideoRatio]=useState<number|null>(null);const [mediaState,setMediaState]=useState<'idle'|'loading'|'ready'|'error'>('idle');const [words,setWords]=useState<Word[]>([]);const [project,setProject]=useState<Project|null>(null);
- const [title,setTitle]=useState('');const titleRef=useRef('');
+ const [title,setTitle]=useState('');const titleRef=useRef('');const titleEditorRef=useRef<HTMLTextAreaElement|null>(null);
  const [time,setTime]=useState(0);const [duration,setDuration]=useState(0);
  const [edit,setEdit]=useState<{id:string;text:string}|null>(null);
  const editRef=useRef<{id:string;text:string}|null>(null);
@@ -189,6 +189,15 @@ function App(){
  const titleStyle=useMemo(()=>({...DEFAULT_TITLE_STYLE,...(project?.titleStyle??appSettings.titleStyle)}),[project?.titleStyle,appSettings.titleStyle]);
  const titleLayout=useMemo(()=>layoutTitle(title,titleStyle,canvasWidth-2*style.paddingX,measureWithCanvas(titleStyle.fontFamily,titleStyle.fontSize,titleStyle.bold?700:400)),[title,titleStyle,canvasWidth,style.paddingX]);
  const displayedSettings=useMemo(()=>project?projectStyleToSettings(style,project.canvas,{...appSettings,titleStyle:project.titleStyle??appSettings.titleStyle}):appSettings,[project,style,appSettings]);
+ // A multiline title grows and shrinks with its content and available editor width.
+ useLayoutEffect(()=>{
+  const textarea=titleEditorRef.current;if(!textarea)return;
+  const resize=()=>{textarea.style.height='0px';textarea.style.height=Math.max(70,textarea.scrollHeight)+'px'};
+  resize();
+  const observer=new ResizeObserver(resize);
+  if(textarea.parentElement)observer.observe(textarea.parentElement);
+  return ()=>observer.disconnect();
+ },[title,titleStyle]);
  const setDependency=(value:DependencyDialog|null)=>{dependencyDialogRef.current=value;setDependencyDialog(value)};
  const cancelDependencyInstall=()=>{const d=dependencyDialogRef.current;if(d?.mode!=='progress')return;setDependency({mode:'cancelling',title:d.title,message:'正在停止安装任务并清理临时文件……'});desktop?.postMessage({kind:'dependency-cancel'})};
  const replyDependency=(accepted:boolean)=>{const d=dependencyDialogRef.current;if(d?.mode!=='confirm')return;desktop?.postMessage({kind:'dependency-decision',id:d.id,accepted});setDependency(accepted?{mode:'progress',title:d.title,message:'正在启动依赖准备操作……'}:null)};
@@ -725,9 +734,9 @@ function App(){
     <div className="transport-row"><input aria-label="进度" type="range" min={0} max={duration||1} step="0.01" value={time} onChange={e=>seek(Number(e.target.value))}/>{iconButton(playing?'pause':'play',playing?'暂停 Space':'播放 Space',toggle)}{iconButton('stop','停止 X',stop)}</div>
    </div></section>
    <aside><div className="toolbar"><span className="app-label">ScriptToVideo {hasUnsavedProjectChanges(projectEditState)?'●':''}</span>{iconButton('settings','设置',openSettings)}{iconButton('reload','重新加载当前文章',requestReload,!desktop||!project||exporting||importing||reloading)}{iconButton('import',mediaName?`导入 JSON Ctrl+O · 当前媒体：${mediaName}`:'导入 JSON Ctrl+O',openPicker,exporting||importing||reloading)}{importing&&!reloading&&iconButton('stop','取消当前媒体导入',cancelPendingProbe)}{iconButton('save','保存工程 Ctrl+S',doSave,!project||exporting||projectLoadBlocked||contentSaveUnavailable||importing||reloading)}{iconButton('export','导出 MP4',doExport,!project||exporting||projectLoadBlocked||refinedPreparationPending||importing||reloading)}</div>
-    <div className="panel"><div className="title-editor-wrap"><textarea aria-label="编辑标题" className="title-editor" placeholder="标题（可留空）" value={title} disabled={!project||contentSaveUnavailable||refinedPreparationPending||exporting}
+    <div className="panel"><div className="title-editor-wrap"><textarea ref={titleEditorRef} aria-label="编辑标题" className="title-editor" placeholder="标题（可留空）" value={title} disabled={!project||contentSaveUnavailable||refinedPreparationPending||exporting}
       onChange={e=>{const next=e.currentTarget.value;if(next===titleRef.current)return;titleRef.current=next;setTitle(next);markDirty()}}
-      style={{fontFamily:titleStyle.fontFamily,fontWeight:titleStyle.bold?700:400,color:titleStyle.color,backgroundColor:appSettings.rightFont.backgroundColor}} rows={2}/></div><div ref={transcriptRef} className="transcript" style={{fontFamily:appSettings.rightFont.family,fontSize:editorFontSize,fontWeight:400,lineHeight:1.5,color:appSettings.rightFont.color,backgroundColor:appSettings.rightFont.backgroundColor}}>
+      style={{fontFamily:titleStyle.fontFamily,fontWeight:titleStyle.bold?700:400,color:titleStyle.color,backgroundColor:appSettings.rightFont.backgroundColor}} rows={1}/></div><div ref={transcriptRef} className="transcript" style={{fontFamily:appSettings.rightFont.family,fontSize:editorFontSize,fontWeight:400,lineHeight:1.5,color:appSettings.rightFont.color,backgroundColor:appSettings.rightFont.backgroundColor}}>
      {words.map(w=><React.Fragment key={w.id}>{w.hidden?null:edit?.id===w.id?<InlineWordEditor key={w.id} text={edit.text} fontFamily={appSettings.rightFont.family} fontSize={editorFontSize} color={appSettings.rightFont.color} availableWidth={editorAvailableWidth}
        onText={text=>setEditing({id:w.id,text})} onCommit={commitEditing} onCancel={cancelEditing}/>
        :<span className="transcript-word" title={`${w.start.toFixed(3)}–${w.end.toFixed(3)}`} onDoubleClick={e=>{e.stopPropagation();startEditing(w)}}>{w.display}</span>}{' '}{w.breakParagraph?<div className="paragraph-break"/>:null}</React.Fragment>)}
