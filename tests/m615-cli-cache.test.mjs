@@ -34,3 +34,12 @@ test('CLI default cache is placed beside the absolute output path', () => {
   assert.match(source, /path\.join\(path\.dirname\(path\.resolve\(output\)\),\s*['"]\.script-to-video-cache['"]\)/);
   assert.match(source, /cacheArg\s*\?\s*path\.resolve\(cacheArg\)/);
 });
+
+test('M6.22 breaking: legacy bare-original export arguments are rejected',()=>{
+ const result=spawnSync(process.execPath,[
+  'scripts/export.mjs','--media','missing-input.mp4',
+  '--json','missing-input.script.json','--out','out/legacy.mp4'
+ ],{encoding:'utf8'});
+ assert.equal(result.status,2);
+ assert.match(result.stderr,/--source-json/);
+});
