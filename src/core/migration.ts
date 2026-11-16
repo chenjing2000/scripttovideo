@@ -2,6 +2,7 @@ import type {Project,ScriptToVideoInput} from './types';
 import {applyOverrides,parseScriptToVideo,validateScriptToVideo} from './transcript';
 import {validateProject} from './project';
 import {toPresentationProject} from './project-v3';
+import type {PresentationProject} from './project-v3';
 import {buildRefinedScript,buildRefinedText} from './refined';
 
 /** Prepare a legacy migration in memory; the caller must persist refined and TXT
@@ -20,7 +21,7 @@ export function prepareLegacyMigration(source:ScriptToVideoInput,legacy:Project,
 }
 
 /** Only call after both content files have been durably written and verified. */
-export function finalizeLegacyProject(legacy:Project):Project{
+export function finalizeLegacyProject(legacy:Project):PresentationProject{
  if(!validateProject(legacy))throw new Error('旧项目格式无效');
  return toPresentationProject(legacy);
 }
