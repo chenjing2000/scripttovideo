@@ -23,6 +23,8 @@ type DesktopMessage =
  | {kind:'saved';message:string;revision:number}
  | {kind:'refined-created';fingerprint:string;subtitleName:string;message:string}
  | {kind:'refined-create-failed';fingerprint:string;subtitleName:string;message:string}
+ | {kind:'refined-text-repaired';fingerprint:string;subtitleName:string;message:string}
+ | {kind:'refined-repair-failed';fingerprint:string;subtitleName:string;message:string}
  | {kind:'text-exported';message:string}
  | {kind:'text-export-error';message:string}
  | {kind:'status';message:string;busy:boolean;error?:boolean;canCancel?:boolean}
@@ -107,6 +109,7 @@ function App(){
  const clearReload=()=>{reloadingRef.current=false;setReloading(false)};
  const expectedDesktopImportIdRef=useRef<string|null>(null);
  const committedPairAckRef=useRef<string|null>(null);
+ const activeRefinedSourceRef=useRef<{fingerprint:string;subtitleName:string}|null>(null);
  const changedDuringImport=()=>{
   const base=importBaseStateRef.current,now=projectEditStateRef.current;
   return base.currentRevision!==now.currentRevision||base.draftChanged!==now.draftChanged;
@@ -335,6 +338,7 @@ function App(){
      desktop?.postMessage({kind:'project-validated',fingerprint:data.fingerprint,subtitleName:data.subtitleName});
     }
    }catch(e){blocked=true;notify(`工程读取失败，已禁止覆盖原工程文件：${String(e)}`,true)}}
+   activeRefinedSourceRef.current={fingerprint:data.fingerprint,subtitleName:data.subtitleName};
    setProjectLoadBlocked(blocked);
    setMediaUrl(data.mediaUrl);setMediaName(data.mediaName);setKind(data.mediaKind);setProject(current);setWords(currentWords);setEditing(null);setWordTool(null);setToolLeaving(false);resetProjectDirtyState();setDuration(0);setVideoRatio(null);setMediaState('loading');setTime(0);setPlaying(false);
    transcriptRef.current?.scrollTo({top:0});
@@ -346,6 +350,10 @@ function App(){
     desktop.postMessage({kind:'refined-create',fingerprint:data.fingerprint,
      subtitleName:data.subtitleName,refined:openPlan.refined,text:openPlan.txt});
    }
+   if(desktop&&openPlan.kind==='existing'){
+    desktop.postMessage({kind:'refined-repair-text',fingerprint:data.fingerprint,
+     subtitleName:data.subtitleName,refined:openPlan.refined,text:openPlan.txt});
+   }
    notify(`已找到媒体：${data.mediaName}（${data.mediaKind==='audio'?'音频':'视频'}模式），正在读取媒体信息；${parsed.words.length} 个单词`);
   }catch(e){
    // A failed or malformed new pair must never discard the user's current project.
@@ -354,7 +362,16 @@ function App(){
    notify(`字幕读取失败：${String(e)}`,true);
   }
  };
- useEffect(()=>{const receive=({data}:MessageEvent<DesktopMessage>)=>{if(data.kind==='settings'){if(validateSettings(data.settings)){loadedSettingsRef.current=true;appSettingsRef.current=data.settings;setAppSettings(data.settings)}}else if(data.kind==='import-candidates')void runDesktopProbe(data);else if(data.kind==='pair')applyPair(data);else if(data.kind==='reload-failed'){clearReload();notify(`重新加载失败：${data.message}`,true);}else if(data.kind==='refined-created'){notify(data.message);}else if(data.kind==='refined-create-failed'){setProjectLoadBlocked(true);notify(`refined 创建失败，已暂停工程保存：${data.message}`,true);}else if(data.kind==='saved'){
+ useEffect(()=>{const receive=({data}:MessageEvent<DesktopMessage>)=>{if(data.kind==='settings'){if(validateSettings(data.settings)){loadedSettingsRef.current=true;appSettingsRef.current=data.settings;setAppSettings(data.settings)}}else if(data.kind==='import-candidates')void runDesktopProbe(data);else if(data.kind==='pair')applyPair(data);else if(data.kind==='reload-failed'){clearReload();notify(`重新加载失败：${data.message}`,true);}else if(data.kind==='refined-created'||data.kind==='refined-text-repaired'||data.kind==='refined-create-failed'||data.kind==='refined-repair-failed'){
+   const active=activeRefinedSourceRef.current;
+   if(active&&active.fingerprint===data.fingerprint&&active.subtitleName.toLowerCase()===data.subtitleName.toLowerCase()){
+    if(data.kind==='refined-create-failed'||data.kind==='refined-repair-failed'){
+     setProjectLoadBlocked(true);
+     notify(`refined/TXT 操作失败，已暂停工程保存：${data.message}`,true);
+    }else if(data.kind==='refined-created')notify(data.message);
+    else if(data.message!=='TXT 已存在，无需恢复。')notify(data.message);
+   }
+  }else if(data.kind==='saved'){
    const nextState=acknowledgeProjectSave(projectEditStateRef.current,data.revision);
    updateProjectEditState(nextState);
    notify(hasUnsavedProjectChanges(nextState)?`${data.message}；当前工程仍有未保存修改`:data.message);
