@@ -4,10 +4,11 @@ export function createProject(videoName:string,subtitleName:string,words:Word[])
 export function saveProjectView(project:Project,words:Word[]):Project{return {...project,overrides:buildOverrides(words),savedAt:new Date().toISOString()}}
 export function normalizeProjectStyle(project:Project):Project {return {...project,canvas:project.canvas??{width:WIDTH,height:HEIGHT},titleStyle:{...DEFAULT_TITLE_STYLE,...project.titleStyle},style:{...DEFAULT_STYLE,...project.style,...(project.style.firstLineIndentCh===undefined&&project.style.firstLineIndentEm===undefined?{firstLineIndentEm:2}:{})}};}
 /** Reject malformed saved projects before they reach layout, editing or export. */
-export function validateProject(value:unknown,words?:readonly Word[]):value is Project{
+/** Strict shared presentation fields for both runtime views and persisted v3 projects. */
+export function validateProjectSharedFields(value:unknown):boolean{
  if(!value||typeof value!=='object'||Array.isArray(value))return false;
  const p=value as Partial<Project>;
- if(p.format!=='script-to-video-project'||p.schemaVersion!==2)return false;
+ if(p.format!=='script-to-video-project')return false;
  if(!p.source||typeof p.source.videoName!=='string'||!p.source.videoName.trim()||
     typeof p.source.subtitleName!=='string'||!p.source.subtitleName.toLowerCase().endsWith('.script.json')||
     (p.source.subtitleSha256!==undefined&&
@@ -34,8 +35,15 @@ export function validateProject(value:unknown,words?:readonly Word[]):value is P
  if(s.firstLineIndentCh!==undefined&&(!Number.isFinite(s.firstLineIndentCh)||s.firstLineIndentCh<0))return false;
  if(s.minScrollDuration!==undefined&&(!Number.isFinite(s.minScrollDuration)||s.minScrollDuration<0))return false;
  if(p.titleStyle!==undefined){const t=p.titleStyle;
+  if(!t||typeof t!=='object'||Array.isArray(t))return false;
   if(t.bold!==undefined&&typeof t.bold!=='boolean'||typeof t.fontFamily!=='string'||!t.fontFamily.trim()||!Number.isInteger(t.fontSize)||t.fontSize<1||t.fontSize>200||!Number.isInteger(t.lineHeight)||t.lineHeight<t.fontSize||t.lineHeight>300||!Number.isInteger(t.paragraphGap)||t.paragraphGap<0||t.paragraphGap>200||typeof t.color!=='string'||!/^#[0-9a-f]{6}$/i.test(t.color))return false;
  }
+ return true;
+}
+export function validateProject(value:unknown,words?:readonly Word[]):value is Project{
+ if(!validateProjectSharedFields(value))return false;
+ const p=value as Project;
+ if(p.schemaVersion!==2)return false;
  if(!p.overrides||typeof p.overrides!=='object'||Array.isArray(p.overrides))return false;
  const validWordIds=words?new Set(words.map(word=>word.id)):null;
  for(const [id,override] of Object.entries(p.overrides)){
