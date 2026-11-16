@@ -22,7 +22,10 @@ test('M6.22: no obsolete global project location; v2 originals and separate revi
  assert.doesNotMatch(cs,/version\.GetInt32\(\) != 2 && version\.GetInt32\(\) != 3/);
  assert.match(ui,/planManualSave\(disk\.original,disk\.refined,disk\.text,disk\.project,project,currentWords/);
  assert.match(ui,/kind:'project-bundle-save'/);
- assert.match(ui,/a\.download=transcriptStem\(project\.source\.subtitleName\)\+'\.project\.json'/);
+ assert.match(ui,/stem\+'\.script\.revise\.json'/);
+ assert.match(ui,/stem\+'\.project\.json'/);
+ assert.match(ui,/stem\+'\.txt'/);
+ assert.doesNotMatch(ui,/saveProjectView\(project,currentWords\)/);
  assert.doesNotMatch(ui,/transcriptStem\(project\.source\.subtitleName\)\+'\.article\.txt'/);
 });
 test('M6.12: existing corrupt project cannot be silently overwritten',()=>{
