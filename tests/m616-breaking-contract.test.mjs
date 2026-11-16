@@ -19,8 +19,11 @@ test('M6.16: all former subtitle and project formats are rejected',()=>{
   const old=structuredClone(fixture);
   old.transcript_studio=old.script_to_video;
   delete old.script_to_video;
-  assert.throws(()=>assertScriptToVideo(old),/ScriptToVideo v2/);
-  assert.throws(()=>core.parseScriptToVideo(old),/ScriptToVideo v2/);
+  assert.throws(()=>assertScriptToVideo(old),/ScriptToVideo v3/);
+  assert.throws(()=>core.parseScriptToVideo(old),/ScriptToVideo v3/);
+  const v2={...fixture,script_to_video:{...fixture.script_to_video,schemaVersion:2}};
+  assert.throws(()=>assertScriptToVideo(v2),/v3/);
+  assert.throws(()=>core.parseScriptToVideo(v2),/v3/);
   const p=core.createProject('Lesson.mp4','Lesson.script.json',core.parseScriptToVideo(fixture).words);
   const v3=core.toPresentationProject(p);
   assert.equal(core.validatePresentationProject(v3),true);
