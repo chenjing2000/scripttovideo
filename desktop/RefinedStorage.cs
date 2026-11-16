@@ -67,6 +67,19 @@ internal static class RefinedStorage
         }
     }
 
+    /// <summary>Repair only a missing TXT. Never replace an existing file, even if
+    /// its content differs; reconciliation requires a separate explicit operation.</summary>
+    internal static bool CreateMissingText(Paths paths, string text)
+    {
+        if (!File.Exists(paths.Refined) || Directory.Exists(paths.Refined))
+            throw new InvalidOperationException("没有有效的 refined 文件，不能恢复 TXT。");
+        if (Directory.Exists(paths.Text))
+            throw new IOException("TXT 路径被目录占用，禁止覆盖。");
+        if (File.Exists(paths.Text)) return false;
+        CreateNew(paths.Text, text);
+        return true;
+    }
+
     /// <summary>First creation: never overwrite refined. A TXT failure leaves refined intact
     /// for recovery on reopen. Caller validates JSON and TXT before invoking this method.</summary>
     internal static void CreateInitial(Paths paths, string refinedJson, string text)
