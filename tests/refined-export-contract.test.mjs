@@ -63,7 +63,7 @@ test('page-plan preflight excludes hidden refined words without v2 overrides',()
  transcript.segments[0].words[1].hidden=true;
  const empty={pages:[],switches:[],warnings:[],viewportWidth:1200,viewportHeight:900,
   availableWidth:1100,availableHeight:800};
- assert.doesNotThrow(()=>assertExportPagePlan(empty,transcript,project,1200,900));
+ assert.doesNotThrow(()=>assertExportPagePlan(empty,transcript,1200,900));
  const visible=structuredClone(refined);
- assert.throws(()=>assertExportPagePlan(empty,visible,project,1200,900));
+ assert.throws(()=>assertExportPagePlan(empty,visible,1200,900));
 });
