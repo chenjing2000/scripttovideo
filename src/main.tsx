@@ -276,7 +276,7 @@ function App(){
   let currentWords=words;const active=editRef.current;
   if(active){try{currentWords=updateWord(words,active.id,active.text)}catch(error){notify(`无法保存工程：请先修正正在编辑的单词。${String(error)}`,true);return}if(!commitEditing())return}
   const source=openingOriginalRef.current;
-  if(!source)return notify('缺少已验证的原始 v2 字幕，不能保存。',true);
+  if(!source)return notify('缺少已验证的原始 v3 字幕，不能保存。',true);
   try{
    const revised=buildRefinedScript(source.original,titleRef.current,currentWords);
    const text=buildRefinedText(titleRef.current,currentWords);
@@ -572,7 +572,7 @@ function App(){
    if(controller.signal.aborted)return;
    if(changedDuringImport())throw Error('导入期间原工程发生新的修改，已取消导入。');
    const match=probe.selected.item,url=urls.get(match.name)!;
-   if(input.script_to_video.schemaVersion!==2)throw Error('浏览器只接受原始 ScriptToVideo v2 字幕');
+   if(input.script_to_video.schemaVersion!==3)throw Error('浏览器只接受原始 ScriptToVideo v3 字幕');
    const hash=new Uint8Array(await crypto.subtle.digest('SHA-256',await file.arrayBuffer()));
    const fingerprint=Array.from(hash,b=>b.toString(16).padStart(2,'0')).join('').toUpperCase();
    if(controller.signal.aborted||changedDuringImport())throw Error('字幕导入已取消或原工程发生修改');
