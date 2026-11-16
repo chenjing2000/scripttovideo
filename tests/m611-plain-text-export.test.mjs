@@ -28,7 +28,7 @@ test('M6.11: handles Unicode as plaintext without markup or timestamps',()=>{
 
 test('M6.22: toolbar keeps save and MP4 while TXT is derived from the bundle',()=>{
  const source=readFileSync('src/main.tsx','utf8');
- assert.match(source,/iconButton\('settings','设置',openSettings\).*iconButton\('reload',.*iconButton\('import',.*iconButton\('save','保存工程 Ctrl\+S'.*iconButton\('export','导出 MP4'/s);
+ assert.match(source,/iconButton\('settings','设置',openSettings,exporting\).*iconButton\('reload',.*iconButton\('import',.*iconButton\('save','保存工程 Ctrl\+S'.*iconButton\('export','导出 MP4'/s);
  assert.doesNotMatch(source,/iconButton\('text-export'/);
  assert.match(source,/kind:'project-bundle-save'/);
  assert.match(source,/currentWords=updateWord\(words,active\.id,active\.text\)/);
