@@ -1,7 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {parseScriptToVideo,validateScriptToVideo} from '../.tmp-core/transcript.js';
-import {buildRefinedScript,buildRefinedText} from '../.tmp-core/refined.js';
+import {createRequire} from 'node:module';
+const require=createRequire(import.meta.url);
+const {parseScriptToVideo,validateScriptToVideo}=require('../.tmp-core/transcript.js');
+const {buildRefinedScript,buildRefinedText}=require('../.tmp-core/refined.js');
 
 const source={script_to_video:{format:'script-to-video',schemaVersion:2},language:'en',segments:[{words:[{word:'Hello',start:0,end:0.4},{word:'world.',start:0.4,end:1}]}]};
 test('M6.22: v2 to full v3 refined, title and word edits survive round trip',()=>{
