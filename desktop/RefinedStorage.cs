@@ -173,7 +173,7 @@ internal static class RefinedStorage
     // The journal is durable before the first replacement. Recovery rolls
     // forward only if every file still matches its expected old/new snapshot.
     private sealed record PendingProjectSave(
-        string OldRefined, string NewRefined, string OldText, string NewText,
+        string ProjectPath, string OldRefined, string NewRefined, string OldText, string NewText,
         string? OldProject, string NewProject);
 
     private static string ProjectJournalPath(Paths paths) =>
@@ -218,6 +218,9 @@ internal static class RefinedStorage
         var pending = JsonSerializer.Deserialize<PendingProjectSave>(
             File.ReadAllText(journalPath, Encoding.UTF8))
             ?? throw new InvalidDataException("工程保存日志无效。");
+        if (!string.Equals(pending.ProjectPath, Path.GetFullPath(projectPath),
+                StringComparison.OrdinalIgnoreCase))
+            throw new InvalidDataException("工程保存日志目标路径不匹配。");
         if (pending.OldRefined == null || pending.NewRefined == null ||
             pending.OldText == null || pending.NewText == null ||
             pending.NewProject == null)
@@ -255,7 +258,7 @@ internal static class RefinedStorage
         CheckExpected(projectPath, expectedProject);
         var journalPath = ProjectJournalPath(paths);
         CreateNew(journalPath, JsonSerializer.Serialize(new PendingProjectSave(
-            expectedRefined, nextRefined, expectedText, nextText,
+            Path.GetFullPath(projectPath), expectedRefined, nextRefined, expectedText, nextText,
             expectedProject, nextProject)));
         ReplaceIfUnchanged(paths.Refined, expectedRefined, nextRefined);
         ReplaceIfUnchanged(paths.Text, expectedText, nextText);
