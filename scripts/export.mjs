@@ -1,22 +1,39 @@
 import {readFile,copyFile,mkdir,stat} from 'node:fs/promises';
 import path from 'node:path';import {execFileSync} from 'node:child_process';import{fileURLToPath}from'node:url';
-import {assertScriptToVideo,assertProjectForExport} from './script-to-video-contract.mjs';
+import {assertScriptToVideo,assertProjectForExport,assertRefinedForExport,assertPresentationProjectForExport} from './script-to-video-contract.mjs';
 import {createCliTaskCacheDir} from './cli-cache.mjs';
 import {assertExportPagePlan} from './page-plan-validation.mjs';
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 function getArg(name){const i=process.argv.indexOf(`--${name}`);return i<0?undefined:process.argv[i+1]}
-const media=getArg('media'),json=getArg('json'),output=getArg('out'),projectPath=getArg('project'),cacheArg=getArg('cache-dir');
+const media=getArg('media'),json=getArg('json'),sourceJson=getArg('source-json'),output=getArg('out'),projectPath=getArg('project'),cacheArg=getArg('cache-dir');
 if(!media||!json||!output){console.error('Usage: npm run export -- --media INPUT.mp4|mkv|m4a|mp3|wav --json FILE.script.json --out OUTPUT.mp4 [--project FILE.project.json] [--cache-dir DIRECTORY]');process.exit(2)}
 const cacheRoot=cacheArg?path.resolve(cacheArg):path.join(path.dirname(path.resolve(output)),'.script-to-video-cache');
 let publicDir,bundleLocation;
 try{
- const subtitleBytes=await readFile(json),input=JSON.parse(subtitleBytes.toString('utf8').replace(/^\uFEFF/,''));assertScriptToVideo(input);
- const stem=path.basename(json).slice(0,-'.script.json'.length);
- if(!path.basename(json).toLowerCase().endsWith('.script.json')||path.basename(media,path.extname(media)).toLowerCase()!==stem.toLowerCase())throw Error('Media and .script.json must have the same stem');
+ const originalPath=sourceJson??json;
+ const subtitleBytes=await readFile(originalPath);
+ const original=JSON.parse(subtitleBytes.toString('utf8').replace(/^\uFEFF/,''));assertScriptToVideo(original);
+ const stem=path.basename(originalPath).slice(0,-'.script.json'.length);
+ if(!path.basename(originalPath).toLowerCase().endsWith('.script.json')||
+    path.basename(media,path.extname(media)).toLowerCase()!==stem.toLowerCase())
+  throw Error('Media and original .script.json must have the same stem');
+ if(sourceJson&&path.resolve(sourceJson)===path.resolve(json))
+  throw Error('Refined export requires a separate refined subtitle path');
+ if(sourceJson&&path.resolve(sourceJson)!==path.resolve(path.join(path.dirname(sourceJson),stem+'.script.json')))
+  throw Error('Invalid original subtitle path');
+ if(sourceJson&&path.resolve(json)!==path.resolve(path.join(path.dirname(sourceJson),stem+'.script.refined.json')))
+  throw Error('Refined subtitle must be the companion of the original');
+ const input=sourceJson?assertRefinedForExport(
+  JSON.parse((await readFile(json,'utf8')).replace(/^\uFEFF/,'')),original):original;
  const ext=path.extname(media).toLowerCase();if(!['.mp4','.mkv','.m4a','.mp3','.wav'].includes(ext))throw Error('Unsupported media extension');
  const mediaKind=['.m4a','.mp3','.wav'].includes(ext)?'audio':'video';
  const project=projectPath?JSON.parse(await readFile(projectPath,'utf8')):undefined;
- if(projectPath)assertProjectForExport(project,{mediaName:path.basename(media),subtitleName:path.basename(json),subtitleBytes,mediaKind,transcript:input});
+ if(sourceJson&&!projectPath)throw Error('Refined export requires a saved project v3');
+ if(projectPath){
+  const context={mediaName:path.basename(media),subtitleName:path.basename(originalPath),subtitleBytes,mediaKind,transcript:original};
+  if(sourceJson)assertPresentationProjectForExport(project,context);
+  else assertProjectForExport(project,context);
+ }
  const width=project?.canvas?.width??1200,height=project?.canvas?.height??1600;
  if(!Number.isInteger(width)||!Number.isInteger(height)||width<320||height<320||width>3840||height>3840||width%2||height%2)throw Error('Invalid even canvas dimensions');
  let durationSec=Number(getArg('duration')),videoHeight=mediaKind==='audio'?0:Number(getArg('video-height'));
@@ -28,7 +45,7 @@ try{
  if(!Number.isFinite(durationSec)||durationSec<=0||!Number.isInteger(videoHeight)||videoHeight<0||videoHeight>=height)throw Error('Media leaves no room for transcript, or invalid duration');
  const last=input.segments.at(-1)?.words.at(-1)?.end??0;
  if(last>durationSec+0.5)throw Error(`Subtitle ends at ${last}s, beyond media duration ${durationSec}s`);
- if([media,json,projectPath].filter(Boolean).some(f=>path.resolve(f)===path.resolve(output)))throw Error('Cannot overwrite input');
+ if([media,json,sourceJson,projectPath].filter(Boolean).some(f=>path.resolve(f)===path.resolve(output)))throw Error('Cannot overwrite input');
  await mkdir(path.dirname(output),{recursive:true});
  const cacheDir=await createCliTaskCacheDir(cacheRoot);
  // Keep Node/Chromium temporary work associated with this export task.
