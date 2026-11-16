@@ -12,5 +12,5 @@ export function refinedFileNames(subtitleName:string):RefinedFileNames{
  const stem=subtitleName.slice(0,-'.script.json'.length);
  if(!stem||stem==='.'||stem==='..'||/[\\/\\\\]/u.test(stem))throw new Error('原始字幕名称无效');
  return {workFolder:stem,project:stem+'.project.json',
-  refined:stem+'.script.refined.json',text:stem+'.txt'};
+  refined:stem+'.script.revise.json',text:stem+'.txt'};
 }
