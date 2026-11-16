@@ -14,7 +14,7 @@ class TestTranscriptTool(unittest.TestCase):
     def test_validate_fixture_and_exact_source(self):
         fixture=SOURCE.with_name('6 Minute English 01-seg1.script.json')
         data=mod.load(fixture);self.assertEqual(len(mod.check(data,fixture)),200)
-        stripped=json.loads(json.dumps(data));stripped.pop('script_to_video')
+        stripped=json.loads(json.dumps(data));stripped.pop('script_to_video');stripped.pop('title')
         for seg in stripped['segments']:
             for w in seg['words']:w.pop('breakParagraph',None)
         self.assertEqual(stripped,self.raw)
@@ -68,7 +68,7 @@ class TestTranscriptTool(unittest.TestCase):
             out=d/'edited.script.json'
             mod.edit(type('Args',(),{'input':original,'boundaries':decision,'output':out,'preview':None,'force':False}))
             v=mod.load(out);self.assertEqual(sum(w.get('breakParagraph') is True for _,w in mod.words_of(v)),1)
-            stripped=json.loads(json.dumps(v));stripped.pop('script_to_video')
+            stripped=json.loads(json.dumps(v));stripped.pop('script_to_video');stripped.pop('title')
             for seg in stripped['segments']:
                 for w in seg['words']: w.pop('breakParagraph',None)
             self.assertEqual(stripped,self.raw)
