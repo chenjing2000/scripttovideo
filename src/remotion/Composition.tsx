@@ -12,7 +12,7 @@ export const ReadingComposition:React.FC<RenderProps>=({transcript,project,media
   return project?.schemaVersion===2?applyOverrides(parsed,project).words:parsed.words;
  },[transcript,project]);
  const normalizedProject=useMemo(()=>project?normalizeProjectStyle(
-  project.schemaVersion===3?{...project,schemaVersion:2,overrides:{}}:project
+  project.schemaVersion===3?{...project,schemaVersion:2 as const,overrides:{}}:project
  ):null,[project]);
  const style=normalizedProject?.style??DEFAULT_STYLE;
  const canvasWidth=normalizedProject?.canvas.width??WIDTH,canvasHeight=normalizedProject?.canvas.height??HEIGHT;
