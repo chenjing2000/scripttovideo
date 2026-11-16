@@ -401,32 +401,6 @@ internal sealed class ReaderWindow : Window
                             message = error.Message });
                     }
                     break;
-                case "project-v3-save":
-                    try { SavePresentationProject(request); }
-                    catch (Exception error)
-                    {
-                        AppLog.WriteException("ProjectV3.Save", error);
-                        Send(new { kind = "project-v3-save-failed",
-                            operationId = request.GetProperty("operationId").GetInt32(),
-                            revision = request.GetProperty("revision").GetInt64(),
-                            fingerprint = request.GetProperty("fingerprint").GetString(),
-                            subtitleName = request.GetProperty("subtitleName").GetString(),
-                            message = error.Message });
-                    }
-                    break;
-                case "refined-save":
-                    try { SaveRefined(request); }
-                    catch (Exception error)
-                    {
-                        AppLog.WriteException("Refined.Save", error);
-                        Send(new { kind = "refined-save-failed",
-                            operationId = request.GetProperty("operationId").GetInt32(),
-                            revision = request.GetProperty("revision").GetInt64(),
-                            fingerprint = request.GetProperty("fingerprint").GetString(),
-                            subtitleName = request.GetProperty("subtitleName").GetString(),
-                            message = error.Message });
-                    }
-                    break;
                 case "save":
                     SaveProject(request.GetProperty("project"), request.GetProperty("revision").GetInt64());
                     break;
@@ -1008,70 +982,6 @@ internal sealed class ReaderWindow : Window
             message = "旧工程已迁移到 v3，refined 和 TXT 已验证。" });
     }
 
-    private void SavePresentationProject(JsonElement request)
-    {
-        var current = source ?? throw new InvalidOperationException("没有正在打开的字幕。");
-        if (!string.Equals(request.GetProperty("subtitleName").GetString(),
-                Path.GetFileName(current.Transcript), StringComparison.OrdinalIgnoreCase))
-            throw new InvalidOperationException("保存请求的字幕名称与当前来源不一致。");
-        if (!string.Equals(request.GetProperty("fingerprint").GetString(),
-                current.Fingerprint, StringComparison.OrdinalIgnoreCase) ||
-            Fingerprint(current.Transcript) != current.Fingerprint)
-            throw new InvalidOperationException("原始字幕已变化，拒绝保存工程。");
-
-        var paths = RefinedStorage.Resolve(current.Transcript);
-        if (RefinedStorage.ReadExisting(paths) == null || !File.Exists(paths.Text))
-            throw new IOException("refined/TXT 不完整，禁止保存 v3 工程。");
-        // A pending content transaction must be reconciled before changing the project.
-        RefinedStorage.EnsureNoPendingPair(paths);
-        RefinedStorage.EnsureNoPendingProjectSave(paths);
-
-        var next = request.GetProperty("project");
-        if (next.GetProperty("format").GetString() != "script-to-video-project" ||
-            next.GetProperty("schemaVersion").GetInt32() != 3 ||
-            next.TryGetProperty("overrides", out _))
-            throw new InvalidDataException("只能保存不含正文覆盖的 v3 展示工程。");
-        var projectSource = next.GetProperty("source");
-        if (!string.Equals(projectSource.GetProperty("subtitleSha256").GetString(),
-                current.Fingerprint, StringComparison.OrdinalIgnoreCase) ||
-            !string.Equals(projectSource.GetProperty("subtitleName").GetString(),
-                Path.GetFileName(current.Transcript), StringComparison.OrdinalIgnoreCase) ||
-            !string.Equals(projectSource.GetProperty("videoName").GetString(),
-                Path.GetFileName(current.Media), StringComparison.OrdinalIgnoreCase) ||
-            (next.TryGetProperty("mediaKind", out var kind) &&
-                kind.GetString() != current.MediaKind))
-            throw new InvalidDataException("v3 工程来源与当前媒体不匹配。");
-
-        var previous = request.GetProperty("previousProject");
-        if (File.Exists(current.Project))
-        {
-            if (previous.ValueKind != JsonValueKind.Object)
-                throw new IOException("已有工程必须提供旧版本快照，禁止覆盖。");
-            var onDisk = File.ReadAllText(current.Project, Encoding.UTF8);
-            using var parsed = JsonDocument.Parse(onDisk);
-            if (!JsonElement.DeepEquals(parsed.RootElement, previous))
-                throw new IOException("工程已被外部修改，禁止覆盖。");
-            if (previous.GetProperty("schemaVersion").GetInt32() != 3)
-                throw new IOException("不能通过 v3 保存覆盖旧版工程。");
-            RefinedStorage.ReplaceIfUnchanged(current.Project, onDisk, next.GetRawText());
-        }
-        else
-        {
-            if (previous.ValueKind != JsonValueKind.Null)
-                throw new IOException("工程文件已丢失，禁止当作新文件创建。");
-            RefinedStorage.CreateNew(current.Project, next.GetRawText());
-        }
-        Send(new { kind = "project-v3-saved",
-            operationId = request.GetProperty("operationId").GetInt32(),
-            revision = request.GetProperty("revision").GetInt64(),
-            fingerprint = current.Fingerprint,
-            subtitleName = Path.GetFileName(current.Transcript),
-            message = "v3 展示工程已保存。" });
-    }
-
-    /// <summary>Single guarded entrypoint for a user-initiated save.
-    /// The frontend supplies a frozen old/new snapshot of all derived files.
-    /// No original subtitle file is ever written.</summary>
     private void SaveProjectBundle(JsonElement request)
     {
         var current = source ?? throw new InvalidOperationException("没有正在打开的字幕。");
@@ -1185,80 +1095,6 @@ internal sealed class ReaderWindow : Window
             fingerprint = current.Fingerprint,
             subtitleName = Path.GetFileName(current.Transcript),
             message = "refined、TXT 和 project v3 已保存。" });
-    }
-
-    private void SaveRefined(JsonElement request)
-    {
-        var current = source ?? throw new InvalidOperationException("没有正在打开的字幕。");
-        if (request.GetProperty("fingerprint").GetString() != current.Fingerprint ||
-            !string.Equals(request.GetProperty("subtitleName").GetString(),
-                Path.GetFileName(current.Transcript), StringComparison.OrdinalIgnoreCase) ||
-            Fingerprint(current.Transcript) != current.Fingerprint)
-            throw new InvalidOperationException("字幕来源已经变化，拒绝保存 refined。");
-        var paths = RefinedStorage.Resolve(current.Transcript);
-        RefinedStorage.EnsureNoPendingProjectSave(paths);
-        var oldRefined = request.GetProperty("previousRefined").GetRawText();
-        var nextRefined = request.GetProperty("refined").GetRawText();
-        var oldText = request.GetProperty("previousText").GetString()
-            ?? throw new InvalidDataException("缺少原 TXT 快照。");
-        var nextText = request.GetProperty("text").GetString()
-            ?? throw new InvalidDataException("缺少新 TXT 内容。");
-        using var oldDocument = JsonDocument.Parse(oldRefined);
-        using var nextDocument = JsonDocument.Parse(nextRefined);
-        var next = nextDocument.RootElement;
-        if (next.GetProperty("script_to_video").GetProperty("schemaVersion").GetInt32() != 3 ||
-            next.GetProperty("title").ValueKind != JsonValueKind.String)
-            throw new InvalidDataException("保存内容必须是 refined v3。");
-        // Validate against the original on disk, not only the frontend payload.
-        // Every segment and word anchor must remain identical in count and time.
-        using (var originalDoc = JsonDocument.Parse(File.ReadAllText(current.Transcript, Encoding.UTF8)))
-        {
-            var originalSegments = originalDoc.RootElement.GetProperty("segments");
-            var nextSegments = next.GetProperty("segments");
-            if (originalSegments.GetArrayLength() != nextSegments.GetArrayLength())
-                throw new InvalidDataException("refined 改变了原始 segment 数量。");
-            for (var si = 0; si < originalSegments.GetArrayLength(); si++)
-            {
-                var originalWords = originalSegments[si].GetProperty("words");
-                var nextWords = nextSegments[si].GetProperty("words");
-                if (originalWords.GetArrayLength() != nextWords.GetArrayLength())
-                    throw new InvalidDataException($"refined 改变了 segment {si} 的单词数量。");
-                for (var wi = 0; wi < originalWords.GetArrayLength(); wi++)
-                {
-                    var originalWord = originalWords[wi];
-                    var newWord = nextWords[wi];
-                    if (!JsonElement.DeepEquals(originalWord.GetProperty("start"), newWord.GetProperty("start")) ||
-                        !JsonElement.DeepEquals(originalWord.GetProperty("end"), newWord.GetProperty("end")))
-                        throw new InvalidDataException($"refined 改变了 s{si}w{wi} 的原始时间锚点。");
-                    if (newWord.GetProperty("word").ValueKind != JsonValueKind.String ||
-                        string.IsNullOrWhiteSpace(newWord.GetProperty("word").GetString()))
-                        throw new InvalidDataException($"refined 的 s{si}w{wi} 单词无效。");
-                }
-            }
-        }
-        var storedRefined = RefinedStorage.ReadExisting(paths)
-            ?? throw new FileNotFoundException("refined 文件不存在。");
-        using (var stored = JsonDocument.Parse(storedRefined))
-            if (!JsonElement.DeepEquals(stored.RootElement, oldDocument.RootElement))
-                throw new IOException("refined 已被外部修改，禁止覆盖。");
-        // Validate the old snapshot before delegating both disk comparisons
-        // and guarded replacement to RefinedStorage.ReplaceContentPair.
-        if (oldDocument.RootElement.GetProperty("script_to_video").GetProperty("schemaVersion").GetInt32() != 3 ||
-            oldDocument.RootElement.GetProperty("title").ValueKind != JsonValueKind.String)
-            throw new InvalidDataException("旧 refined 快照不是 v3 字幕。");
-        if (next.GetProperty("language").GetString() != "en")
-            throw new InvalidDataException("refined 必须为英语字幕。");
-        // Roll back refined if the TXT write fails. A process crash between
-        // replacements still requires durable journal-based recovery.
-        RefinedStorage.ReplaceContentPair(paths, storedRefined, nextRefined, oldText, nextText);
-        if (Fingerprint(current.Transcript) != current.Fingerprint)
-            throw new IOException("保存期间原始字幕发生变化。");
-        Send(new { kind = "refined-saved",
-            operationId = request.GetProperty("operationId").GetInt32(),
-            revision = request.GetProperty("revision").GetInt64(),
-            fingerprint = current.Fingerprint,
-            subtitleName = Path.GetFileName(current.Transcript),
-            message = "refined 和 TXT 已保存。" });
     }
 
     private void SaveProject(JsonElement project, long revision)
