@@ -69,8 +69,9 @@ test('M6.22: dotnet publish rebuilds Vite before selecting embedded WebView2 ass
  const end=project.indexOf('</Target>',idx);
  const target=project.slice(idx,end);
  assert.ok(target.indexOf('<Exec Command="npm run build"')<target.indexOf('<EmbeddedResource Include="../dist/index.html"'));
- assert.match(target,/<BuiltWebAsset Include="\.\.\/dist\/assets\/\*\*\/\*">/);
- assert.match(target,/<LogicalName>TSUI\/assets\/\%\(RecursiveDir\)\%\(Filename\)\%\(Extension\)<\/LogicalName>/);
+ assert.match(target,/<BuiltWebAsset Include="\.\.\/dist\/assets\/\*\*\/\*"\s*\/>/);
+ assert.match(target,/<BuiltWebAsset Update="@\(BuiltWebAsset\)">/);
+ assert.match(target,/<LogicalName>TSUI\/assets\/\%\(BuiltWebAsset\.RecursiveDir\)\%\(BuiltWebAsset\.Filename\)\%\(BuiltWebAsset\.Extension\)<\/LogicalName>/);
  assert.match(target,/<EmbeddedResource Include="@\(BuiltWebAsset\)"\s*\/>/);
  assert.doesNotMatch(project.slice(end),/EmbeddedResource Include="\.\.\/dist\/index.html"/);
 });
