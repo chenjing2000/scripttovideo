@@ -10,7 +10,7 @@ export function assertScriptToVideo(input){
  if(Object.keys(meta).some(k=>!['format','schemaVersion'].includes(k)))throw new Error('未知 script_to_video 字段');
  if('enscript' in input||'evr' in input||'paragraphs' in input||'paragraphBreaksAfter' in input)throw new Error('禁止旧格式字段');
  if(input.language!=='en'||!Array.isArray(input.segments)||!input.segments.length)throw new Error('必须包含英语 segments');
- const ids=new Set();let last=-Infinity,paragraphs=1,terminal;
+ let wordCount=0,last=-Infinity,paragraphs=1,terminal;
  for(let si=0;si<input.segments.length;si++){
   const seg=input.segments[si];if(!object(seg)||!Array.isArray(seg.words)||!seg.words.length)throw new Error(`segment ${si} 缺少 words`);
   if(['paragraph_start','paragraph_id','breakParagraph'].some(k=>k in seg))throw new Error(`segment ${si} 存在错误分段字段`);
@@ -22,14 +22,14 @@ export function assertScriptToVideo(input){
    if('hidden' in w&&w.hidden!==true)throw new Error(`hidden 必须为 true：${id}`);
    if('breakParagraph' in w&&w.breakParagraph!==true)throw new Error(`breakParagraph 必须为 true：${id}`);
    if(w.breakParagraph===true)paragraphs++;
-   last=w.start;terminal=w;ids.add(id);
+   last=w.start;terminal=w;wordCount++;
   }
  }
  if(terminal.breakParagraph===true)throw new Error('末词不能标记 breakParagraph');
  if(input.word_segments!==undefined){
   if(!Array.isArray(input.word_segments)||input.word_segments.some(w=>!object(w)||'breakParagraph' in w))throw new Error('word_segments 禁止分段标记');
  }
- return {wordCount:ids.size,paragraphCount:paragraphs};
+ return {wordCount,paragraphCount:paragraphs};
 }
 
 
