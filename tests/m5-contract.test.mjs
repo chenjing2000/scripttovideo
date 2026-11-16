@@ -17,10 +17,12 @@ test('M5: no break after animal lovers; In the UK shares paragraph',()=>{
  const t=okay(data);const a=t.words.find(w=>w.original==='lovers.');assert.equal(a.breakParagraph,false);
  assert.equal(t.words.find(w=>w.original==='without.').breakParagraph,true);
 });
-test('M5: only v3 accepted; raw, v2, v1 and old fields rejected',()=>{
+test('M5: only v3 with title accepted; raw, v2, v1 and old fields rejected',()=>{
  reject(raw,/v3/);
  const a=clone(data);a.script_to_video.schemaVersion=1;reject(a,/v3/);
  const old=clone(data);old.script_to_video.schemaVersion=2;reject(old,/v3/);
+ const missingTitle=clone(data);delete missingTitle.title;reject(missingTitle,/title/);
+ const wrongTitle=clone(data);wrongTitle.title=null;reject(wrongTitle,/title/);
  const b=clone(data);b.enscript={format:'enscript-transcript',schemaVersion:1,paragraphBreaksAfter:[]};reject(b,/旧|禁止/);
  const c=clone(data);c.segments[0].words[0].paragraphAfter=true;reject(c,/旧/);
 });
