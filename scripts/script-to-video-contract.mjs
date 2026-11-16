@@ -112,3 +112,14 @@ export function assertProjectForExport(project,{mediaName,subtitleName,subtitleB
  }
  return project;
 }
+
+/** v3 projects contain presentation settings only; validate shared fields
+ * through the established v2 contract without accepting word overrides.
+ */
+export function assertPresentationProjectForExport(project,context){
+ if(!project||typeof project!=='object'||Array.isArray(project)||
+    project.schemaVersion!==3||'overrides' in project)
+  throw new Error('Expected presentation-only project v3');
+ assertProjectForExport({...project,schemaVersion:2,overrides:{}},context);
+ return project;
+}
