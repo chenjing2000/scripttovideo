@@ -1,16 +1,17 @@
-import {DEFAULT_STYLE, WIDTH, HEIGHT} from './types';
-import type {ReadingStyle} from './types';
+import {DEFAULT_STYLE, DEFAULT_TITLE_STYLE, WIDTH, HEIGHT} from './types';
+import type {ReadingStyle,TitleStyle} from './types';
 export const SETTINGS_FILENAME = 'scripttovideo.settings.json';
 export const SETTINGS_FORMAT = 'scripttovideo-settings' as const;
 export type RightFont = {family:string;size:number;color:string;backgroundColor:string};
-export type AppSettings = {format:typeof SETTINGS_FORMAT;schemaVersion:1;leftFont:{family:string;size:number;color:string;highlightColor:string};rightFont:RightFont;paragraph:{firstLineIndentEm:number;lineHeight:1.2|1.3|1.4|1.5;gap:number;alignment:'justify'|'left'};page:{paddingY:number;paddingX:number;backgroundColor:string};output:{width:number;height:number}};
-export const DEFAULT_SETTINGS:AppSettings={format:SETTINGS_FORMAT,schemaVersion:1,leftFont:{family:'Arial',size:40,color:'#293847',highlightColor:'#B81A35'},rightFont:{family:'Arial',size:16,color:'#293847',backgroundColor:'#F7F4EC'},paragraph:{firstLineIndentEm:2,lineHeight:1.4,gap:20,alignment:'justify'},page:{paddingY:30,paddingX:36,backgroundColor:'#F7F4EC'},output:{width:WIDTH,height:HEIGHT}};
+export type AppSettings = {format:typeof SETTINGS_FORMAT;schemaVersion:1;titleStyle:TitleStyle;leftFont:{family:string;size:number;color:string;highlightColor:string};rightFont:RightFont;paragraph:{firstLineIndentEm:number;lineHeight:1.2|1.3|1.4|1.5;gap:number;alignment:'justify'|'left'};page:{paddingY:number;paddingX:number;backgroundColor:string};output:{width:number;height:number}};
+export const DEFAULT_SETTINGS:AppSettings={format:SETTINGS_FORMAT,schemaVersion:1,titleStyle:{...DEFAULT_TITLE_STYLE},leftFont:{family:'Arial',size:40,color:'#293847',highlightColor:'#B81A35'},rightFont:{family:'Arial',size:16,color:'#293847',backgroundColor:'#F7F4EC'},paragraph:{firstLineIndentEm:2,lineHeight:1.4,gap:20,alignment:'justify'},page:{paddingY:30,paddingX:36,backgroundColor:'#F7F4EC'},output:{width:WIDTH,height:HEIGHT}};
 export const FONT_OPTIONS=['Arial','Nunito Sans','Segoe UI'] as const;
 const color=(v:unknown):v is string=>typeof v==='string'&&/^#[0-9a-f]{6}$/i.test(v);
 const integer=(v:unknown,min:number,max:number):v is number=>Number.isInteger(v)&&Number(v)>=min&&Number(v)<=max;
 export function validateSettings(v:unknown):v is AppSettings {
  if(!v||typeof v!=='object')return false;const s=v as AppSettings;
- return s.format===SETTINGS_FORMAT&&s.schemaVersion===1&&!!s.leftFont&&!!s.rightFont&&!!s.paragraph&&!!s.page&&!!s.output&&
+ return s.format===SETTINGS_FORMAT&&s.schemaVersion===1&&!!s.titleStyle&&!!s.leftFont&&!!s.rightFont&&!!s.paragraph&&!!s.page&&!!s.output&&
+  FONT_OPTIONS.some(x=>x===s.titleStyle.fontFamily)&&integer(s.titleStyle.fontSize,1,200)&&integer(s.titleStyle.lineHeight,s.titleStyle.fontSize,300)&&integer(s.titleStyle.paragraphGap,0,200)&&color(s.titleStyle.color)&&
   FONT_OPTIONS.some(x=>x===s.leftFont.family)&&integer(s.leftFont.size,1,99)&&color(s.leftFont.color)&&color(s.leftFont.highlightColor)&&
   FONT_OPTIONS.some(x=>x===s.rightFont.family)&&integer(s.rightFont.size,1,99)&&color(s.rightFont.color)&&color(s.rightFont.backgroundColor)&&
   integer(s.paragraph.firstLineIndentEm,0,9)&&[1.2,1.3,1.4,1.5].includes(s.paragraph.lineHeight)&&integer(s.paragraph.gap,0,99)&&['justify','left'].includes(s.paragraph.alignment)&&
