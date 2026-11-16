@@ -21,12 +21,12 @@ type DesktopMessage =
  | {kind:'settings';settings:unknown}
  | {kind:'reload-failed';message:string}
  | {kind:'saved';message:string;revision:number}
- | {kind:'refined-created';fingerprint:string;subtitleName:string;message:string;operationId?:number}
- | {kind:'refined-create-failed';fingerprint:string;subtitleName:string;message:string}
- | {kind:'refined-text-repaired';fingerprint:string;subtitleName:string;message:string}
- | {kind:'refined-repair-failed';fingerprint:string;subtitleName:string;message:string}
- | {kind:'refined-migrated';fingerprint:string;subtitleName:string;message:string}
- | {kind:'refined-migrate-failed';fingerprint:string;subtitleName:string;message:string}
+ | {kind:'refined-created';fingerprint:string;subtitleName:string;message:string;operationId:number}
+ | {kind:'refined-create-failed';fingerprint:string;subtitleName:string;message:string;operationId:number}
+ | {kind:'refined-text-repaired';fingerprint:string;subtitleName:string;message:string;operationId:number}
+ | {kind:'refined-repair-failed';fingerprint:string;subtitleName:string;message:string;operationId:number}
+ | {kind:'refined-migrated';fingerprint:string;subtitleName:string;message:string;operationId:number}
+ | {kind:'refined-migrate-failed';fingerprint:string;subtitleName:string;message:string;operationId:number}
  | {kind:'status';message:string;busy:boolean;error?:boolean;canCancel?:boolean}
  | {kind:'dependency-confirm';id:number;title:string;heading:string;details:string;action:string}
  | {kind:'dependency-progress';title:string;message:string}
