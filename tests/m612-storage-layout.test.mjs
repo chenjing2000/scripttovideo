@@ -60,3 +60,15 @@ test('M6.22: browser downloads cannot acknowledge an unverified save',()=>{
  assert.doesNotMatch(branch,/acknowledgeProjectSave|updateProjectEditState/);
  assert.match(branch,/浏览器下载不清除未保存标记/);
 });
+
+test('M6.22: dotnet publish rebuilds Vite before selecting embedded WebView2 assets',()=>{
+ const project=readFileSync('desktop/ScriptToVideo.csproj','utf8');
+ assert.match(project,/<Target Name="BuildEmbeddedWebUi" BeforeTargets="AssignTargetPaths"/);
+ assert.match(project,/<Exec Command="npm run build" WorkingDirectory="\$\(MSBuildProjectDirectory\)\/\.\."\s*\/>/);
+ const idx=project.indexOf('<Target Name="BuildEmbeddedWebUi"');
+ const end=project.indexOf('</Target>',idx);
+ const target=project.slice(idx,end);
+ assert.ok(target.indexOf('<Exec Command="npm run build"')<target.indexOf('<EmbeddedResource Include="../dist/index.html"'));
+ assert.match(target,/<EmbeddedResource Include="\.\.\/dist\/assets\/\*\*\/\*" LogicalName="TSUI\/assets\/\%\(RecursiveDir\)\%\(Filename\)\%\(Extension\)"/);
+ assert.doesNotMatch(project.slice(end),/EmbeddedResource Include="\.\.\/dist\/index.html"/);
+});
