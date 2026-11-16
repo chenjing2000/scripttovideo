@@ -4,7 +4,7 @@
 
 - **WPF / WebView2 (`desktop/`)**: native window, single-instance activation, tray, trusted file access, project/settings persistence, media token server, dependency preparation and export process lifetime.
 - **React (`src/main.tsx`, `src/ui/`)**: editing, preview, keyboard commands, dialogs, task notices and dirty-state reporting.
-- **Core (`src/core/`)**: ScriptToVideo v2 source/v3 revised validation, migration and save planning, media candidate priority, initial decode probing, deterministic pagination, title layout, page plans and derived text.
+- **Core (`src/core/`)**: ScriptToVideo v2 source/v3 revised validation, current-format open and save planning, media candidate priority, initial decode probing, deterministic pagination, title layout, page plans and derived text.
 - **Remotion (`src/remotion/`, `scripts/export.mjs`)**: renders the shared reader canvas from an immutable export snapshot. CLI validates source/project independently.
 
 ## Media import transaction
@@ -15,7 +15,7 @@ Do not replace active media tokens, project, preview or unsaved edits during pro
 
 ## Persistence and edit safety
 
-Global `scripttovideo.settings.json` is next to the EXE. Project state is `<stem>/<stem>.project.json` relative to the source JSON folder; the original subtitle is never rewritten. Revised word/title content belongs in `<stem>/<stem>.script.revise.json` (v3), derived text in `<stem>/<stem>.txt`, and presentation settings in `<stem>/<stem>.project.json` (v3). First opening a source may create the revised working copy and TXT. Existing v2 projects are migrated only after strict source checks and guarded content persistence. Invalid or source-mismatched projects, conflicting working filenames, or unfinished save journals must not be overwritten.
+Global `scripttovideo.settings.json` is next to the EXE. Project state is `<stem>/<stem>.project.json` relative to the source JSON folder; the original subtitle is never rewritten. Revised word/title content belongs in `<stem>/<stem>.script.revise.json` (v3), derived text in `<stem>/<stem>.txt`, and presentation settings in `<stem>/<stem>.project.json` (v3). First opening a source may create the revised working copy and TXT. Project v2 and the previous `.script.refined.json` filename are not migrated or loaded. Only current project v3 and revise v3 are accepted; invalid or source-mismatched projects cannot be overwritten. Recovery applies only to current v3 three-file save journals.
 
 React tracks edit revisions and active inline drafts; a save acknowledgment only clears dirty state for the matching revision. Import, close and export protect unsaved changes. Settings changes do not mutate an active export snapshot. Manual save and pre-export save use one revision-bound, guarded three-file transaction; export snapshots the revised subtitle, project and page plan.
 
