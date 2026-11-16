@@ -44,7 +44,7 @@ test('M6.22 title: first page contains title and a body row; later pages do not 
  assert.throws(()=>paginate(words,style,200,100,measure,90),/标题与正文|阅读区域不足/);
 });
 
-test('M6.22 title: manual bundle snapshot saves edited title in refined and derived TXT',()=>{
+test('M6.22 title: v3 original snapshot saves edited title in refined and derived TXT',()=>{
  const original=JSON.parse(readFileSync('fixtures/6 Minute English 01-seg1.script.json','utf8'));
  const words=parseScriptToVideo(original).words;
  const previous=buildRefinedScript(original,'',words);
