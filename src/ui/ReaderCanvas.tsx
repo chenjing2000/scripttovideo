@@ -13,7 +13,8 @@ export function ReaderCanvas({words,style,time,videoHeight,video,canvasWidth,can
    return pagePlan;
   }
   if(availableHeight<=0)return null;
-  return paginate(words,style,canvasWidth,availableHeight,measureWithCanvas(style.fontFamily,style.fontSize,style.fontWeight),titleLayout.height);
+  try{return paginate(words,style,canvasWidth,availableHeight,measureWithCanvas(style.fontFamily,style.fontSize,style.fontWeight),titleLayout.height)}
+  catch{return null} // Do not crash the editor when the title leaves no space for text.
  },[pagePlan,words,visible,style,canvasWidth,availableHeight,titleLayout.height]);
  const index=plan?pageAtTime(plan,time):-1;
  const page=index>=0?plan?.pages[index]:null;
@@ -21,7 +22,7 @@ export function ReaderCanvas({words,style,time,videoHeight,video,canvasWidth,can
   <div style={{width:canvasWidth,height:videoHeight,overflow:'hidden',position:'relative',background:'#172536'}}>{video}</div>
   <div style={{height:Math.max(0,availableHeight),position:'relative',overflow:'hidden',background:style.backgroundColor}}>
    {index===0&&titleLayout.lines.length>0&&<div data-reader-title style={{position:"absolute",top:style.paddingY,left:style.paddingX,width:canvasWidth-2*style.paddingX,textAlign:"center",fontFamily:titleStyle.fontFamily,fontSize:titleStyle.fontSize,fontWeight:400,color:titleStyle.color}}>{titleLayout.lines.map((line,i)=><div key={i} style={{height:titleStyle.lineHeight,lineHeight:`${titleStyle.lineHeight}px`,whiteSpace:"pre"}}>{line}</div>)}</div>}
-   {!plan?<div style={{padding:20,color:'#b81a35'}}>视频高度已占满画布，无法显示字幕区域</div>:page?.rows.map((row,i)=><div key={`${index}:${i}`} data-reader-row={i} style={{position:'absolute',top:row.top,left:style.paddingX,width:plan.availableWidth,height:row.height,fontFamily:style.fontFamily,fontSize:style.fontSize,lineHeight:style.lineHeight,fontWeight:style.fontWeight,color:style.textColor,whiteSpace:'nowrap'}}>
+   {!plan?<div style={{padding:20,color:'#b81a35'}}>当前标题和正文无法在画布中排版，请调整标题字号、间距或页面尺寸</div>:page?.rows.map((row,i)=><div key={`${index}:${i}`} data-reader-row={i} style={{position:'absolute',top:row.top,left:style.paddingX,width:plan.availableWidth,height:row.height,fontFamily:style.fontFamily,fontSize:style.fontSize,lineHeight:style.lineHeight,fontWeight:style.fontWeight,color:style.textColor,whiteSpace:'nowrap'}}>
     {row.words.map(item=>{
      const w=visible[item.index];if(!w||w.id!==item.id)return null;
      const progress=wordProgress(time,w.start,w.end);
