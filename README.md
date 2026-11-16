@@ -10,11 +10,11 @@ Import only `<stem>.script.json` (ScriptToVideo v2, English). The desktop app lo
 
 Missing or initially undecodable candidates are skipped. The first successfully decoded candidate is used. If all fail, the existing project and preview remain unchanged. No recursive search, automatic transcoding or fallback after a later playback failure. MKV playback depends on WebView2 codec support.
 
-Edit word display, visibility and paragraph boundaries without rewriting the original transcript. Export plain text or H.264/AAC MP4.
+Edit the title, word display, visibility and paragraph boundaries without rewriting the original transcript. Save derives the revised subtitle and matching plain text; export H.264/AAC MP4 from a frozen snapshot.
 
 ## Files
 
-For `lesson01.script.json`, the application stores edits in `lesson01/lesson01.project.json`, plain text in `lesson01/lesson01.article.txt`, rendered video in `lesson01/lesson01.exported.mp4`, and temporary render files in `lesson01/cache/`. The source JSON and media remain untouched. Old project/settings formats are not migrated.
+For `lesson01.script.json`, the working directory contains `lesson01/lesson01.script.revise.json` (editable word/title content, v3), `lesson01/lesson01.txt` (derived plain text), and `lesson01/lesson01.project.json` (presentation settings, v3). MP4 output goes to `lesson01/lesson01.exported.mp4` or the next available numbered name; temporary render files are under `lesson01/cache/`. The original JSON and media remain untouched. Legacy v2 projects are migrated under guarded conditions; an older `.script.refined.json` filename is safely renamed only when there is no conflicting target or pending old save journal.
 
 ## Build on Windows (PowerShell)
 
@@ -41,6 +41,8 @@ npm.cmd run export -- --media "video/lesson01.m4a" --json "video/lesson01.script
 - [Export cancellation and safe replacement](docs/EXPORT_LIFECYCLE.md)
 - [Paragraph-generation Skill](docs/skills/script-to-video-paragraphs/SKILL.md)
 - [Code-review Skill](docs/skills/script-to-video-code-review/SKILL.md)
-- [M6.17 release and acceptance](M6.17_RELEASE_NOTES.md)
+- [M6.17 historical release and acceptance](M6.17_RELEASE_NOTES.md)
+
+The current working branch implements M6.22; historical milestone notes may describe superseded behavior.
 
 Commit messages must be in English and describe the actual change.
