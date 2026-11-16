@@ -5,6 +5,7 @@ import {exportPlainText} from './plain-text';
 /** Build a self-contained v3 subtitle without changing the source or its timing anchors. */
 export function buildRefinedScript(source:ScriptToVideoInput,title:string,words:readonly Word[]):ScriptToVideoInput{
  validateScriptToVideo(source);
+ if(source.script_to_video.schemaVersion!==2)throw new Error('只能从 v2 原始字幕创建 revise v3 工作副本');
  if(typeof title!=='string')throw new Error('标题必须是字符串');
  const expected=source.segments.reduce((sum,segment)=>sum+segment.words.length,0);
  if(words.length!==expected)throw new Error('refined 单词数量与原始时间锚点不一致');
