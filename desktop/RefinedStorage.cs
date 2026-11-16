@@ -67,6 +67,45 @@ internal static class RefinedStorage
         }
     }
 
+    /// <summary>
+    /// Replace an existing derived file only when its on-disk bytes still match
+    /// the snapshot opened by the editor. Never use this for original subtitles.
+    /// The temporary file is flushed before the atomic same-volume replacement.
+    /// </summary>
+    internal static void ReplaceIfUnchanged(string path, string expectedContent, string newContent)
+    {
+        if (Directory.Exists(path) || !File.Exists(path))
+            throw new IOException("目标文件已丢失或被目录占用，禁止覆盖。");
+        var existing = File.ReadAllText(path, Encoding.UTF8);
+        if (!string.Equals(existing, expectedContent, StringComparison.Ordinal))
+            throw new IOException("文件已被外部修改，禁止覆盖。");
+        if (string.Equals(existing, newContent, StringComparison.Ordinal)) return;
+
+        var folder = Path.GetDirectoryName(Path.GetFullPath(path))!;
+        var temp = Path.Combine(folder, "." + Path.GetFileName(path) + "." +
+            Guid.NewGuid().ToString("N") + ".tmp");
+        try
+        {
+            using (var stream = new FileStream(temp, FileMode.CreateNew, FileAccess.Write,
+                FileShare.None, 4096, FileOptions.WriteThrough))
+            {
+                var bytes = new UTF8Encoding(false).GetBytes(newContent);
+                stream.Write(bytes);
+                stream.Flush(true);
+            }
+            // Recheck immediately before replacement. This is not an interprocess
+            // lock: the caller must serialize all writes from this application.
+            if (!File.Exists(path) ||
+                !string.Equals(File.ReadAllText(path, Encoding.UTF8), expectedContent, StringComparison.Ordinal))
+                throw new IOException("写入前检测到文件变化，禁止覆盖。");
+            File.Replace(temp, path, null);
+        }
+        finally
+        {
+            if (File.Exists(temp)) File.Delete(temp);
+        }
+    }
+
     /// <summary>Repair only a missing TXT. Never replace an existing file, even if
     /// its content differs; reconciliation requires a separate explicit operation.</summary>
     internal static bool CreateMissingText(Paths paths, string text)
