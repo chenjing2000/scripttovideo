@@ -312,7 +312,7 @@ function App(){
    const input=JSON.parse(data.transcript),parsed=parseScriptToVideo(input);
    const existingRefined=data.refined?JSON.parse(data.refined):null;
    const openPlan=planRefinedOpen(input,existingRefined,data.project?JSON.parse(data.project):null);
-   const effective=openPlan.kind==='existing'?parseScriptToVideo(openPlan.refined):parsed;
+   const effective=openPlan.kind==='existing'||openPlan.kind==='recover-migration'?parseScriptToVideo(openPlan.refined):parsed;
    const next=createProject(data.mediaName,data.subtitleName,parsed.words);next.style=settingsToStyle(appSettingsRef.current);next.canvas={...appSettingsRef.current.output};next.source.subtitleSha256=data.fingerprint;next.mediaKind=data.mediaKind;
    let current=next,currentWords=effective.words,blocked=false;
    if(data.project!==null){try{
@@ -336,7 +336,7 @@ function App(){
        (saved.mediaKind!==undefined&&saved.mediaKind!==data.mediaKind))
        throw Error('工程格式、来源或字幕指纹不匹配');
      current=normalizeProjectStyle(saved);
-     currentWords=openPlan.kind==='existing'?effective.words:applyOverrides(parsed,current).words;
+     currentWords=openPlan.kind==='existing'||openPlan.kind==='recover-migration'?effective.words:applyOverrides(parsed,current).words;
      if(openPlan.kind==='existing')
       desktop?.postMessage({kind:'project-validated',fingerprint:data.fingerprint,subtitleName:data.subtitleName});
     }
@@ -344,7 +344,7 @@ function App(){
    activeRefinedSourceRef.current={fingerprint:data.fingerprint,subtitleName:data.subtitleName};
    // Until the v3 save transaction exists, the legacy v2 save action is unsafe
    // whenever refined is authoritative or being created.
-   if(desktop&&(openPlan.kind==='existing'||openPlan.kind==='create'))
+   if(desktop)
     blocked=true;
    setProjectLoadBlocked(blocked);
    setMediaUrl(data.mediaUrl);setMediaName(data.mediaName);setKind(data.mediaKind);setProject(current);setWords(currentWords);setEditing(null);setWordTool(null);setToolLeaving(false);resetProjectDirtyState();setDuration(0);setVideoRatio(null);setMediaState('loading');setTime(0);setPlaying(false);
@@ -361,11 +361,11 @@ function App(){
     desktop.postMessage({kind:'refined-repair-text',fingerprint:data.fingerprint,
      subtitleName:data.subtitleName,refined:openPlan.refined,text:openPlan.txt});
    }
-   if(desktop&&openPlan.kind==='create'&&openPlan.legacyProject){
+   if(desktop&&(openPlan.kind==='recover-migration'||(openPlan.kind==='create'&&openPlan.legacyProject))){
     desktop.postMessage({kind:'refined-migrate',fingerprint:data.fingerprint,
      subtitleName:data.subtitleName,legacyProject:openPlan.legacyProject,
      projectV3:finalizeLegacyProject(openPlan.legacyProject),
-     refined:openPlan.refined,text:openPlan.txt});
+     refined:openPlan.refined,text:openPlan.txt,recovery:openPlan.kind==='recover-migration'});
    }
    notify(`已找到媒体：${data.mediaName}（${data.mediaKind==='audio'?'音频':'视频'}模式），正在读取媒体信息；${parsed.words.length} 个单词`);
   }catch(e){
