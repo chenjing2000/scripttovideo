@@ -329,8 +329,7 @@ function App(){
      // in place until native v3 project persistence is implemented.
      current=normalizeProjectStyle({...saved,schemaVersion:2 as const,overrides:{}});
      currentWords=effective.words;
-     blocked=true;
-     notify('已读取 v3 工程和 refined；新版工程保存尚未接入，暂时禁止覆盖工程文件。',true);
+     notify('已读取 v3 工程和 refined；旧版工程保存暂不可用。');
     }else{
      if(!validateProject(saved,parsed.words)||saved.source.subtitleSha256!==data.fingerprint||
        saved.source.videoName.toLowerCase()!==data.mediaName.toLowerCase()||
