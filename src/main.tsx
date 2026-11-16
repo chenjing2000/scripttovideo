@@ -342,7 +342,7 @@ function App(){
    }
    if(desktop&&openPlan.kind==='existing'){
     desktop.postMessage({kind:'refined-repair-text',fingerprint:data.fingerprint,
-     subtitleName:data.subtitleName,refined:openPlan.refined,text:openPlan.txt});
+     subtitleName:data.subtitleName,operationId,refined:openPlan.refined,text:openPlan.txt});
    }
    if(desktop&&(openPlan.kind==='recover-migration'||(openPlan.kind==='create'&&openPlan.legacyProject))){
     desktop.postMessage({kind:'refined-migrate',fingerprint:data.fingerprint,
