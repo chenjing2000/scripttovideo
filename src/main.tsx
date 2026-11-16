@@ -291,9 +291,9 @@ function App(){
     const blob=new Blob([content],{type:mime}),u=URL.createObjectURL(blob),a=document.createElement('a');
     a.href=u;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(u),1000);
    }
-   const revision=projectEditStateRef.current.currentRevision;
-   updateProjectEditState(acknowledgeProjectSave(projectEditStateRef.current,revision));
-   notify('已请求下载 revise、TXT 和 project v3；浏览器可能要求允许多个文件下载。');
+   // A browser download click gives no confirmation that every file was saved.
+   // Keep the dirty marker until the user performs a verified native save.
+   notify('已请求下载 revise、TXT 和 project v3。请确认三个文件均已保存；浏览器下载不清除未保存标记。');
   }catch(error){notify('无法导出当前格式文件：'+String(error),true)}
  };
  const doExport=()=>{
