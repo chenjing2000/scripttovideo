@@ -59,11 +59,15 @@ test('M6.15.5: an old save acknowledgement cannot clear dirty state after newer 
  current=state.acknowledgeProjectSave(current,savedRevision);
  assert.equal(state.hasUnsavedProjectChanges(current),true);
  assert.match(app,/revision=projectEditStateRef\.current\.currentRevision/);
- assert.match(app,/acknowledgeProjectSave\(projectEditStateRef\.current,data\.revision\)/);
+ assert.match(app,/acknowledgeProjectSave\(projectEditStateRef\.current,pending\.revision\)/);
+ assert.match(app,/isMatchingBundleSaveReply\(pending,data,activeRefinedSourceRef\.current\)/);
+ assert.match(app,/if\(bundleSaveSucceeded\(data\)\)/);
+ assert.match(app,/confirmedDiskSnapshotRef\.current=\{\.\.\.disk,refined:persistedRefined,text:data\.textSnapshot,project:persistedProject\}/);
  assert.match(app,/markProjectEdited\(projectEditStateRef\.current\)/);
  assert.match(app,/resetProjectEditState\(projectEditStateRef\.current\)/);
- assert.match(host,/SaveProject\(request\.GetProperty\("project"\), request\.GetProperty\("revision"\)\.GetInt64\(\)\)/);
- assert.match(host,/kind = "saved", revision/);
+ assert.match(host,/case "project-bundle-save":\s*try \{ SaveProjectBundle\(request\)/);
+ assert.match(host,/kind = "project-bundle-saved"/);
+ assert.match(host,/revision = request\.GetProperty\("revision"\)\.GetInt64\(\)/);
 });
 
 test('M6.15.5: settings persistence and dirty-state updates remain accepted during export',()=>{
