@@ -11,6 +11,7 @@ import {buildRefinedScript,buildRefinedText} from './refined';
  */
 export function prepareLegacyMigration(source:ScriptToVideoInput,legacy:Project,refinedExists:boolean){
  validateScriptToVideo(source);
+ if(source.script_to_video.schemaVersion!==2)throw new Error('旧工程迁移必须使用 v2 原始字幕');
  if(refinedExists)throw new Error('已存在 refined 字幕：不能自动叠加旧项目覆盖值');
  const original=parseScriptToVideo(source);
  if(!validateProject(legacy,original.words))throw new Error('旧项目格式或覆盖值无效');
