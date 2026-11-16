@@ -827,6 +827,11 @@ internal sealed class ReaderWindow : Window
         if (projectSaveLocked)
             throw new InvalidOperationException("现有工程文件未能通过验证，已禁止覆盖。请检查工程文件后重新打开素材。");
         var current = CheckSource(project);
+        // Check disk state at write time, not only at import time: a refined
+        // file may have been created externally or by an earlier queued request.
+        var paths = RefinedStorage.Resolve(current.Transcript);
+        if (File.Exists(paths.Refined) || Directory.Exists(paths.Refined))
+            throw new InvalidOperationException("refined 工作副本已存在，禁止使用 v2 工程保存。");
         AtomicWrite(current.Project, project.GetRawText());
         Send(new { kind = "saved", revision, message = $"工程已保存至 {current.Project}" });
     }
