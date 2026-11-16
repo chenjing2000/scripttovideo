@@ -52,6 +52,18 @@ test('M6.22: v3 presentation projects reject embedded subtitle overrides',()=>{
  assert.equal(validatePresentationProject({...clean,style:{...clean.style,fontSize:-1}}),false);
 });
 
+test('M6.22: persisted v3 validates shared fields directly without v2 coercion',()=>{
+ const view=createProject('demo.mp4','demo.script.json',parseScriptToVideo(source).words);
+ const p=toPresentationProject(view);
+ assert.equal(validatePresentationProject(p),true);
+ assert.equal(validatePresentationProject({...p,titleStyle:null}),false);
+ assert.equal(validatePresentationProject({...p,titleStyle:[]}),false);
+ assert.equal(validatePresentationProject({...p,source:{...p.source,subtitleName:'invalid.json'}}),false);
+ assert.equal(validatePresentationProject({...p,canvas:{...p.canvas,width:321}}),false);
+ assert.equal(validatePresentationProject({...p,schemaVersion:2}),false);
+ assert.equal(validatePresentationProject({...p,overrides:{}}),false);
+});
+
 test('M6.22: canonical paths stay inside the existing work folder',()=>{
  assert.deepEqual(refinedFileNames('lesson01.script.json'),{
   workFolder:'lesson01',project:'lesson01.project.json',
