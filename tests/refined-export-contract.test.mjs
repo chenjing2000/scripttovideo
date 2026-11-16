@@ -4,7 +4,7 @@ import {assertScriptToVideo,assertRefinedForExport,assertPresentationProjectForE
 import {createHash} from 'node:crypto';
 import {assertExportPagePlan} from '../scripts/page-plan-validation.mjs';
 
-const original={script_to_video:{format:'script-to-video',schemaVersion:2},language:'en',
+const original={script_to_video:{format:'script-to-video',schemaVersion:3},title:'',language:'en',
  segments:[{words:[{word:'Hello',start:0,end:0.5},{word:'world',start:0.5,end:1}]}]};
 const refined={...original,title:'A title',script_to_video:{format:'script-to-video',schemaVersion:3},
  segments:[{words:[{word:'Hi',start:0,end:0.5,hidden:true},{word:'earth',start:0.5,end:1}]}]};
