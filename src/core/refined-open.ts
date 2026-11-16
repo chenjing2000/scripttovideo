@@ -3,6 +3,7 @@ import {parseScriptToVideo,validateScriptToVideo} from './transcript';
 import {buildRefinedScript,buildRefinedText} from './refined';
 import {prepareLegacyMigration} from './migration';
 import {validateProject} from './project';
+import {validatePresentationProject} from './project-v3';
 
 export type RefinedOpenPlan =
  | {kind:'existing';refined:ScriptToVideoInput;txt:string}
@@ -22,7 +23,10 @@ export function planRefinedOpen(source:unknown,existingRefined:unknown|null,proj
   if(schema===2){
    if(!validateProject(project,original.words))throw new Error('旧工程校验失败，禁止自动迁移');
    legacy=project;
-  }else if(schema!==3){
+  }else if(schema===3){
+   if(!validatePresentationProject(project))throw new Error('v3 工程校验失败，禁止覆盖');
+   if(existingRefined===null)throw new Error('v3 工程缺少 refined，禁止从原始字幕重建并丢失修改');
+  }else{
    throw new Error('不支持的工程版本，禁止自动创建 refined');
   }
  }
