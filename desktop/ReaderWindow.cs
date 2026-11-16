@@ -352,7 +352,15 @@ internal sealed class ReaderWindow : Window
                         projectSaveLocked = false;
                     break;
                 case "refined-create":
-                    CreateInitialRefined(request);
+                    try { CreateInitialRefined(request); }
+                    catch (Exception error)
+                    {
+                        AppLog.WriteException("Refined.CreateInitial", error);
+                        Send(new { kind = "refined-create-failed",
+                            fingerprint = request.GetProperty("fingerprint").GetString(),
+                            subtitleName = request.GetProperty("subtitleName").GetString(),
+                            message = error.Message });
+                    }
                     break;
                 case "save":
                     SaveProject(request.GetProperty("project"), request.GetProperty("revision").GetInt64());
