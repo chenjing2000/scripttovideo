@@ -2,11 +2,11 @@
 
 ## Source subtitle and immutable anchors
 
-The normal import entry is `<stem>.script.json`: English (`language: "en"`), `script_to_video.format: "script-to-video"`, and source schema version 2. The original JSON and media are never rewritten by title, word, project or MP4 edits.
+The normal import entry is `<stem>.script.json`: English (`language: "en"`), `script_to_video.format: "script-to-video"`, and source schema version 3, with mandatory string `title` (empty is allowed). The original JSON and media are never rewritten by title, word, project or MP4 edits.
 
 Words carry the source `word`, `start`, `end` and optional `score` fields. Paragraph boundaries are word-local `segments[].words[].breakParagraph: true`; omission means no boundary. Do not infer breaks from punctuation, segments or timestamps. The parser derives internal IDs such as `s0w1`, rather than writing IDs into the source.
 
-The desktop import boundary, revised-open planner, legacy migration and CLI all require a v2 **original**. The v3 format is valid only for the independently stored `.script.revise.json` working copy.
+The desktop import boundary, revised-open planner, CLI and paragraph Skill require a v3 **original**. Original `.script.json` and independently stored `.script.revise.json` are both v3 but have different file roles; original is never edited.
 
 ## Working files
 
@@ -33,9 +33,9 @@ The v3 `<stem>.project.json` stores source/media identity and fingerprint, canva
 
 ## Current-version creation and saving (breaking change)
 
-When a valid v2 original subtitle is first opened without a project or revised copy, the application creates a new v3 revise working file and derived TXT. An existing v3 revise file is authoritative and must match the source word/time anchors. An existing project must be a valid v3 presentation-only project; a v3 project without its revised working file is blocked, not recreated.
+When a valid v3 original subtitle is first opened without a project or revised copy, the application creates a new v3 revise working file and derived TXT. An existing v3 revise file is authoritative and must match the source word/time anchors. An existing project must be a valid v3 presentation-only project; a v3 project without its revised working file is blocked, not recreated.
 
-**No old-format compatibility or migration:** project v2 files, `<stem>.script.refined.json`, and their old save journals are not recognized as working data, renamed, imported or repaired. The application does not delete them. Any existing project v2 is rejected rather than overwritten. To start a fresh project, manually move old work files out of the companion directory after backing them up.
+**No old-format compatibility or migration:** original subtitle v2 files, project v2 files, `<stem>.script.refined.json`, and their old save journals are not recognized as working data, renamed, imported or repaired. The application does not delete them. Any existing project v2 is rejected rather than overwritten. To start a fresh project, manually move old work files out of the companion directory after backing them up.
 
 Only the **current v3 three-file save transaction** retains guarded journal recovery for interrupted Ctrl+S and pre-export saves. A failed or conflicting recovery leaves the journal and user files intact. The original v2 subtitle never changes.
 
