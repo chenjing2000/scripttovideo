@@ -14,7 +14,7 @@ import {DEFAULT_SETTINGS,settingsToStyle,projectStyleToSettings,validateSettings
 import {calculateWordEditorWidth,paragraphActionLabel,hasUnsavedWordDraft} from './core/word-editing';
 import {createProjectEditState,markProjectEdited,setProjectDraftChanged,acknowledgeProjectSave,resetProjectEditState,hasUnsavedProjectChanges} from './core/project-edit-state';
 import {settingsDialogRect,nextSettingsWidth,requiredSettingsOuterWidth} from './core/settings-dialog-geometry';
-import {planManualSave,isMatchingBundleSaveReply,bundleSaveSucceeded,layoutTitle,DEFAULT_TITLE_STYLE} from './core';
+import {planManualSave,isMatchingBundleSaveReply,bundleSaveSucceeded,tryLayoutTitle,DEFAULT_TITLE_STYLE} from './core';
 import type {BundleSaveOperation,PresentationProject,ScriptToVideoInput} from './core';
 import type {AppSettings} from './core/app-settings';
 type DesktopMessage =
@@ -187,7 +187,7 @@ function App(){
  const editorFontSize=appSettings.rightFont.size;
  const style=project?.style??settingsToStyle(appSettings);
  const titleStyle=useMemo(()=>({...DEFAULT_TITLE_STYLE,...(project?.titleStyle??appSettings.titleStyle)}),[project?.titleStyle,appSettings.titleStyle]);
- const titleLayout=useMemo(()=>layoutTitle(title,titleStyle,canvasWidth-2*style.paddingX,measureWithCanvas(titleStyle.fontFamily,titleStyle.fontSize,titleStyle.bold?700:400)),[title,titleStyle,canvasWidth,style.paddingX]);
+ const titleLayout=useMemo(()=>tryLayoutTitle(title,titleStyle,canvasWidth-2*style.paddingX,measureWithCanvas(titleStyle.fontFamily,titleStyle.fontSize,titleStyle.bold?700:400)),[title,titleStyle,canvasWidth,style.paddingX]);
  const displayedSettings=useMemo(()=>project?projectStyleToSettings(style,project.canvas,{...appSettings,titleStyle:{...DEFAULT_TITLE_STYLE,...(project.titleStyle??appSettings.titleStyle)}}):appSettings,[project,style,appSettings]);
  // A multiline title grows and shrinks with its content and available editor width.
  useLayoutEffect(()=>{
@@ -235,7 +235,7 @@ function App(){
   setNotices(prev=>prev.filter(n=>n.id!==id));
  };
  useEffect(()=>{let frame=0;const tick=()=>{if(mediaRef.current)setTime(mediaRef.current.currentTime);frame=requestAnimationFrame(tick)};frame=requestAnimationFrame(tick);return()=>cancelAnimationFrame(frame)},[]);
- const plan=useMemo(()=>{if(!words.length||canvasHeight-mediaHeight<=0)return undefined;try{return paginate(words,style,canvasWidth,canvasHeight-mediaHeight,measureWithCanvas(style.fontFamily,style.fontSize,style.fontWeight),titleLayout.height)}catch{return undefined}},[words,style,canvasWidth,canvasHeight,mediaHeight,titleLayout.height]);
+ const plan=useMemo(()=>{if(!words.length||canvasHeight-mediaHeight<=0||titleLayout.error)return undefined;try{return paginate(words,style,canvasWidth,canvasHeight-mediaHeight,measureWithCanvas(style.fontFamily,style.fontSize,style.fontWeight),titleLayout.height)}catch{return undefined}},[words,style,canvasWidth,canvasHeight,mediaHeight,titleLayout.height,titleLayout.error]);
  const seek=(t:number)=>{const v=mediaRef.current;if(!v)return;v.currentTime=Math.max(0,Math.min(Number.isFinite(v.duration)?v.duration:t,t));setTime(v.currentTime)};
  const toggle=()=>{const v=mediaRef.current;if(v){if(v.paused)void v.play().catch(e=>notify(`播放失败：${String(e)}`,true));else v.pause()}};
  const stop=()=>{mediaRef.current?.pause();seek(0)};
@@ -291,6 +291,7 @@ function App(){
   if(pendingBundleSaveRef.current||pendingExportRef.current||exporting)
    return notify('已有保存或导出任务正在进行。',true);
   if(importing||reloading)return notify('正在加载文件，请稍后再导出。',true);
+  if(titleLayout.error)return notify(`标题无法排版：${titleLayout.error}。请调整字号或画布宽度。`,true);
   if(!project||!mediaUrl||!duration||!plan)
    return notify('尚未载入可导出的媒体和字幕，或画布无法排版',true);
   let exportWords=words;
