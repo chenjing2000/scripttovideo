@@ -65,12 +65,12 @@ export function assertRefinedForExport(refined,original){
 }
 
 /** Strict admission check for a saved project supplied directly to the export CLI. */
-export function assertProjectForExport(project,{mediaName,subtitleName,subtitleBytes,mediaKind,transcript}){
+function assertSharedProjectForExport(project,{mediaName,subtitleName,subtitleBytes,mediaKind}){
  const object=x=>!!x&&typeof x==='object'&&!Array.isArray(x);
  const finite=n=>typeof n==='number'&&Number.isFinite(n);
  const color=s=>typeof s==='string'&&/^#[0-9a-f]{6}$/i.test(s);
- if(!object(project)||project.format!=='script-to-video-project'||project.schemaVersion!==2)
-  throw new Error('Expected ScriptToVideo project v2');
+ if(!object(project)||project.format!=='script-to-video-project'||project.schemaVersion!==3||'overrides' in project)
+  throw new Error('Expected presentation-only project v3');
  const source=project.source;
  if(!object(source)||typeof source.videoName!=='string'||typeof source.subtitleName!=='string'||
     source.videoName.toLowerCase()!==mediaName.toLowerCase()||source.subtitleName.toLowerCase()!==subtitleName.toLowerCase())
@@ -101,21 +101,10 @@ export function assertProjectForExport(project,{mediaName,subtitleName,subtitleB
   throw new Error('Invalid project minScrollDuration');
  for(const key of ['textColor','highlightColor','backgroundColor'])
   if(!color(style[key]))throw new Error(`Invalid project color: ${key}`);
- if(!object(project.overrides))throw new Error('Project overrides must be an object');
- const ids=new Set(transcript.segments.flatMap((segment,si)=>segment.words.map((_,wi)=>`s${si}w${wi}`)));
- for(const [id,override] of Object.entries(project.overrides)){
-  if(!ids.has(id)||!object(override))throw new Error(`Invalid project word override: ${id}`);
-  if(override.display!==undefined&&(typeof override.display!=='string'||!override.display.trim()||/\s/u.test(override.display.trim())))
-   throw new Error(`Invalid project display override: ${id}`);
-  if(override.hidden!==undefined&&typeof override.hidden!=='boolean')throw new Error(`Invalid project hidden override: ${id}`);
-  if(override.breakParagraph!==undefined&&typeof override.breakParagraph!=='boolean')throw new Error(`Invalid project paragraph override: ${id}`);
- }
  return project;
 }
 
-/** v3 projects contain presentation settings only; validate shared fields
- * through the established v2 contract without accepting word overrides.
- */
+/** Only v3 presentation projects are valid persisted/exportable projects. */
 export function assertPresentationProjectForExport(project,context){
  if(!project||typeof project!=='object'||Array.isArray(project)||
     project.schemaVersion!==3||'overrides' in project)
@@ -128,6 +117,6 @@ export function assertPresentationProjectForExport(project,context){
      !Number.isInteger(t.paragraphGap)||t.paragraphGap<0||t.paragraphGap>200||
      typeof t.color!=='string'||!/^#[0-9a-f]{6}$/i.test(t.color))throw Error('Invalid project title style');
  }
- assertProjectForExport({...project,schemaVersion:2,overrides:{}},context);
+ assertSharedProjectForExport(project,context);
  return project;
 }
