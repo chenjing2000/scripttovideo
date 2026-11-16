@@ -8,6 +8,7 @@ export type RefinedOpenPlan =
  | {kind:'create';refined:ScriptToVideoInput;txt:string};
 
 /** Open an immutable source v3 with an optional existing current-version v3 pair.
+ * A v3 project may exist without a revised file; source v3 is then authoritative.
  * Only v3 presentation projects are recognized.
  */
 export function planRefinedOpen(source:unknown,existingRefined:unknown|null,project:unknown|null):RefinedOpenPlan{
@@ -18,8 +19,6 @@ export function planRefinedOpen(source:unknown,existingRefined:unknown|null,proj
  if(project!==null){
   if(!validatePresentationProject(project))
    throw new Error('仅支持 project v3，不兼容旧工程文件');
-  if(existingRefined===null)
-   throw new Error('project v3 缺少 .script.revise.json，禁止从原始字幕重建并丢失修改');
  }
  if(existingRefined!==null){
   validateScriptToVideo(existingRefined);
