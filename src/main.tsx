@@ -21,7 +21,7 @@ type DesktopMessage =
  | {kind:'settings';settings:unknown}
  | {kind:'reload-failed';message:string}
  | {kind:'saved';message:string;revision:number}
- | {kind:'refined-created';fingerprint:string;subtitleName:string;message:string}
+ | {kind:'refined-created';fingerprint:string;subtitleName:string;message:string;operationId?:number}
  | {kind:'refined-create-failed';fingerprint:string;subtitleName:string;message:string}
  | {kind:'refined-text-repaired';fingerprint:string;subtitleName:string;message:string}
  | {kind:'refined-repair-failed';fingerprint:string;subtitleName:string;message:string}
@@ -111,7 +111,8 @@ function App(){
  const clearReload=()=>{reloadingRef.current=false;setReloading(false)};
  const expectedDesktopImportIdRef=useRef<string|null>(null);
  const committedPairAckRef=useRef<string|null>(null);
- const activeRefinedSourceRef=useRef<{fingerprint:string;subtitleName:string}|null>(null);
+ const activeRefinedSourceRef=useRef<{fingerprint:string;subtitleName:string;operationId:number}|null>(null);
+ const nextRefinedOperationIdRef=useRef(0);
  const changedDuringImport=()=>{
   const base=importBaseStateRef.current,now=projectEditStateRef.current;
   return base.currentRevision!==now.currentRevision||base.draftChanged!==now.draftChanged;
@@ -322,7 +323,8 @@ function App(){
     }
    }catch(e){blocked=true;notify(`工程读取失败，已禁止覆盖原工程文件：${String(e)}`,true)}}
    if(blocked)throw Error('工程来源或格式校验失败，已拒绝切换到不安全的工作副本');
-   activeRefinedSourceRef.current={fingerprint:data.fingerprint,subtitleName:data.subtitleName};
+   const operationId=++nextRefinedOperationIdRef.current;
+   activeRefinedSourceRef.current={fingerprint:data.fingerprint,subtitleName:data.subtitleName,operationId};
    // Until the v3 save transaction exists, the legacy v2 save action is unsafe
    // whenever refined is authoritative or being created.
    setContentSaveUnavailable(Boolean(desktop));
@@ -336,7 +338,7 @@ function App(){
    // separate verified migration transaction before any refined write.
    if(desktop&&openPlan.kind==='create'&&data.project===null){
     desktop.postMessage({kind:'refined-create',fingerprint:data.fingerprint,
-     subtitleName:data.subtitleName,refined:openPlan.refined,text:openPlan.txt});
+     subtitleName:data.subtitleName,operationId,refined:openPlan.refined,text:openPlan.txt});
    }
    if(desktop&&openPlan.kind==='existing'){
     desktop.postMessage({kind:'refined-repair-text',fingerprint:data.fingerprint,
@@ -344,7 +346,7 @@ function App(){
    }
    if(desktop&&(openPlan.kind==='recover-migration'||(openPlan.kind==='create'&&openPlan.legacyProject))){
     desktop.postMessage({kind:'refined-migrate',fingerprint:data.fingerprint,
-     subtitleName:data.subtitleName,legacyProject:openPlan.legacyProject,
+     subtitleName:data.subtitleName,operationId,legacyProject:openPlan.legacyProject,
      projectV3:finalizeLegacyProject(openPlan.legacyProject),
      refined:openPlan.refined,text:openPlan.txt,recovery:openPlan.kind==='recover-migration'});
    }
@@ -358,7 +360,7 @@ function App(){
  };
  useEffect(()=>{const receive=({data}:MessageEvent<DesktopMessage>)=>{if(data.kind==='settings'){if(validateSettings(data.settings)){loadedSettingsRef.current=true;appSettingsRef.current=data.settings;setAppSettings(data.settings)}}else if(data.kind==='import-candidates')void runDesktopProbe(data);else if(data.kind==='pair')applyPair(data);else if(data.kind==='reload-failed'){clearReload();notify(`重新加载失败：${data.message}`,true);}else if(data.kind==='refined-created'||data.kind==='refined-text-repaired'||data.kind==='refined-create-failed'||data.kind==='refined-repair-failed'||data.kind==='refined-migrated'||data.kind==='refined-migrate-failed'){
    const active=activeRefinedSourceRef.current;
-   if(active&&active.fingerprint===data.fingerprint&&active.subtitleName.toLowerCase()===data.subtitleName.toLowerCase()){
+   if(active&&active.operationId===data.operationId&&active.fingerprint===data.fingerprint&&active.subtitleName.toLowerCase()===data.subtitleName.toLowerCase()){
     setRefinedPreparationPending(false);
     if(data.kind==='refined-create-failed'||data.kind==='refined-repair-failed'||data.kind==='refined-migrate-failed'){
      setProjectLoadBlocked(true);
