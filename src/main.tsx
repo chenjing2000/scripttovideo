@@ -477,16 +477,18 @@ function App(){
    }
   }else if(data.kind==='project-bundle-saved'||data.kind==='project-bundle-save-failed'){
    const pending=pendingBundleSaveRef.current;
+   const exportRequest=pendingExportRef.current;
    if(!pending||!isMatchingBundleSaveReply(pending,data,activeRefinedSourceRef.current)){
     notify('忽略与当前工程不匹配的保存响应。',true);
    }else{
     pendingBundleSaveRef.current=null;
+    if(exportRequest?.operationId===pending.operationId)pendingExportRef.current=null;
+    let saved=false;
+    let savedProject:PresentationProject|null=null;
     if(bundleSaveSucceeded(data)){
      const disk=confirmedDiskSnapshotRef.current;
-     if(disk&&disk.fingerprint===pending.fingerprint&&disk.subtitleName.toLowerCase()===pending.subtitleName.toLowerCase()){
-      // The native host rereads all three files after committing them.
-      // Never promote a proposed request payload into an acknowledged disk
-      // snapshot: the persisted JSON may retain its previous serialization.
+     if(disk&&disk.fingerprint===pending.fingerprint&&
+        disk.subtitleName.toLowerCase()===pending.subtitleName.toLowerCase()){
       try{
        if(typeof data.refinedSnapshot!=='string'||typeof data.textSnapshot!=='string'||
           typeof data.projectSnapshot!=='string')
@@ -501,7 +503,9 @@ function App(){
        confirmedDiskSnapshotRef.current={...disk,refined:persistedRefined,text:data.textSnapshot,project:persistedProject};
        const next=acknowledgeProjectSave(projectEditStateRef.current,pending.revision);
        updateProjectEditState(next);
-       notify(hasUnsavedProjectChanges(next)?'已保存请求时的版本；后续修改仍未保存。':data.message);
+       saved=true;savedProject=persistedProject;
+       if(!exportRequest)
+        notify(hasUnsavedProjectChanges(next)?'已保存请求时的版本；后续修改仍未保存。':data.message);
       }catch(error){
        confirmedDiskSnapshotRef.current=null;
        setContentSaveUnavailable(true);
@@ -509,6 +513,19 @@ function App(){
       }
      }
     }else notify(`保存失败：${data.message}`,true);
+    if(exportRequest?.operationId===pending.operationId){
+     if(saved&&savedProject&&
+        projectEditStateRef.current.currentRevision===exportRequest.revision&&
+        !hasUnsavedProjectChanges(projectEditStateRef.current)){
+      setExportTaskNotice('工程已保存，正在启动视频导出…');
+      desktop?.postMessage({kind:'export',project:savedProject,duration:exportRequest.duration,
+       videoHeight:exportRequest.videoHeight,pagePlan:exportRequest.pagePlan});
+     }else{
+      setExporting(false);
+      clearExportTaskNotice();
+      notify('导出已取消：保存未成功确认，或保存期间工程发生新的修改。',true);
+     }
+    }
    }
   }else if(data.kind==='dependency-confirm')setDependency({mode:'confirm',...data});else if(data.kind==='dependency-progress')setDependency({mode:'progress',title:data.title,message:data.message});else if(data.kind==='dependency-cancelling'){const d=dependencyDialogRef.current;if(d?.mode==='progress')setDependency({mode:'cancelling',title:d.title,message:'正在停止安装任务并清理临时文件……'})}else if(data.kind==='dependency-end')setDependency(null);else if(data.kind==='export-cancelling')setExportTaskNotice('正在取消导出，等待渲染进程退出并清理缓存…',false);else if(data.kind==='dependency-failed')setDependency({mode:'error',message:data.message});else if(data.kind==='status'){if(data.error&&!data.busy&&reloadingRef.current)clearReload();setExporting(data.busy);if(data.busy){if(data.error)notify(data.message,true);else setExportTaskNotice(data.message,data.canCancel!==false)}else{clearExportTaskNotice();if(!data.error&&dependencyDialogRef.current?.mode==='progress')setDependency(null);if(!dependencyDialogRef.current||dependencyDialogRef.current.mode!=='error')notify(data.message,!!data.error)}}};desktop?.addEventListener('message',receive);return()=>desktop?.removeEventListener('message',receive)},[]);
  useEffect(()=>{desktop?.postMessage({kind:'ready'})},[]);
