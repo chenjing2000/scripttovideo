@@ -262,14 +262,14 @@ html,body,#root{height:100%;min-width:0;min-height:0}
 
 /* M6.22: title editing remains visible above the transcript. */
 .title-editor-wrap{display:flex;justify-content:center;align-items:flex-start;width:100%;padding:0 0 14px}
-.title-editor{display:block;width:80%;min-width:min(60px,100%);max-width:100%;min-height:70px;resize:vertical;
+.title-editor{display:block;width:80%;min-width:min(60px,100%);max-width:100%;min-height:0;resize:none;overflow:hidden;
  border:1px solid #b9c5ce;border-radius:6px;padding:10px 12px;box-sizing:border-box;
- font-size:20px;line-height:1.4;text-align:center;overflow-wrap:anywhere}
+ font-size:inherit;line-height:inherit;text-align:left;overflow-wrap:anywhere}
 .title-editor:focus-visible{outline:2px solid #0f6cbd;outline-offset:1px}
 .title-editor:disabled{opacity:.65;cursor:default}
 
 /* Title bold toggle in the final two cells of the title settings grid. */
-.m65-toggle-holder{grid-column:span 2;display:flex;align-items:center;justify-content:center}
+.m65-toggle-holder{grid-column:3 / 5;display:flex;align-items:center;justify-content:flex-start;padding-left:64px}
 .m65-bold-toggle{width:70px;height:34px;border-radius:6px;border:1px solid #b9c5ce;background:#fff;color:#253949;font-size:14px;text-align:center;padding:0;display:flex;align-items:center;justify-content:center}
 .m65-bold-toggle.is-active{background:#d3e5eb;border-color:#7196a4;font-weight:700}
 .m65-bold-toggle:focus-visible{outline:2px solid #0f6cbd;outline-offset:2px}
