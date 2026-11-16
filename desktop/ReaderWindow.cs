@@ -826,6 +826,20 @@ internal sealed class ReaderWindow : Window
         Title = hasUnsavedChanges ? "ScriptToVideo ●" : "ScriptToVideo";
     }
 
+    // Return the actual persisted bytes only after the native operation
+    // succeeds. The frontend must never infer a disk snapshot from its request.
+    private object ReadConfirmedPreparationSnapshot()
+    {
+        var current = source ?? throw new InvalidOperationException("没有正在打开的字幕。");
+        var paths = RefinedStorage.Resolve(current.Transcript);
+        var refined = RefinedStorage.ReadExisting(paths)
+            ?? throw new IOException("无法读取已保存的 refined。");
+        var text = File.ReadAllText(paths.Text, Encoding.UTF8);
+        var project = File.Exists(current.Project)
+            ? File.ReadAllText(current.Project, Encoding.UTF8) : null;
+        return new { refined, text, project };
+    }
+
     private void RepairRefinedText(JsonElement request)
     {
         var current = source ?? throw new InvalidOperationException("没有正在打开的字幕。");
@@ -852,7 +866,9 @@ internal sealed class ReaderWindow : Window
         // acknowledge readiness if it differs from the refined snapshot.
         if (!string.Equals(File.ReadAllText(paths.Text, Encoding.UTF8), text, StringComparison.Ordinal))
             throw new InvalidDataException("现有 TXT 与 refined 内容不一致，禁止自动覆盖或继续导出。");
-        Send(new { kind = "refined-text-repaired", fingerprint, subtitleName,
+        var snapshot = ReadConfirmedPreparationSnapshot();
+        Send(new { refinedSnapshot = snapshot.refined, textSnapshot = snapshot.text,
+            projectSnapshot = snapshot.project, kind = "refined-text-repaired", fingerprint, subtitleName,
             operationId = request.GetProperty("operationId").GetInt32(),
             message = created ? "缺失的 TXT 已恢复。" : "TXT 已存在，无需恢复。" });
     }
@@ -893,7 +909,9 @@ internal sealed class ReaderWindow : Window
         // Refined is now the authoritative content store. The old v2 project
         // save command must never create a parallel, conflicting overrides file.
         projectSaveLocked = true;
-        Send(new { kind = "refined-created", fingerprint = current.Fingerprint,
+        var snapshot = ReadConfirmedPreparationSnapshot();
+        Send(new { refinedSnapshot = snapshot.refined, textSnapshot = snapshot.text,
+            projectSnapshot = snapshot.project, kind = "refined-created", fingerprint = current.Fingerprint,
             operationId = request.GetProperty("operationId").GetInt32(),
             subtitleName, message = "refined 和 TXT 已创建。" });
     }
@@ -980,7 +998,9 @@ internal sealed class ReaderWindow : Window
         // If replacement fails, the original v2 project remains recoverable.
         AtomicWrite(current.Project, v3.GetRawText());
         projectSaveLocked = true;
-        Send(new { kind = "refined-migrated", fingerprint, subtitleName,
+        var snapshot = ReadConfirmedPreparationSnapshot();
+        Send(new { refinedSnapshot = snapshot.refined, textSnapshot = snapshot.text,
+            projectSnapshot = snapshot.project, kind = "refined-migrated", fingerprint, subtitleName,
             operationId = request.GetProperty("operationId").GetInt32(),
             message = "旧工程已迁移到 v3，refined 和 TXT 已验证。" });
     }
