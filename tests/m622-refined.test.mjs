@@ -9,8 +9,8 @@ const {refinedFileNames}=require('../.tmp-core/refined-paths.js');
 const {planRefinedOpen}=require('../.tmp-core/refined-open.js');
 const {validatePresentationProject,toPresentationProject}=require('../.tmp-core/project-v3.js');
 
-const source={script_to_video:{format:'script-to-video',schemaVersion:2},language:'en',segments:[{words:[{word:'Hello',start:0,end:0.4},{word:'world.',start:0.4,end:1}]}]};
-test('M6.22: v2 to full v3 refined, title and word edits survive round trip',()=>{
+const source={script_to_video:{format:'script-to-video',schemaVersion:3},title:'',language:'en',segments:[{words:[{word:'Hello',start:0,end:0.4},{word:'world.',start:0.4,end:1}]}]};
+test('M6.22: v3 original to v3 refined, title and word edits survive round trip',()=>{
  const parsed=parseScriptToVideo(source);
  const words=parsed.words.map((w,i)=>i===0?{...w,display:'Hi',breakParagraph:true}:w);
  const refined=buildRefinedScript(source,'Edited title',words);
@@ -118,12 +118,13 @@ test('M6.22: refined does not preserve stale duplicate word_segments',()=>{
 
 
 
-test('M6.22: revised v3 must never be opened or regenerated as immutable source v2',()=>{
- const revised=buildRefinedScript(source,'A title',parseScriptToVideo(source).words);
- assert.throws(()=>planRefinedOpen(revised,null,null),/v2/);
- assert.throws(()=>buildRefinedScript(revised,'new title',parseScriptToVideo(revised).words),/v2/);
- 
+test('M6.22 breaking: v2 subtitle input is rejected at every core entry point',()=>{
+ const old={...source,script_to_video:{...source.script_to_video,schemaVersion:2}};
+ assert.throws(()=>parseScriptToVideo(old),/v3/);
+ assert.throws(()=>planRefinedOpen(old,null,null),/v3/);
+ assert.throws(()=>buildRefinedScript(old,'new title',parseScriptToVideo(source).words),/v3/);
 });
+
 
 test('M6.22 breaking: old project v2 is rejected with or without revised content',()=>{
  const old=createProject('demo.mp4','demo.script.json',parseScriptToVideo(source).words);
