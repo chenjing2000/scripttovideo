@@ -85,6 +85,7 @@ function App(){
  const [editorAvailableWidth,setEditorAvailableWidth]=useState(240);
  const [projectLoadBlocked,setProjectLoadBlocked]=useState(false);
   const [contentSaveUnavailable,setContentSaveUnavailable]=useState(false);
+ const [refinedPreparationPending,setRefinedPreparationPending]=useState(false);
  const [projectEditState,setProjectEditState]=useState(createProjectEditState());
  const projectEditStateRef=useRef(projectEditState);
  const wordsRef=useRef<Word[]>([]);wordsRef.current=words;
@@ -227,6 +228,7 @@ function App(){
   if(mediaState!=='ready'){notify(`媒体尚未就绪：${mediaName||'未选择媒体'}`,true);return}
   if(!desktop){notify('请使用 Windows 桌面版导出 MP4',true);return}
   if(projectLoadBlocked){notify('现有工程未能通过验证，已禁止导出。请检查工程文件并重新打开字幕。',true);return}
+   if(refinedPreparationPending){notify('refined/TXT 尚未完成磁盘确认，请稍后再导出。',true);return}
   if(!project||!mediaUrl||!duration||!plan){notify('尚未载入可导出的媒体和字幕，或画布无法排版',true);return}
   let exportWords=words;
   const active=editRef.current;
@@ -393,7 +395,7 @@ function App(){
    const next=createProject(match.name,file.name,parsed.words);
    next.style=settingsToStyle(appSettingsRef.current);next.canvas={...appSettingsRef.current.output};next.mediaKind=match.kind;
    keepUrl=url;
-   setProjectLoadBlocked(false);setContentSaveUnavailable(false);
+   setProjectLoadBlocked(false);setContentSaveUnavailable(false);setRefinedPreparationPending(false);
    setMediaUrl(url);setMediaName(match.name);setKind(match.kind);setProject(next);
    setWords(parsed.words);setEditing(null);setWordTool(null);resetProjectDirtyState();
    setVideoRatio(null);setMediaState('loading');setDuration(0);
@@ -545,7 +547,7 @@ function App(){
     <span className="transport-time">{timeLabel(time)} / {timeLabel(duration)}</span>
     <div className="transport-row"><input aria-label="进度" type="range" min={0} max={duration||1} step="0.01" value={time} onChange={e=>seek(Number(e.target.value))}/>{iconButton(playing?'pause':'play',playing?'暂停 Space':'播放 Space',toggle)}{iconButton('stop','停止 X',stop)}</div>
    </div></section>
-   <aside><div className="toolbar"><span className="app-label">ScriptToVideo {hasUnsavedProjectChanges(projectEditState)?'●':''}</span>{iconButton('settings','设置',openSettings)}{iconButton('reload','重新加载当前文章',requestReload,!desktop||!project||exporting||importing||reloading)}{iconButton('import',mediaName?`导入 JSON Ctrl+O · 当前媒体：${mediaName}`:'导入 JSON Ctrl+O',openPicker,exporting||importing||reloading)}{importing&&!reloading&&iconButton('stop','取消当前媒体导入',cancelPendingProbe)}{iconButton('save','保存工程 Ctrl+S',doSave,!project||exporting||projectLoadBlocked||contentSaveUnavailable||importing||reloading)}{iconButton('export','导出 MP4',doExport,!project||exporting||projectLoadBlocked||importing||reloading)}</div>
+   <aside><div className="toolbar"><span className="app-label">ScriptToVideo {hasUnsavedProjectChanges(projectEditState)?'●':''}</span>{iconButton('settings','设置',openSettings)}{iconButton('reload','重新加载当前文章',requestReload,!desktop||!project||exporting||importing||reloading)}{iconButton('import',mediaName?`导入 JSON Ctrl+O · 当前媒体：${mediaName}`:'导入 JSON Ctrl+O',openPicker,exporting||importing||reloading)}{importing&&!reloading&&iconButton('stop','取消当前媒体导入',cancelPendingProbe)}{iconButton('save','保存工程 Ctrl+S',doSave,!project||exporting||projectLoadBlocked||contentSaveUnavailable||importing||reloading)}{iconButton('export','导出 MP4',doExport,!project||exporting||projectLoadBlocked||refinedPreparationPending||importing||reloading)}</div>
     <div className="panel"><div ref={transcriptRef} className="transcript" style={{fontFamily:appSettings.rightFont.family,fontSize:editorFontSize,fontWeight:400,lineHeight:1.5,color:appSettings.rightFont.color,backgroundColor:appSettings.rightFont.backgroundColor}}>
      {words.map(w=><React.Fragment key={w.id}>{w.hidden?null:edit?.id===w.id?<InlineWordEditor key={w.id} text={edit.text} fontFamily={appSettings.rightFont.family} fontSize={editorFontSize} color={appSettings.rightFont.color} availableWidth={editorAvailableWidth}
        onText={text=>setEditing({id:w.id,text})} onCommit={commitEditing} onCancel={cancelEditing}/>
