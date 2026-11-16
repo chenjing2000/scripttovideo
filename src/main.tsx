@@ -86,6 +86,7 @@ function App(){
  const transcriptRef=useRef<HTMLDivElement|null>(null);
  const [editorAvailableWidth,setEditorAvailableWidth]=useState(240);
  const [projectLoadBlocked,setProjectLoadBlocked]=useState(false);
+  const [contentSaveUnavailable,setContentSaveUnavailable]=useState(false);
  const [projectEditState,setProjectEditState]=useState(createProjectEditState());
  const projectEditStateRef=useRef(projectEditState);
  const wordsRef=useRef<Word[]>([]);wordsRef.current=words;
@@ -214,7 +215,8 @@ function App(){
  const doSave=()=>{if(exporting)return notify('视频导出期间暂不支持保存工程，请在导出完成后保存。',true);
   if(importing||reloading)return notify('正在加载文件，请完成后再保存。',true);
   if(!project)return notify('尚未打开标准字幕',true);
-  if(projectLoadBlocked)return notify('现有工程未能通过验证，已禁止覆盖。请检查工程文件并重新打开字幕。',true);
+  if(projectLoadBlocked)return notify('工程数据验证失败，已禁止覆盖。请检查文件后重新打开字幕。',true);
+   if(contentSaveUnavailable)return notify('新版 refined/project v3 保存尚未实现，当前禁止使用旧版工程保存，以免丢失正文修改。',true);
   let currentWords=words;const active=editRef.current;
   if(active){try{currentWords=updateWord(words,active.id,active.text)}catch(error){notify(`无法保存工程：请先修正正在编辑的单词。${String(error)}`,true);return}if(!commitEditing())return}
   const p=saveProjectView(project,currentWords),revision=projectEditStateRef.current.currentRevision;
@@ -415,7 +417,7 @@ function App(){
    const next=createProject(match.name,file.name,parsed.words);
    next.style=settingsToStyle(appSettingsRef.current);next.canvas={...appSettingsRef.current.output};next.mediaKind=match.kind;
    keepUrl=url;
-   setProjectLoadBlocked(false);
+   setProjectLoadBlocked(false);setContentSaveUnavailable(false);
    setMediaUrl(url);setMediaName(match.name);setKind(match.kind);setProject(next);
    setWords(parsed.words);setEditing(null);setWordTool(null);resetProjectDirtyState();
    setVideoRatio(null);setMediaState('loading');setDuration(0);
@@ -566,7 +568,7 @@ function App(){
     <span className="transport-time">{timeLabel(time)} / {timeLabel(duration)}</span>
     <div className="transport-row"><input aria-label="进度" type="range" min={0} max={duration||1} step="0.01" value={time} onChange={e=>seek(Number(e.target.value))}/>{iconButton(playing?'pause':'play',playing?'暂停 Space':'播放 Space',toggle)}{iconButton('stop','停止 X',stop)}</div>
    </div></section>
-   <aside><div className="toolbar"><span className="app-label">ScriptToVideo {hasUnsavedProjectChanges(projectEditState)?'●':''}</span>{iconButton('settings','设置',openSettings)}{iconButton('reload','重新加载当前文章',requestReload,!desktop||!project||exporting||importing||reloading)}{iconButton('import',mediaName?`导入 JSON Ctrl+O · 当前媒体：${mediaName}`:'导入 JSON Ctrl+O',openPicker,exporting||importing||reloading)}{importing&&!reloading&&iconButton('stop','取消当前媒体导入',cancelPendingProbe)}{iconButton('save','保存工程 Ctrl+S',doSave,!project||exporting||projectLoadBlocked||importing||reloading)}{iconButton('text-export','导出正文 TXT',doExportText,!project||exporting||importing||reloading)}{iconButton('export','导出 MP4',doExport,!project||exporting||projectLoadBlocked||importing||reloading)}</div>
+   <aside><div className="toolbar"><span className="app-label">ScriptToVideo {hasUnsavedProjectChanges(projectEditState)?'●':''}</span>{iconButton('settings','设置',openSettings)}{iconButton('reload','重新加载当前文章',requestReload,!desktop||!project||exporting||importing||reloading)}{iconButton('import',mediaName?`导入 JSON Ctrl+O · 当前媒体：${mediaName}`:'导入 JSON Ctrl+O',openPicker,exporting||importing||reloading)}{importing&&!reloading&&iconButton('stop','取消当前媒体导入',cancelPendingProbe)}{iconButton('save','保存工程 Ctrl+S',doSave,!project||exporting||projectLoadBlocked||contentSaveUnavailable||importing||reloading)}{iconButton('text-export','导出正文 TXT',doExportText,!project||exporting||importing||reloading)}{iconButton('export','导出 MP4',doExport,!project||exporting||projectLoadBlocked||importing||reloading)}</div>
     <div className="panel"><div ref={transcriptRef} className="transcript" style={{fontFamily:appSettings.rightFont.family,fontSize:editorFontSize,fontWeight:400,lineHeight:1.5,color:appSettings.rightFont.color,backgroundColor:appSettings.rightFont.backgroundColor}}>
      {words.map(w=><React.Fragment key={w.id}>{w.hidden?null:edit?.id===w.id?<InlineWordEditor key={w.id} text={edit.text} fontFamily={appSettings.rightFont.family} fontSize={editorFontSize} color={appSettings.rightFont.color} availableWidth={editorAvailableWidth}
        onText={text=>setEditing({id:w.id,text})} onCommit={commitEditing} onCancel={cancelEditing}/>
