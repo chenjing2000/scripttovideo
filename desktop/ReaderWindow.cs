@@ -1397,10 +1397,13 @@ internal sealed class ReaderWindow : Window
             using var storedProject = JsonDocument.Parse(File.ReadAllText(current.Project, Encoding.UTF8));
             if (!JsonElement.DeepEquals(storedProject.RootElement, projectElement))
                 throw new IOException("导出工程与磁盘已保存版本不一致，禁止导出。");
+            if (!request.TryGetProperty("refined", out var requestedRefined))
+                throw new InvalidDataException("导出请求缺少已确认的 refined 快照。");
             using var storedRefined = JsonDocument.Parse(File.ReadAllText(refinedPaths.Refined, Encoding.UTF8));
             if (storedRefined.RootElement.GetProperty("script_to_video")
-                    .GetProperty("schemaVersion").GetInt32() != 3)
-                throw new InvalidDataException("refined 不是 v3 字幕。");
+                    .GetProperty("schemaVersion").GetInt32() != 3 ||
+                !JsonElement.DeepEquals(storedRefined.RootElement, requestedRefined))
+                throw new InvalidDataException("refined 已被外部修改，或与保存确认版本不一致。");
         }
         else if (File.Exists(refinedPaths.Refined) || Directory.Exists(refinedPaths.Refined))
             throw new InvalidOperationException("refined 已存在，禁止使用旧版导出路径。");
@@ -1459,6 +1462,29 @@ internal sealed class ReaderWindow : Window
             dependencyInstallCancellation = null;
             Send(new { kind = "dependency-end" });
 
+            // Stage immutable copies for this render. Never let the renderer
+            // read mutable workspace files after dependency preparation.
+            string renderOriginal = task.TranscriptPath;
+            string renderRefined = refinedPaths.Refined;
+            if (v3Export)
+            {
+                var renderInputs = Path.Combine(task.CacheDirectory, "input");
+                var originalStem = Path.GetFileNameWithoutExtension(task.TranscriptPath);
+                // originalStem ends with ".script"; remove it for the derived folder.
+                const string originalSuffix = ".script.json";
+                var originalName = Path.GetFileName(task.TranscriptPath);
+                var baseName = originalName[..^originalSuffix.Length];
+                var stagedDerived = Path.Combine(renderInputs, baseName);
+                Directory.CreateDirectory(stagedDerived);
+                renderOriginal = Path.Combine(renderInputs, originalName);
+                renderRefined = Path.Combine(stagedDerived, baseName + ".script.refined.json");
+                await File.WriteAllBytesAsync(renderOriginal, await File.ReadAllBytesAsync(task.TranscriptPath, token), token);
+                await File.WriteAllBytesAsync(renderRefined, await File.ReadAllBytesAsync(refinedPaths.Refined, token), token);
+                using var stagedRefined = JsonDocument.Parse(await File.ReadAllTextAsync(renderRefined, token));
+                if (!JsonElement.DeepEquals(stagedRefined.RootElement, request.GetProperty("refined")) ||
+                    !string.Equals(Fingerprint(renderOriginal), current.Fingerprint, StringComparison.OrdinalIgnoreCase))
+                    throw new IOException("导出输入在快照准备期间发生变化，已终止导出。");
+            }
             snapshot = Path.Combine(tempRoot, $"project-snapshot-{task.Id}.json.tmp");
             await File.WriteAllTextAsync(snapshot, projectElement.GetRawText(), token);
             if (request.TryGetProperty("pagePlan", out var pagePlan))
@@ -1487,9 +1513,9 @@ internal sealed class ReaderWindow : Window
             ];
             if (v3Export)
             {
-                arguments[4] = refinedPaths.Refined; // value following --json
+                arguments[4] = renderRefined; // value following --json
                 start.ArgumentList.Add("--source-json");
-                start.ArgumentList.Add(task.TranscriptPath);
+                start.ArgumentList.Add(renderOriginal);
             }
             foreach (var argument in arguments) start.ArgumentList.Add(argument);
             if (pagePlanSnapshot != null)
