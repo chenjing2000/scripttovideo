@@ -581,7 +581,7 @@
           "word": "a",
           "start": 38.613,
           "end": 38.633,
-          "score": 1.0
+          "score": 1
         },
         {
           "word": "lazy",
@@ -674,7 +674,7 @@
           "word": "dog",
           "start": 43.122,
           "end": 43.363,
-          "score": 1.0
+          "score": 1
         },
         {
           "word": "person,",
@@ -934,7 +934,7 @@
           "word": "18",
           "start": 58.734,
           "end": 58.774,
-          "score": 1.0
+          "score": 1
         },
         {
           "word": "million",
@@ -1243,7 +1243,7 @@
           "word": "well.",
           "start": 76.687,
           "end": 76.888,
-          "score": 1.0,
+          "score": 1,
           "breakParagraph": true
         }
       ],
@@ -1821,7 +1821,7 @@
       "word": "a",
       "start": 38.613,
       "end": 38.633,
-      "score": 1.0
+      "score": 1
     },
     {
       "word": "lazy",
@@ -1905,7 +1905,7 @@
       "word": "dog",
       "start": 43.122,
       "end": 43.363,
-      "score": 1.0
+      "score": 1
     },
     {
       "word": "person,",
@@ -2157,7 +2157,7 @@
       "word": "18",
       "start": 58.734,
       "end": 58.774,
-      "score": 1.0
+      "score": 1
     },
     {
       "word": "million",
@@ -2457,7 +2457,7 @@
       "word": "well.",
       "start": 76.687,
       "end": 76.888,
-      "score": 1.0
+      "score": 1
     },
     {
       "word": "But",
@@ -2517,6 +2517,7 @@
   "language": "en",
   "script_to_video": {
     "format": "script-to-video",
-    "schemaVersion": 2
-  }
+    "schemaVersion": 3
+  },
+  "title": ""
 }
