@@ -16,7 +16,7 @@ test('M6.6 paragraph button label reflects current effective break',()=>{
  assert.equal(paragraphActionLabel(true),'取消分段');
 });
 test('M6.6 removing a source paragraph break survives project overrides',()=>{
- const input={language:'en',script_to_video:{format:'script-to-video',schemaVersion:2},segments:[{words:[{word:'First',start:1,end:1.4,breakParagraph:true},{word:'Second',start:1.5,end:1.8}]}]};
+ const input={title:'',language:'en',script_to_video:{format:'script-to-video',schemaVersion:3},segments:[{words:[{word:'First',start:1,end:1.4,breakParagraph:true},{word:'Second',start:1.5,end:1.8}]}]};
  const parsed=parseScriptToVideo(input);
  const changed=parsed.words.map((w,i)=>i===0?{...w,breakParagraph:false}:w);
  const overrides=buildOverrides(changed);
@@ -25,7 +25,7 @@ test('M6.6 removing a source paragraph break survives project overrides',()=>{
  assert.equal(parsed.words[0].breakParagraph,true);
 });
 test('M6.6 editing never mutates original timestamps and rejects multiple words',()=>{
- const input={language:'en',script_to_video:{format:'script-to-video',schemaVersion:2},segments:[{words:[{word:'person',start:4.036,end:4.057},{word:'talks',start:4.06,end:4.2}]}]};
+ const input={title:'',language:'en',script_to_video:{format:'script-to-video',schemaVersion:3},segments:[{words:[{word:'person',start:4.036,end:4.057},{word:'talks',start:4.06,end:4.2}]}]};
  const parsed=parseScriptToVideo(input);const result=updateWord(parsed.words,'s0w0','persons');
  assert.equal(result[0].display,'persons');
  assert.equal(result[0].start,4.036);assert.equal(result[0].end,4.057);
