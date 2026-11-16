@@ -24,7 +24,7 @@ test('desktop project admission checks override IDs against the parsed source wo
  assert.match(app,/validateProject\(saved,parsed\.words\)/);
 });
 test('settings projection is stable during playback-only renders',()=>{
- assert.match(app,/const displayedSettings=useMemo\(\(\)=>project\?projectStyleToSettings\(style,project\.canvas,\{\.\.\.appSettings,titleStyle:project\.titleStyle\?\?appSettings\.titleStyle\}\):appSettings,\[project,style,appSettings\]\)/);
+ assert.match(app,/const displayedSettings=useMemo\(\(\)=>project\?projectStyleToSettings\(style,project\.canvas,\{\.\.\.appSettings,titleStyle:\{\.\.\.DEFAULT_TITLE_STYLE,\.\.\.\(project\.titleStyle\?\?appSettings\.titleStyle\)\}\}\):appSettings,\[project,style,appSettings\]\)/);
 });
 test('export-cancelling message matches the WPF host payload',()=>{
  assert.match(app,/\{kind:'export-cancelling'\}/);
