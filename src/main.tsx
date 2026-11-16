@@ -21,6 +21,7 @@ type DesktopMessage =
  | {kind:'settings';settings:unknown}
  | {kind:'reload-failed';message:string}
  | {kind:'saved';message:string;revision:number}
+ | {kind:'refined-created';fingerprint:string;subtitleName:string;message:string}
  | {kind:'text-exported';message:string}
  | {kind:'text-export-error';message:string}
  | {kind:'status';message:string;busy:boolean;error?:boolean;canCancel?:boolean}
@@ -338,6 +339,12 @@ function App(){
    transcriptRef.current?.scrollTo({top:0});
    clearReload();
    if(data.requestId)committedPairAckRef.current=data.requestId;
+   // First-create only for a project-free source. Legacy projects require a
+   // separate verified migration transaction before any refined write.
+   if(desktop&&openPlan.kind==='create'&&data.project===null){
+    desktop.postMessage({kind:'refined-create',fingerprint:data.fingerprint,
+     subtitleName:data.subtitleName,refined:openPlan.refined,text:openPlan.txt});
+   }
    notify(`已找到媒体：${data.mediaName}（${data.mediaKind==='audio'?'音频':'视频'}模式），正在读取媒体信息；${parsed.words.length} 个单词`);
   }catch(e){
    // A failed or malformed new pair must never discard the user's current project.
@@ -346,7 +353,7 @@ function App(){
    notify(`字幕读取失败：${String(e)}`,true);
   }
  };
- useEffect(()=>{const receive=({data}:MessageEvent<DesktopMessage>)=>{if(data.kind==='settings'){if(validateSettings(data.settings)){loadedSettingsRef.current=true;appSettingsRef.current=data.settings;setAppSettings(data.settings)}}else if(data.kind==='import-candidates')void runDesktopProbe(data);else if(data.kind==='pair')applyPair(data);else if(data.kind==='reload-failed'){clearReload();notify(`重新加载失败：${data.message}`,true);}else if(data.kind==='saved'){
+ useEffect(()=>{const receive=({data}:MessageEvent<DesktopMessage>)=>{if(data.kind==='settings'){if(validateSettings(data.settings)){loadedSettingsRef.current=true;appSettingsRef.current=data.settings;setAppSettings(data.settings)}}else if(data.kind==='import-candidates')void runDesktopProbe(data);else if(data.kind==='pair')applyPair(data);else if(data.kind==='reload-failed'){clearReload();notify(`重新加载失败：${data.message}`,true);}else if(data.kind==='refined-created'){notify(data.message);}else if(data.kind==='saved'){
    const nextState=acknowledgeProjectSave(projectEditStateRef.current,data.revision);
    updateProjectEditState(nextState);
    notify(hasUnsavedProjectChanges(nextState)?`${data.message}；当前工程仍有未保存修改`:data.message);
