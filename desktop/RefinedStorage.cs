@@ -49,11 +49,22 @@ internal static class RefinedStorage
     {
         var folder = Path.GetDirectoryName(Path.GetFullPath(path))!;
         Directory.CreateDirectory(folder);
-        using var stream = new FileStream(path, FileMode.CreateNew, FileAccess.Write,
-            FileShare.None, 4096, FileOptions.WriteThrough);
-        var bytes = new UTF8Encoding(false).GetBytes(content);
-        stream.Write(bytes);
-        stream.Flush(true);
+        var temp = Path.Combine(folder, "." + Path.GetFileName(path) + "." + Guid.NewGuid().ToString("N") + ".tmp");
+        try
+        {
+            using (var stream = new FileStream(temp, FileMode.CreateNew, FileAccess.Write,
+                FileShare.None, 4096, FileOptions.WriteThrough))
+            {
+                var bytes = new UTF8Encoding(false).GetBytes(content);
+                stream.Write(bytes);
+                stream.Flush(true);
+            }
+            File.Move(temp, path, overwrite: false);
+        }
+        finally
+        {
+            if (File.Exists(temp)) File.Delete(temp);
+        }
     }
 
     /// <summary>First creation: never overwrite refined. A TXT failure leaves refined intact
