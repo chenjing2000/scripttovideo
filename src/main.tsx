@@ -4,7 +4,7 @@ import {ReaderCanvas} from './ui/ReaderCanvas';
 import {StyleSettings} from './ui/StyleSettings';
 import {Dialog} from './ui/Dialog';
 import type {DialogAction} from './ui/Dialog';
-import {parseScriptToVideo,applyOverrides,createProject,updateWord,saveProjectView,validateProject,paginate,measureWithCanvas,DEFAULT_STYLE,normalizeProjectStyle,WIDTH,HEIGHT,validCanvas,transcriptStem,findMediaCandidates,provisionalVideoHeight,describeMediaError,missingCompanionMessage,planRefinedOpen,validatePresentationProject,finalizeLegacyProject} from './core';
+import {parseScriptToVideo,applyOverrides,createProject,updateWord,saveProjectView,validateProject,paginate,measureWithCanvas,DEFAULT_STYLE,normalizeProjectStyle,WIDTH,HEIGHT,validCanvas,transcriptStem,findMediaCandidates,provisionalVideoHeight,describeMediaError,missingCompanionMessage,planRefinedOpen,validatePresentationProject,finalizeLegacyProject,buildRefinedText} from './core';
 import type {Word,Project} from './core';
 import {probeInPriority} from './core/media-probe';
 import {resolvePlayerShortcut} from './core/player-shortcuts';
@@ -23,11 +23,11 @@ type DesktopMessage =
  | {kind:'settings';settings:unknown}
  | {kind:'reload-failed';message:string}
  | {kind:'saved';message:string;revision:number}
- | {kind:'refined-created';fingerprint:string;subtitleName:string;message:string;operationId:number}
+ | {kind:'refined-created';fingerprint:string;subtitleName:string;message:string;operationId:number;refinedSnapshot:string;textSnapshot:string;projectSnapshot:string|null}
  | {kind:'refined-create-failed';fingerprint:string;subtitleName:string;message:string;operationId:number}
- | {kind:'refined-text-repaired';fingerprint:string;subtitleName:string;message:string;operationId:number}
+ | {kind:'refined-text-repaired';fingerprint:string;subtitleName:string;message:string;operationId:number;refinedSnapshot:string;textSnapshot:string;projectSnapshot:string|null}
  | {kind:'refined-repair-failed';fingerprint:string;subtitleName:string;message:string;operationId:number}
- | {kind:'refined-migrated';fingerprint:string;subtitleName:string;message:string;operationId:number}
+ | {kind:'refined-migrated';fingerprint:string;subtitleName:string;message:string;operationId:number;refinedSnapshot:string;textSnapshot:string;projectSnapshot:string|null}
  | {kind:'refined-migrate-failed';fingerprint:string;subtitleName:string;message:string;operationId:number}
  | {kind:'project-bundle-saved'|'project-bundle-save-failed';message:string;operationId:number;revision:number;fingerprint:string;subtitleName:string}
  | {kind:'refined-saved'|'refined-save-failed'|'project-v3-saved'|'project-v3-save-failed';message:string;operationId:number;revision:number;fingerprint:string;subtitleName:string}
@@ -117,6 +117,7 @@ function App(){
  const committedPairAckRef=useRef<string|null>(null);
  const activeRefinedSourceRef=useRef<{fingerprint:string;subtitleName:string;operationId:number}|null>(null);
  const confirmedDiskSnapshotRef=useRef<{fingerprint:string;subtitleName:string;original:import('./core').ScriptToVideoInput;refined:import('./core').ScriptToVideoInput;text:string;project:import('./core').PresentationProject|null}|null>(null);
+ const openingOriginalRef=useRef<{fingerprint:string;subtitleName:string;original:ScriptToVideoInput}|null>(null);
  const nextRefinedOperationIdRef=useRef(0);
  const pendingBundleSaveRef=useRef<(BundleSaveOperation&{refined:ScriptToVideoInput;text:string;project:PresentationProject})|null>(null);
  const nextBundleSaveIdRef=useRef(0);
@@ -366,6 +367,7 @@ function App(){
    if(blocked)throw Error('工程来源或格式校验失败，已拒绝切换到不安全的工作副本');
    const operationId=++nextRefinedOperationIdRef.current;
    activeRefinedSourceRef.current={fingerprint:data.fingerprint,subtitleName:data.subtitleName,operationId};
+   openingOriginalRef.current={fingerprint:data.fingerprint,subtitleName:data.subtitleName,original:input};
    // A disk snapshot is authoritative only when the host supplied all its
    // existing content. A missing TXT must first be repaired and acknowledged.
    confirmedDiskSnapshotRef.current=existingRefined!==null&&data.refinedText!==null&&data.refinedText!==undefined
@@ -414,8 +416,31 @@ function App(){
     if(data.kind==='refined-create-failed'||data.kind==='refined-repair-failed'||data.kind==='refined-migrate-failed'){
      setProjectLoadBlocked(true);
      notify(`refined/TXT 操作失败，已暂停工程保存：${data.message}`,true);
-    }else if(data.kind==='refined-migrated')notify(data.message);else if(data.kind==='refined-created')notify(`${data.message} 新版工程保存尚未接入，当前禁止使用旧版保存。`);
-    else if(data.message!=='TXT 已存在，无需恢复。')notify(data.message);
+    }else{
+     try{
+      const disk=confirmedDiskSnapshotRef.current;
+      const original=disk?.original;
+      // On first creation the original source is not yet in a confirmed
+      // snapshot; keep it separately from the untrusted native reply.
+      const originalSource=openingOriginalRef.current;
+      if(!originalSource||originalSource.fingerprint!==data.fingerprint||
+         originalSource.subtitleName.toLowerCase()!==data.subtitleName.toLowerCase())
+       throw Error('无法确认当前原始字幕来源');
+      const refined=JSON.parse(data.refinedSnapshot) as ScriptToVideoInput;
+      const parsed=parseScriptToVideo(refined);
+      if(refined.script_to_video.schemaVersion!==3)throw Error('磁盘 refined 不是 v3');
+      const expectedText=buildRefinedText(parsed.title,parsed.words);
+      if(expectedText!==data.textSnapshot)throw Error('磁盘 TXT 与 refined 不一致');
+      const savedProject=data.projectSnapshot?JSON.parse(data.projectSnapshot):null;
+      if(savedProject!==null&&!validatePresentationProject(savedProject))
+       throw Error('磁盘 project v3 无效');
+      confirmedDiskSnapshotRef.current={
+       fingerprint:data.fingerprint,subtitleName:data.subtitleName,
+       original:original??originalSource.original,refined,text:data.textSnapshot,project:savedProject
+      };
+      notify(data.message);
+     }catch(error){setProjectLoadBlocked(true);notify(`无法确认保存快照：${String(error)}`,true)}
+    }
    }
   }else if(data.kind==='project-bundle-saved'||data.kind==='project-bundle-save-failed'){
    const pending=pendingBundleSaveRef.current;
