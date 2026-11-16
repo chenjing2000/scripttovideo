@@ -3,8 +3,8 @@
 ## Windows build
 
 ```powershell
-git switch main
-git pull --ff-only origin main
+git switch feature/m6-22-refined-data
+git pull --ff-only origin feature/m6-22-refined-data
 npm.cmd ci
 npm.cmd run verify
 dotnet publish desktop/ScriptToVideo.csproj -c Release -o dist/wpf
@@ -27,12 +27,13 @@ The host requires .NET Desktop Runtime 10 and WebView2 Runtime; Node.js 22+ and 
 
 - Import MP4/MKV/M4A/MP3/WAV, verify exact priority and fallback after initial decode failures; reject unsupported extensions.
 - Verify cancel/reimport races and all-candidates-failed preserve the previous project, preview and unsaved changes.
-- Edit words and paragraph breaks, save/reopen, export `article.txt`, and verify output MP4 audio, dimensions, playback, seeking and synchronization.
-- Verify tray restore, single-instance activation, settings persistence, dialog cancellation, and close-during-export behavior.
+- Edit words and paragraph breaks, save/reopen and compare `.script.revise.json`, `.txt` and presentation-only `.project.json`; verify output MP4 audio, dimensions, playback, seeking and synchronization.
+- Verify taskbar icon remains on minimization, taskbar and tray restore, single-instance activation, settings persistence, dialog cancellation, and close-during-export behavior.
+- Verify title editing (empty placeholder `title`, adaptive height), first-page-only title rendering, bold and color persistence, and export with the Settings button disabled.
 - Verify export cancellation terminates only its child process tree; failed output commit does not destroy the previous MP4.
 - Confirm preview does not blank or flicker during editing, saving, importing or exporting.
 
-Work on a feature branch from current main. Use English descriptive commit messages, run checks, open a Draft PR, and merge only after Windows acceptance.
+Work on the active feature branch. Use English descriptive commit messages, run checks, open a Draft PR if useful, and merge only after Windows acceptance and the final review. Do not merge as a side effect of documentation updates.
 
 ## Documentation maintenance
 
