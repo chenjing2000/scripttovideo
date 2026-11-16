@@ -122,7 +122,7 @@ export function assertPresentationProjectForExport(project,context){
   throw new Error('Expected presentation-only project v3');
  if(project.titleStyle!==undefined){
   const t=project.titleStyle;
-  if(!t||typeof t!=='object'||typeof t.fontFamily!=='string'||!t.fontFamily.trim()||
+  if(!t||typeof t!=='object'||typeof t.bold!=='boolean'||typeof t.fontFamily!=='string'||!t.fontFamily.trim()||
      !Number.isInteger(t.fontSize)||t.fontSize<1||t.fontSize>200||
      !Number.isInteger(t.lineHeight)||t.lineHeight<t.fontSize||t.lineHeight>300||
      !Number.isInteger(t.paragraphGap)||t.paragraphGap<0||t.paragraphGap>200||
