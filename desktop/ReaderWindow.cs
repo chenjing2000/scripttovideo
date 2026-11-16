@@ -360,6 +360,7 @@ internal sealed class ReaderWindow : Window
                         Send(new { kind = "refined-repair-failed",
                             fingerprint = request.GetProperty("fingerprint").GetString(),
                             subtitleName = request.GetProperty("subtitleName").GetString(),
+                            operationId = request.GetProperty("operationId").GetInt32(),
                             message = error.Message });
                     }
                     break;
@@ -371,6 +372,7 @@ internal sealed class ReaderWindow : Window
                         Send(new { kind = "refined-migrate-failed",
                             fingerprint = request.GetProperty("fingerprint").GetString(),
                             subtitleName = request.GetProperty("subtitleName").GetString(),
+                            operationId = request.GetProperty("operationId").GetInt32(),
                             message = error.Message });
                     }
                     break;
@@ -382,6 +384,7 @@ internal sealed class ReaderWindow : Window
                         Send(new { kind = "refined-create-failed",
                             fingerprint = request.GetProperty("fingerprint").GetString(),
                             subtitleName = request.GetProperty("subtitleName").GetString(),
+                            operationId = request.GetProperty("operationId").GetInt32(),
                             message = error.Message });
                     }
                     break;
@@ -787,6 +790,7 @@ internal sealed class ReaderWindow : Window
             ?? throw new InvalidDataException("TXT 内容必须是字符串。");
         var created = RefinedStorage.CreateMissingText(paths, text);
         Send(new { kind = "refined-text-repaired", fingerprint, subtitleName,
+            operationId = request.GetProperty("operationId").GetInt32(),
             message = created ? "缺失的 TXT 已恢复。" : "TXT 已存在，无需恢复。" });
     }
 
@@ -827,6 +831,7 @@ internal sealed class ReaderWindow : Window
         // save command must never create a parallel, conflicting overrides file.
         projectSaveLocked = true;
         Send(new { kind = "refined-created", fingerprint = current.Fingerprint,
+            operationId = request.GetProperty("operationId").GetInt32(),
             subtitleName, message = "refined 和 TXT 已创建。" });
     }
 
@@ -913,6 +918,7 @@ internal sealed class ReaderWindow : Window
         AtomicWrite(current.Project, v3.GetRawText());
         projectSaveLocked = true;
         Send(new { kind = "refined-migrated", fingerprint, subtitleName,
+            operationId = request.GetProperty("operationId").GetInt32(),
             message = "旧工程已迁移到 v3，refined 和 TXT 已验证。" });
     }
 
