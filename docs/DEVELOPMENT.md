@@ -24,13 +24,14 @@ The host requires .NET Desktop Runtime 10 and WebView2 Runtime; Node.js 22+ and 
 
 ## Automated checks
 
-`npm.cmd run verify` performs TypeScript checking, Vite build, Node tests and Python paragraph-Skill tests. The separate .NET storage runner exercises old-name journal recovery, crashes, conflicts and orphan files; run it explicitly as shown above. Do not claim WPF runtime, codec support or actual MP4 output were verified by these checks alone.
+`npm.cmd run verify` performs TypeScript checking, Vite build, Node tests and Python paragraph-Skill tests. The separate .NET storage runner exercises current v3 three-file save/recovery, crashes, conflicts and journal safety; run it explicitly as shown above. Do not claim WPF runtime, codec support or actual MP4 output were verified by these checks alone.
 
 ## Windows manual acceptance
 
 - Import MP4/MKV/M4A/MP3/WAV, verify exact priority and fallback after initial decode failures; reject unsupported extensions.
 - Verify cancel/reimport races and all-candidates-failed preserve the previous project, preview and unsaved changes.
 - Edit words and paragraph breaks, save/reopen and compare `.script.revise.json`, `.txt` and presentation-only `.project.json`; verify output MP4 audio, dimensions, playback, seeking and synchronization.
+- Verify old project v2 files are rejected and old `.script.refined.json` is never auto-renamed. Verify current v3 bundle recovery after an interrupted save.
 - Verify taskbar icon remains on minimization, taskbar and tray restore, single-instance activation, settings persistence, dialog cancellation, and close-during-export behavior.
 - Verify title editing (empty placeholder `title`, adaptive height), first-page-only title rendering, bold and color persistence, and export with the Settings button disabled. Test overwide single-character titles: preview should display an error, exporting should be blocked, and reducing the font size should restore preview.
 - Verify export cancellation terminates only its child process tree; failed output commit does not destroy the previous MP4.
