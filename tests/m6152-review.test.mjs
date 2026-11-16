@@ -8,20 +8,24 @@ const reader=read('src/ui/ReaderCanvas.tsx');
 const app=read('src/main.tsx');
 const host=read('desktop/ReaderWindow.cs');
 
-test('Remotion memoizes normalized project style across frame renders',()=>{
- assert.match(composition,/const normalizedProject=useMemo\(\(\)=>project\?normalizeProjectStyle\(/);
- assert.match(composition,/project\.schemaVersion===3\?\{\.\.\.project,schemaVersion:2 as const,overrides:\{\}\}:project/);
- assert.match(composition,/:null,\[project\]\)/);
+test('Remotion renders revised v3 without v2 project override branches',()=>{
+ assert.match(composition,/project\?:PresentationProject/);
+ assert.match(composition,/const words=useMemo\(\(\)=>parseScriptToVideo\(transcript\)\.words/);
+ assert.match(composition,/const style=useMemo\(\(\)=>\(\{\.\.\.DEFAULT_STYLE,\.\.\.project\?\.style\}\)/);
+ assert.doesNotMatch(composition,/applyOverrides|project\.schemaVersion===2/);
 });
 test('ReaderCanvas recomputes the plan when viewport width changes and rejects mismatched snapshots',()=>{
  assert.match(reader,/pagePlan\.viewportWidth!==canvasWidth/);
  assert.match(reader,/pagePlan\.viewportHeight!==availableHeight/);
  assert.match(reader,/throw new Error\('Invalid export page-plan snapshot/);
- assert.match(reader,/\[pagePlan,words,visible,style,canvasWidth,availableHeight,titleLayout\.height\]/);
- assert.match(reader,/layoutTitle\(title,titleStyle/);
+ assert.match(reader,/titleLayout\.error/);
+ assert.match(reader,/tryLayoutTitle\(title,titleStyle/);
 });
-test('desktop project admission checks override IDs against the parsed source words',()=>{
- assert.match(app,/validateProject\(saved,parsed\.words\)/);
+test('desktop admits only v3 presentation project and rejects overrides',()=>{
+ assert.match(host,/schema\.GetInt32\(\) != 3/);
+ assert.match(host,/project\.TryGetProperty\("overrides", out _\)/);
+ assert.match(app,/validatePresentationProject\(saved\)/);
+ assert.doesNotMatch(app,/validateProject\(saved,parsed\.words\)/);
 });
 test('settings projection is stable during playback-only renders',()=>{
  assert.match(app,/const displayedSettings=useMemo\(\(\)=>project\?projectStyleToSettings\(style,project\.canvas,\{\.\.\.appSettings,titleStyle:\{\.\.\.DEFAULT_TITLE_STYLE,\.\.\.\(project\.titleStyle\?\?appSettings\.titleStyle\)\}\}\):appSettings,\[project,style,appSettings\]\)/);
