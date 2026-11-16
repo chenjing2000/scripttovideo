@@ -4,7 +4,7 @@ import {ReaderCanvas} from './ui/ReaderCanvas';
 import {StyleSettings} from './ui/StyleSettings';
 import {Dialog} from './ui/Dialog';
 import type {DialogAction} from './ui/Dialog';
-import {parseScriptToVideo,applyOverrides,createProject,updateWord,saveProjectView,validateProject,paginate,measureWithCanvas,DEFAULT_STYLE,normalizeProjectStyle,WIDTH,HEIGHT,validCanvas,transcriptStem,findMediaCandidates,provisionalVideoHeight,describeMediaError,missingCompanionMessage,planRefinedOpen,validatePresentationProject,buildRefinedText} from './core';
+import {parseScriptToVideo,createProject,updateWord,saveProjectView,paginate,measureWithCanvas,DEFAULT_STYLE,normalizeProjectStyle,WIDTH,HEIGHT,validCanvas,transcriptStem,findMediaCandidates,provisionalVideoHeight,describeMediaError,missingCompanionMessage,planRefinedOpen,validatePresentationProject,buildRefinedText} from './core';
 import type {Word,Project} from './core';
 import {probeInPriority} from './core/media-probe';
 import {resolvePlayerShortcut} from './core/player-shortcuts';
@@ -26,8 +26,6 @@ type DesktopMessage =
  | {kind:'refined-create-failed';fingerprint:string;subtitleName:string;message:string;operationId:number}
  | {kind:'refined-text-repaired';fingerprint:string;subtitleName:string;message:string;operationId:number;refinedSnapshot:string;textSnapshot:string;projectSnapshot:string|null}
  | {kind:'refined-repair-failed';fingerprint:string;subtitleName:string;message:string;operationId:number}
- | {kind:'refined-migrated';fingerprint:string;subtitleName:string;message:string;operationId:number;refinedSnapshot:string;textSnapshot:string;projectSnapshot:string|null}
- | {kind:'refined-migrate-failed';fingerprint:string;subtitleName:string;message:string;operationId:number}
  | {kind:'project-bundle-saved'|'project-bundle-save-failed';message:string;operationId:number;revision:number;fingerprint:string;subtitleName:string;refinedSnapshot?:string;textSnapshot?:string;projectSnapshot?:string}
  | {kind:'status';message:string;busy:boolean;error?:boolean;canCancel?:boolean}
  | {kind:'dependency-confirm';id:number;title:string;heading:string;details:string;action:string}
