@@ -7,13 +7,13 @@ export type RefinedOpenPlan =
  | {kind:'existing';refined:ScriptToVideoInput;txt:string}
  | {kind:'create';refined:ScriptToVideoInput;txt:string};
 
-/** Open an immutable source v2 with an optional existing current-version v3 pair.
- * Never interpret a v2 project as a migration instruction.
+/** Open an immutable source v3 with an optional existing current-version v3 pair.
+ * Only v3 presentation projects are recognized.
  */
 export function planRefinedOpen(source:unknown,existingRefined:unknown|null,project:unknown|null):RefinedOpenPlan{
  validateScriptToVideo(source);
- if(source.script_to_video.schemaVersion!==2)
-  throw new Error('原始字幕必须是 ScriptToVideo v2；v3 仅用于 .script.revise.json 工作副本');
+ if(source.script_to_video.schemaVersion!==3)
+  throw new Error('原始字幕必须是 ScriptToVideo v3');
  const original=parseScriptToVideo(source);
  if(project!==null){
   if(!validatePresentationProject(project))
