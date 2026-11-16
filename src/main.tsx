@@ -14,6 +14,8 @@ import {DEFAULT_SETTINGS,settingsToStyle,projectStyleToSettings,validateSettings
 import {calculateWordEditorWidth,paragraphActionLabel,hasUnsavedWordDraft} from './core/word-editing';
 import {createProjectEditState,markProjectEdited,setProjectDraftChanged,acknowledgeProjectSave,resetProjectEditState,hasUnsavedProjectChanges} from './core/project-edit-state';
 import {settingsDialogRect,nextSettingsWidth,requiredSettingsOuterWidth} from './core/settings-dialog-geometry';
+import {planManualSave,isMatchingBundleSaveReply,bundleSaveSucceeded} from './core';
+import type {BundleSaveOperation,PresentationProject,ScriptToVideoInput} from './core';
 import type {AppSettings} from './core/app-settings';
 type DesktopMessage =
  | {kind:'pair';requestId?:string;mediaName:string;mediaKind:'video'|'audio';subtitleName:string;transcript:string;fingerprint:string;project:string|null;mediaUrl:string;refined?:string|null;refinedText?:string|null;refinedError?:string}
@@ -27,6 +29,7 @@ type DesktopMessage =
  | {kind:'refined-repair-failed';fingerprint:string;subtitleName:string;message:string;operationId:number}
  | {kind:'refined-migrated';fingerprint:string;subtitleName:string;message:string;operationId:number}
  | {kind:'refined-migrate-failed';fingerprint:string;subtitleName:string;message:string;operationId:number}
+ | {kind:'project-bundle-saved'|'project-bundle-save-failed';message:string;operationId:number;revision:number;fingerprint:string;subtitleName:string}
  | {kind:'refined-saved'|'refined-save-failed'|'project-v3-saved'|'project-v3-save-failed';message:string;operationId:number;revision:number;fingerprint:string;subtitleName:string}
  | {kind:'status';message:string;busy:boolean;error?:boolean;canCancel?:boolean}
  | {kind:'dependency-confirm';id:number;title:string;heading:string;details:string;action:string}
@@ -115,6 +118,8 @@ function App(){
  const activeRefinedSourceRef=useRef<{fingerprint:string;subtitleName:string;operationId:number}|null>(null);
  const confirmedDiskSnapshotRef=useRef<{fingerprint:string;subtitleName:string;original:import('./core').ScriptToVideoInput;refined:import('./core').ScriptToVideoInput;text:string;project:import('./core').PresentationProject|null}|null>(null);
  const nextRefinedOperationIdRef=useRef(0);
+ const pendingBundleSaveRef=useRef<(BundleSaveOperation&{refined:ScriptToVideoInput;text:string;project:PresentationProject})|null>(null);
+ const nextBundleSaveIdRef=useRef(0);
  const changedDuringImport=()=>{
   const base=importBaseStateRef.current,now=projectEditStateRef.current;
   return base.currentRevision!==now.currentRevision||base.draftChanged!==now.draftChanged;
@@ -218,7 +223,37 @@ function App(){
   if(importing||reloading)return notify('正在加载文件，请完成后再保存。',true);
   if(!project)return notify('尚未打开标准字幕',true);
   if(projectLoadBlocked)return notify('工程数据验证失败，已禁止覆盖。请检查文件后重新打开字幕。',true);
-   if(contentSaveUnavailable)return notify('新版 refined/project v3 保存尚未实现，当前禁止使用旧版工程保存，以免丢失正文修改。',true);
+   if(desktop){
+    if(refinedPreparationPending||!confirmedDiskSnapshotRef.current||projectLoadBlocked)
+     return notify('尚未取得完整的 refined/TXT 磁盘快照，不能保存。',true);
+    if(pendingBundleSaveRef.current)return notify('已有保存操作正在进行，请等待完成。',true);
+    let currentWords=words;
+    const active=editRef.current;
+    if(active){
+     try{currentWords=updateWord(words,active.id,active.text)}
+     catch(error){return notify(`单词编辑无效：${String(error)}`,true)}
+     if(!commitEditing())return;
+    }
+    const disk=confirmedDiskSnapshotRef.current;
+    const source=activeRefinedSourceRef.current;
+    if(!source||source.fingerprint!==disk.fingerprint||
+       source.subtitleName.toLowerCase()!==disk.subtitleName.toLowerCase())
+     return notify('磁盘快照与当前字幕不匹配，禁止保存。',true);
+    try{
+     const snapshot=planManualSave(disk.original,disk.refined,disk.text,disk.project,project,currentWords,parseScriptToVideo(disk.refined).title);
+     const operationId=++nextBundleSaveIdRef.current;
+     const revision=projectEditStateRef.current.currentRevision;
+     pendingBundleSaveRef.current={operationId,revision,fingerprint:source.fingerprint,subtitleName:source.subtitleName,
+      refined:snapshot.refined,text:snapshot.text,project:snapshot.project};
+     desktop.postMessage({kind:'project-bundle-save',operationId,revision,
+      fingerprint:source.fingerprint,subtitleName:source.subtitleName,
+      previousRefined:disk.refined,refined:snapshot.refined,
+      previousText:disk.text,text:snapshot.text,
+      previousProject:disk.project,project:snapshot.project});
+    }catch(error){notify(`无法准备保存：${String(error)}`,true)}
+    return;
+   }
+   if(contentSaveUnavailable)return notify('当前工程无法保存。',true);
   let currentWords=words;const active=editRef.current;
   if(active){try{currentWords=updateWord(words,active.id,active.text)}catch(error){notify(`无法保存工程：请先修正正在编辑的单词。${String(error)}`,true);return}if(!commitEditing())return}
   const p=saveProjectView(project,currentWords),revision=projectEditStateRef.current.currentRevision;
@@ -377,6 +412,22 @@ function App(){
      notify(`refined/TXT 操作失败，已暂停工程保存：${data.message}`,true);
     }else if(data.kind==='refined-migrated')notify(data.message);else if(data.kind==='refined-created')notify(`${data.message} 新版工程保存尚未接入，当前禁止使用旧版保存。`);
     else if(data.message!=='TXT 已存在，无需恢复。')notify(data.message);
+   }
+  }else if(data.kind==='project-bundle-saved'||data.kind==='project-bundle-save-failed'){
+   const pending=pendingBundleSaveRef.current;
+   if(!pending||!isMatchingBundleSaveReply(pending,data,activeRefinedSourceRef.current)){
+    notify('忽略与当前工程不匹配的保存响应。',true);
+   }else{
+    pendingBundleSaveRef.current=null;
+    if(bundleSaveSucceeded(data)){
+     const disk=confirmedDiskSnapshotRef.current;
+     if(disk&&disk.fingerprint===pending.fingerprint&&disk.subtitleName.toLowerCase()===pending.subtitleName.toLowerCase()){
+      confirmedDiskSnapshotRef.current={...disk,refined:pending.refined,text:pending.text,project:pending.project};
+      const next=acknowledgeProjectSave(projectEditStateRef.current,pending.revision);
+      updateProjectEditState(next);
+      notify(hasUnsavedProjectChanges(next)?'已保存请求时的版本；后续修改仍未保存。':data.message);
+     }
+    }else notify(`保存失败：${data.message}`,true);
    }
   }else if(data.kind==='refined-saved'||data.kind==='refined-save-failed'||data.kind==='project-v3-saved'||data.kind==='project-v3-save-failed'){
    // Native v3 save operations are not yet dispatched by this UI. In
