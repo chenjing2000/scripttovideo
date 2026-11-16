@@ -117,7 +117,7 @@ function App(){
  const committedPairAckRef=useRef<string|null>(null);
  const activeRefinedSourceRef=useRef<{fingerprint:string;subtitleName:string;operationId:number}|null>(null);
  const confirmedDiskSnapshotRef=useRef<{fingerprint:string;subtitleName:string;original:import('./core').ScriptToVideoInput;refined:import('./core').ScriptToVideoInput;text:string;project:import('./core').PresentationProject|null}|null>(null);
- const openingOriginalRef=useRef<{fingerprint:string;subtitleName:string;original:ScriptToVideoInput}|null>(null);
+ const openingOriginalRef=useRef<{fingerprint:string;subtitleName:string;mediaName:string;mediaKind:'video'|'audio';original:ScriptToVideoInput}|null>(null);
  const nextRefinedOperationIdRef=useRef(0);
  const pendingBundleSaveRef=useRef<(BundleSaveOperation&{refined:ScriptToVideoInput;text:string;project:PresentationProject})|null>(null);
  const nextBundleSaveIdRef=useRef(0);
@@ -367,7 +367,7 @@ function App(){
    if(blocked)throw Error('工程来源或格式校验失败，已拒绝切换到不安全的工作副本');
    const operationId=++nextRefinedOperationIdRef.current;
    activeRefinedSourceRef.current={fingerprint:data.fingerprint,subtitleName:data.subtitleName,operationId};
-   openingOriginalRef.current={fingerprint:data.fingerprint,subtitleName:data.subtitleName,original:input};
+   openingOriginalRef.current={fingerprint:data.fingerprint,subtitleName:data.subtitleName,mediaName:data.mediaName,mediaKind:data.mediaKind,original:input};
    // A disk snapshot is authoritative only when the host supplied all its
    // existing content. A missing TXT must first be repaired and acknowledged.
    confirmedDiskSnapshotRef.current=existingRefined!==null&&data.refinedText!==null&&data.refinedText!==undefined
@@ -437,8 +437,8 @@ function App(){
         throw Error('磁盘 project v3 无效');
        if(savedProject.source.subtitleSha256!==data.fingerprint||
           savedProject.source.subtitleName.toLowerCase()!==data.subtitleName.toLowerCase()||
-          savedProject.source.videoName.toLowerCase()!==mediaName.toLowerCase()||
-          (savedProject.mediaKind!==undefined&&savedProject.mediaKind!==kind))
+          savedProject.source.videoName.toLowerCase()!==originalSource.mediaName.toLowerCase()||
+          (savedProject.mediaKind!==undefined&&savedProject.mediaKind!==originalSource.mediaKind))
         throw Error('磁盘 project v3 与当前媒体或字幕来源不匹配');
       }
       confirmedDiskSnapshotRef.current={
