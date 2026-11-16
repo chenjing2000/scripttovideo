@@ -1469,8 +1469,6 @@ internal sealed class ReaderWindow : Window
             if (v3Export)
             {
                 var renderInputs = Path.Combine(task.CacheDirectory, "input");
-                var originalStem = Path.GetFileNameWithoutExtension(task.TranscriptPath);
-                // originalStem ends with ".script"; remove it for the derived folder.
                 const string originalSuffix = ".script.json";
                 var originalName = Path.GetFileName(task.TranscriptPath);
                 var baseName = originalName[..^originalSuffix.Length];
