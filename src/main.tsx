@@ -337,14 +337,14 @@ function App(){
        throw Error('工程格式、来源或字幕指纹不匹配');
      current=normalizeProjectStyle(saved);
      currentWords=openPlan.kind==='existing'?effective.words:applyOverrides(parsed,current).words;
-     if(openPlan.kind==='existing'&&openPlan.legacyProject===undefined)
+     if(openPlan.kind==='existing')
       desktop?.postMessage({kind:'project-validated',fingerprint:data.fingerprint,subtitleName:data.subtitleName});
     }
    }catch(e){blocked=true;notify(`工程读取失败，已禁止覆盖原工程文件：${String(e)}`,true)}}
    activeRefinedSourceRef.current={fingerprint:data.fingerprint,subtitleName:data.subtitleName};
    // Until the v3 save transaction exists, the legacy v2 save action is unsafe
    // whenever refined is authoritative or being created.
-   if(desktop&&(openPlan.kind==='existing'||(openPlan.kind==='create'&&data.project===null)))
+   if(desktop&&(openPlan.kind==='existing'||openPlan.kind==='create'))
     blocked=true;
    setProjectLoadBlocked(blocked);
    setMediaUrl(data.mediaUrl);setMediaName(data.mediaName);setKind(data.mediaKind);setProject(current);setWords(currentWords);setEditing(null);setWordTool(null);setToolLeaving(false);resetProjectDirtyState();setDuration(0);setVideoRatio(null);setMediaState('loading');setTime(0);setPlaying(false);
