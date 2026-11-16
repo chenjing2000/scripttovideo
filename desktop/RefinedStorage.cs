@@ -169,6 +169,100 @@ internal static class RefinedStorage
         File.Delete(journalPath);
     }
 
+    // A complete user-triggered save may update refined, TXT and project v3.
+    // The journal is durable before the first replacement. Recovery rolls
+    // forward only if every file still matches its expected old/new snapshot.
+    private sealed record PendingProjectSave(
+        string OldRefined, string NewRefined, string OldText, string NewText,
+        string? OldProject, string NewProject);
+
+    private static string ProjectJournalPath(Paths paths) =>
+        paths.Refined + ".project-save-journal";
+
+    internal static void EnsureNoPendingProjectSave(Paths paths)
+    {
+        if (File.Exists(ProjectJournalPath(paths)) ||
+            Directory.Exists(ProjectJournalPath(paths)))
+            throw new IOException("存在未完成的工程保存日志，禁止覆盖。");
+    }
+
+    private static void CheckExpected(string path, string? expected)
+    {
+        if (Directory.Exists(path))
+            throw new IOException("保存目标路径被目录占用。");
+        if (expected == null)
+        {
+            if (File.Exists(path))
+                throw new IOException("原本不存在的工程文件已被创建，禁止覆盖。");
+        }
+        else if (!File.Exists(path) ||
+            !string.Equals(File.ReadAllText(path, Encoding.UTF8), expected,
+                StringComparison.Ordinal))
+            throw new IOException("保存目标已被外部修改，禁止覆盖。");
+    }
+
+    private static void ApplyExpected(string path, string? expected, string next)
+    {
+        if (expected == null) CreateNew(path, next);
+        else ReplaceIfUnchanged(path, expected, next);
+    }
+
+    /// <summary>
+    /// Recover an interrupted three-file save without overwriting any
+    /// unexpected on-disk content. The journal stays on disk on conflict.
+    /// </summary>
+    internal static void RecoverPendingProjectSave(Paths paths, string projectPath)
+    {
+        var journalPath = ProjectJournalPath(paths);
+        if (!File.Exists(journalPath)) return;
+        var pending = JsonSerializer.Deserialize<PendingProjectSave>(
+            File.ReadAllText(journalPath, Encoding.UTF8))
+            ?? throw new InvalidDataException("工程保存日志无效。");
+        if (pending.OldRefined == null || pending.NewRefined == null ||
+            pending.OldText == null || pending.NewText == null ||
+            pending.NewProject == null)
+            throw new InvalidDataException("工程保存日志缺少必要内容。");
+        // Check ALL three files before modifying any one of them.
+        var currentRefined = File.ReadAllText(paths.Refined, Encoding.UTF8);
+        var currentText = File.ReadAllText(paths.Text, Encoding.UTF8);
+        if ((currentRefined != pending.OldRefined && currentRefined != pending.NewRefined) ||
+            (currentText != pending.OldText && currentText != pending.NewText))
+            throw new IOException("refined/TXT 与工程保存日志冲突，禁止恢复。");
+        string? currentProject = File.Exists(projectPath)
+            ? File.ReadAllText(projectPath, Encoding.UTF8) : null;
+        if (Directory.Exists(projectPath) ||
+            (currentProject != pending.OldProject && currentProject != pending.NewProject))
+            throw new IOException("project 与工程保存日志冲突，禁止恢复。");
+        ReplaceIfUnchanged(paths.Refined, currentRefined, pending.NewRefined);
+        ReplaceIfUnchanged(paths.Text, currentText, pending.NewText);
+        ApplyExpected(projectPath, currentProject, pending.NewProject);
+        File.Delete(journalPath);
+    }
+
+    /// <summary>
+    /// Save all derived files as a recoverable unit. Null oldProject means
+    /// create-only. Never call with the immutable original subtitle path.
+    /// </summary>
+    internal static void ReplaceProjectBundle(Paths paths, string projectPath,
+        string expectedRefined, string nextRefined,
+        string expectedText, string nextText,
+        string? expectedProject, string nextProject)
+    {
+        EnsureNoPendingPair(paths);
+        EnsureNoPendingProjectSave(paths);
+        CheckExpected(paths.Refined, expectedRefined);
+        CheckExpected(paths.Text, expectedText);
+        CheckExpected(projectPath, expectedProject);
+        var journalPath = ProjectJournalPath(paths);
+        CreateNew(journalPath, JsonSerializer.Serialize(new PendingProjectSave(
+            expectedRefined, nextRefined, expectedText, nextText,
+            expectedProject, nextProject)));
+        ReplaceIfUnchanged(paths.Refined, expectedRefined, nextRefined);
+        ReplaceIfUnchanged(paths.Text, expectedText, nextText);
+        ApplyExpected(projectPath, expectedProject, nextProject);
+        File.Delete(journalPath);
+    }
+
     /// <summary>Repair only a missing TXT. Never replace an existing file, even if
     /// its content differs; reconciliation requires a separate explicit operation.</summary>
     internal static bool CreateMissingText(Paths paths, string text)
