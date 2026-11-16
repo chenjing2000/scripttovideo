@@ -106,6 +106,35 @@ internal static class RefinedStorage
         }
     }
 
+    private sealed record PendingPair(string OldRefined, string NewRefined,
+        string OldText, string NewText);
+
+    private static string JournalPath(Paths paths) => paths.Refined + ".save-journal";
+
+    /// <summary>
+    /// Resume a previously interrupted save only when each file is exactly
+    /// the old or new version in the durable journal. Never overwrite a
+    /// third-party edit. Leave the journal in place on conflict.
+    /// </summary>
+    internal static void RecoverPendingPair(Paths paths)
+    {
+        var journalPath = JournalPath(paths);
+        if (!File.Exists(journalPath)) return;
+        var pending = JsonSerializer.Deserialize<PendingPair>(
+            File.ReadAllText(journalPath, Encoding.UTF8))
+            ?? throw new InvalidDataException("refined 保存日志无效。");
+        if (!File.Exists(paths.Refined) || !File.Exists(paths.Text))
+            throw new IOException("保存日志存在，但 refined/TXT 不完整，拒绝自动恢复。");
+        var refined = File.ReadAllText(paths.Refined, Encoding.UTF8);
+        var text = File.ReadAllText(paths.Text, Encoding.UTF8);
+        if ((refined != pending.OldRefined && refined != pending.NewRefined) ||
+            (text != pending.OldText && text != pending.NewText))
+            throw new IOException("保存日志与磁盘内容冲突，拒绝自动覆盖。");
+        ReplaceIfUnchanged(paths.Refined, refined, pending.NewRefined);
+        ReplaceIfUnchanged(paths.Text, text, pending.NewText);
+        File.Delete(journalPath);
+    }
+
     /// <summary>
     /// Persist the authoritative refined and its derived TXT together as far as
     /// the filesystem permits. If the second replacement fails, restore refined
@@ -116,6 +145,8 @@ internal static class RefinedStorage
         string expectedRefined, string nextRefined,
         string expectedText, string nextText)
     {
+        if (File.Exists(JournalPath(paths)))
+            throw new IOException("存在尚未恢复的 refined 保存日志，禁止再次保存。");
         if (!File.Exists(paths.Refined) || !File.Exists(paths.Text) ||
             Directory.Exists(paths.Refined) || Directory.Exists(paths.Text))
             throw new IOException("refined/TXT 文件不完整，禁止保存。");
@@ -123,24 +154,14 @@ internal static class RefinedStorage
             !string.Equals(File.ReadAllText(paths.Text, Encoding.UTF8), expectedText, StringComparison.Ordinal))
             throw new IOException("refined/TXT 已被外部修改，禁止保存。");
 
+        // The journal is created exclusively before either file is changed.
+        // On failure it remains available for a later guarded recovery.
+        var journalPath = JournalPath(paths);
+        CreateNew(journalPath, JsonSerializer.Serialize(new PendingPair(
+            expectedRefined, nextRefined, expectedText, nextText)));
         ReplaceIfUnchanged(paths.Refined, expectedRefined, nextRefined);
-        try
-        {
-            ReplaceIfUnchanged(paths.Text, expectedText, nextText);
-        }
-        catch (Exception writeError)
-        {
-            try
-            {
-                ReplaceIfUnchanged(paths.Refined, nextRefined, expectedRefined);
-            }
-            catch (Exception rollbackError)
-            {
-                throw new IOException("TXT 保存失败且 refined 回滚失败；请保留文件并人工恢复。",
-                    new AggregateException(writeError, rollbackError));
-            }
-            throw new IOException("TXT 保存失败，refined 已恢复到保存前版本。", writeError);
-        }
+        ReplaceIfUnchanged(paths.Text, expectedText, nextText);
+        File.Delete(journalPath);
     }
 
     /// <summary>Repair only a missing TXT. Never replace an existing file, even if
