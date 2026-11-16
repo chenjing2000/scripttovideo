@@ -254,11 +254,10 @@ function App(){
     }catch(error){notify(`无法准备保存：${String(error)}`,true)}
     return;
    }
-   if(contentSaveUnavailable)return notify('当前工程无法保存。',true);
+  // Browser-only fallback. Desktop saves exclusively through project-bundle-save.
   let currentWords=words;const active=editRef.current;
   if(active){try{currentWords=updateWord(words,active.id,active.text)}catch(error){notify(`无法保存工程：请先修正正在编辑的单词。${String(error)}`,true);return}if(!commitEditing())return}
   const p=saveProjectView(project,currentWords),revision=projectEditStateRef.current.currentRevision;
-  if(desktop){desktop.postMessage({kind:'save',project:p,revision});return}
   const blob=new Blob([JSON.stringify(p,null,2)],{type:'application/json'}),u=URL.createObjectURL(blob),a=document.createElement('a');a.href=u;a.download=transcriptStem(project.source.subtitleName)+'.project.json';a.click();setTimeout(()=>URL.revokeObjectURL(u),1000);
   updateProjectEditState(acknowledgeProjectSave(projectEditStateRef.current,revision));
   notify('工程 JSON 已保存')};
@@ -353,11 +352,10 @@ function App(){
        saved.source.subtitleName.toLowerCase()!==data.subtitleName.toLowerCase()||
        (saved.mediaKind!==undefined&&saved.mediaKind!==data.mediaKind))
        throw Error('v3 工程来源与当前媒体或字幕不匹配');
-     // A v2 view is temporary for rendering only. The desktop save lock remains
-     // in place until native v3 project persistence is implemented.
+     // A v2 view is temporary for rendering; the persisted project stays v3.
      current=normalizeProjectStyle({...saved,schemaVersion:2 as const,overrides:{}});
      currentWords=effective.words;
-     notify('已读取 v3 工程和 refined；旧版工程保存暂不可用。');
+     notify('已读取 v3 工程和 refined，正在验证磁盘内容。');
     }else{
      if(!validateProject(saved,parsed.words)||saved.source.subtitleSha256!==data.fingerprint||
        saved.source.videoName.toLowerCase()!==data.mediaName.toLowerCase()||
@@ -382,8 +380,7 @@ function App(){
       project:data.project&&validatePresentationProject(JSON.parse(data.project))
        ?JSON.parse(data.project):null}
     :null;
-   // Until the v3 save transaction exists, the legacy v2 save action is unsafe
-   // whenever refined is authoritative or being created.
+   // Lock desktop editing until the host confirms the complete disk snapshot.
    setContentSaveUnavailable(Boolean(desktop));
    setRefinedPreparationPending(Boolean(desktop));
    setProjectLoadBlocked(blocked);
@@ -587,7 +584,7 @@ function App(){
   setEditing(null);
  };
  const startEditing=(w:Word)=>{
-   if(desktop&&contentSaveUnavailable){notify('新版保存机制尚未完成，暂时只能阅读和导出，不能编辑正文。',true);return}
+   if(desktop&&contentSaveUnavailable){notify('磁盘快照尚未验证，暂时不能编辑正文。',true);return}
   if(editRef.current?.id===w.id)return;
   if(!commitEditing())return;
   mediaRef.current?.pause();
