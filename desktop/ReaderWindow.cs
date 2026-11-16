@@ -1372,15 +1372,38 @@ internal sealed class ReaderWindow : Window
     {
         if (isShuttingDown) return;
         var projectElement = request.GetProperty("project");
-        var current = CheckSource(projectElement);
-        // The legacy renderer reads the immutable original subtitle and a v2
-        // project. Once refined exists, that path cannot represent edited
-        // words, even if the UI mistakenly submits a seemingly clean export.
-        // Fail closed until export is wired to the acknowledged refined snapshot.
+        var v3Export = projectElement.GetProperty("schemaVersion").GetInt32() == 3;
+        JsonElement sourceCheck = projectElement;
+        if (v3Export)
+        {
+            // Reuse immutable source identity checks for both project versions.
+            var sourceNode = JsonNode.Parse(projectElement.GetRawText())!.AsObject();
+            sourceNode["schemaVersion"] = 2;
+            sourceNode["overrides"] = new JsonObject();
+            using var sourceDocument = JsonDocument.Parse(sourceNode.ToJsonString());
+            sourceCheck = sourceDocument.RootElement.Clone();
+        }
+        var current = CheckSource(sourceCheck);
         var refinedPaths = RefinedStorage.Resolve(current.Transcript);
-        if (File.Exists(refinedPaths.Refined) || Directory.Exists(refinedPaths.Refined))
-            throw new InvalidOperationException(
-                "当前工程使用 refined 字幕；旧版导出路径会忽略正文修改，已禁止导出。");
+        if (v3Export)
+        {
+            if (projectElement.TryGetProperty("overrides", out _))
+                throw new InvalidDataException("v3 导出工程不能包含 overrides。");
+            RefinedStorage.EnsureNoPendingProjectSave(refinedPaths);
+            RefinedStorage.EnsureNoPendingPair(refinedPaths);
+            if (!File.Exists(refinedPaths.Refined) || !File.Exists(refinedPaths.Text) ||
+                !File.Exists(current.Project))
+                throw new IOException("refined、TXT 或 project v3 缺失，禁止导出。");
+            using var storedProject = JsonDocument.Parse(File.ReadAllText(current.Project, Encoding.UTF8));
+            if (!JsonElement.DeepEquals(storedProject.RootElement, projectElement))
+                throw new IOException("导出工程与磁盘已保存版本不一致，禁止导出。");
+            using var storedRefined = JsonDocument.Parse(File.ReadAllText(refinedPaths.Refined, Encoding.UTF8));
+            if (storedRefined.RootElement.GetProperty("script_to_video")
+                    .GetProperty("schemaVersion").GetInt32() != 3)
+                throw new InvalidDataException("refined 不是 v3 字幕。");
+        }
+        else if (File.Exists(refinedPaths.Refined) || Directory.Exists(refinedPaths.Refined))
+            throw new InvalidOperationException("refined 已存在，禁止使用旧版导出路径。");
         if (string.IsNullOrWhiteSpace(current.Project) || !File.Exists(current.Project))
         {
             Send(new { kind = "status", message = "请先保存项目，再导出视频。", busy = false, error = true });
@@ -1462,6 +1485,12 @@ internal sealed class ReaderWindow : Window
                 "--duration", request.GetProperty("duration").GetDouble().ToString("R", CultureInfo.InvariantCulture),
                 "--video-height", request.GetProperty("videoHeight").GetInt32().ToString(CultureInfo.InvariantCulture)
             ];
+            if (v3Export)
+            {
+                arguments[3] = refinedPaths.Refined;
+                start.ArgumentList.Add("--source-json");
+                start.ArgumentList.Add(task.TranscriptPath);
+            }
             foreach (var argument in arguments) start.ArgumentList.Add(argument);
             if (pagePlanSnapshot != null)
             {
