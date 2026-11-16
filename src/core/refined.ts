@@ -47,5 +47,5 @@ export function buildRefinedScript(source:ScriptToVideoInput,title:string,words:
 /** TXT is derived from the same effective content as refined JSON. */
 export function buildRefinedText(title:string,words:readonly Word[]):string{
  const body=exportPlainText(words);
- return title ? title+(body?'\\r\\n\\r\\n'+body:'') : body;
+ return title ? title+(body?'\r\n\r\n'+body:'') : body;
 }
