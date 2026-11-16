@@ -610,9 +610,14 @@ function App(){
  const settingsChange=(next:AppSettings)=>{
   if(!validateSettings(next))return notify('设置参数无效，未保存',true);
   const layoutChanged=JSON.stringify({...next,rightFont:undefined})!==JSON.stringify({...displayedSettings,rightFont:undefined});
+  // Reject before touching either the global settings or the open project.
+  // Previously the UI mutated appSettings and then returned, leaving an
+  // unacknowledged settings change even though the project edit was blocked.
+  if(project&&layoutChanged&&desktop&&contentSaveUnavailable)
+   return notify('磁盘快照尚未验证，暂时不能修改展示设置。',true);
   const globalNext=layoutChanged?next:{...appSettings,rightFont:next.rightFont};
   appSettingsRef.current=globalNext;setAppSettings(globalNext);
-  if(project&&layoutChanged){if(desktop&&contentSaveUnavailable){notify('当前工程尚不支持保存展示设置，已保留原工程样式。',true);return}mediaRef.current?.pause();setProject(p=>p?{...p,canvas:{...next.output},style:settingsToStyle(next)}:p);markDirty()}
+  if(project&&layoutChanged){mediaRef.current?.pause();setProject(p=>p?{...p,canvas:{...next.output},style:settingsToStyle(next)}:p);markDirty()}
   if(desktop&&loadedSettingsRef.current)desktop.postMessage({kind:'settings-save',settings:globalNext});
  };
  shortcutRef.current=(e:KeyboardEvent)=>{if(e.defaultPrevented||e.altKey||e.metaKey||settingsOpen||dependencyDialogRef.current)return;const target=e.target;if(target instanceof HTMLElement&&(target.isContentEditable||['INPUT','TEXTAREA','SELECT','BUTTON'].includes(target.tagName)))return;
