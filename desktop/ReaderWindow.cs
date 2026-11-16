@@ -828,7 +828,7 @@ internal sealed class ReaderWindow : Window
 
     // Return the actual persisted bytes only after the native operation
     // succeeds. The frontend must never infer a disk snapshot from its request.
-    private object ReadConfirmedPreparationSnapshot()
+    private (string refined, string text, string? project) ReadConfirmedPreparationSnapshot()
     {
         var current = source ?? throw new InvalidOperationException("没有正在打开的字幕。");
         var paths = RefinedStorage.Resolve(current.Transcript);
@@ -837,7 +837,7 @@ internal sealed class ReaderWindow : Window
         var text = File.ReadAllText(paths.Text, Encoding.UTF8);
         var project = File.Exists(current.Project)
             ? File.ReadAllText(current.Project, Encoding.UTF8) : null;
-        return new { refined, text, project };
+        return (refined, text, project);
     }
 
     private void RepairRefinedText(JsonElement request)
