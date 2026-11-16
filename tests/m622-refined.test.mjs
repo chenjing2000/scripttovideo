@@ -4,6 +4,8 @@ import {createRequire} from 'node:module';
 const require=createRequire(import.meta.url);
 const {parseScriptToVideo,validateScriptToVideo}=require('../.tmp-core/transcript.js');
 const {buildRefinedScript,buildRefinedText}=require('../.tmp-core/refined.js');
+const {prepareLegacyMigration,finalizeLegacyProject}=require('../.tmp-core/migration.js');
+const {createProject}=require('../.tmp-core/project.js');
 
 const source={script_to_video:{format:'script-to-video',schemaVersion:2},language:'en',segments:[{words:[{word:'Hello',start:0,end:0.4},{word:'world.',start:0.4,end:1}]}]};
 test('M6.22: v2 to full v3 refined, title and word edits survive round trip',()=>{
@@ -37,4 +39,19 @@ test('M6.22: v3 requires title including empty title',()=>{
  const refined=buildRefinedScript(source,'',parseScriptToVideo(source).words);
  assert.equal(refined.title,'');
  assert.throws(()=>validateScriptToVideo({...refined,title:null}),/title/);
+});
+
+test('M6.22: migrate legacy overrides without mutating old project',()=>{
+ const words=parseScriptToVideo(source).words;
+ const modified=words.map((w,i)=>i===0?{...w,display:'Hi',hidden:true,breakParagraph:true}:w);
+ const old=createProject('demo.mp4','demo.script.json',modified);
+ const prepared=prepareLegacyMigration(source,old,false);
+ assert.equal(prepared.refined.segments[0].words[0].word,'Hi');
+ assert.equal(prepared.refined.segments[0].words[0].hidden,true);
+ assert.equal(prepared.txt,'world.');
+ assert.ok(Object.keys(old.overrides).length);
+ const clean=finalizeLegacyProject(old);
+ assert.deepEqual(clean.overrides,{});
+ assert.ok(Object.keys(old.overrides).length);
+ assert.throws(()=>prepareLegacyMigration(source,old,true),/refined/);
 });
