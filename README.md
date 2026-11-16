@@ -4,7 +4,7 @@ Windows desktop editor for English word-timed reading videos. Built with .NET 10
 
 ## Import and edit
 
-Import only `<stem>.script.json` (ScriptToVideo v2, English). The desktop app looks in the same folder for matching media, case-insensitively, in this order:
+Import only `<stem>.script.json` (ScriptToVideo v3, English). The desktop app looks in the same folder for matching media, case-insensitively, in this order:
 
 `.mp4` → `.mkv` → `.m4a` → `.mp3` → `.wav`
 
@@ -14,7 +14,7 @@ Edit the title, word display, visibility and paragraph boundaries without rewrit
 
 ## Files
 
-For `lesson01.script.json`, the working directory contains `lesson01/lesson01.script.revise.json` (editable word/title content, v3), `lesson01/lesson01.txt` (derived plain text), and `lesson01/lesson01.project.json` (presentation settings, v3). MP4 output goes to `lesson01/lesson01.exported.mp4` or the next available numbered name; temporary render files are under `lesson01/cache/`. The original JSON and media remain untouched. This is a breaking change: existing project v2 files and old `.script.refined.json` working files are **not migrated**. Only source subtitle v2 and current project/revise v3 files are accepted. Current-version three-file save journals remain recoverable.
+For `lesson01.script.json`, the working directory contains `lesson01/lesson01.script.revise.json` (editable word/title content, v3), `lesson01/lesson01.txt` (derived plain text), and `lesson01/lesson01.project.json` (presentation settings, v3). MP4 output goes to `lesson01/lesson01.exported.mp4` or the next available numbered name; temporary render files are under `lesson01/cache/`. The original JSON and media remain untouched. This is a breaking change: existing project v2 files and old `.script.refined.json` working files are **not migrated**. Only original subtitle v3, project v3 and revise v3 files are accepted; v2 files are rejected without migration. Current-version three-file save journals remain recoverable.
 
 In browser-only mode, Save requests separate downloads of the current-format revise JSON, derived TXT and project v3 files; the browser may require permission for multiple downloads. Because the browser cannot verify that all downloads were persisted, this action does not clear the unsaved-changes indicator. Only the Windows desktop application provides the guarded three-file disk transaction.
 
