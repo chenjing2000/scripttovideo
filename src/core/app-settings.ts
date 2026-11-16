@@ -11,7 +11,7 @@ const integer=(v:unknown,min:number,max:number):v is number=>Number.isInteger(v)
 export function validateSettings(v:unknown):v is AppSettings {
  if(!v||typeof v!=='object')return false;const s=v as AppSettings;
  return s.format===SETTINGS_FORMAT&&s.schemaVersion===1&&!!s.titleStyle&&!!s.leftFont&&!!s.rightFont&&!!s.paragraph&&!!s.page&&!!s.output&&
-  FONT_OPTIONS.some(x=>x===s.titleStyle.fontFamily)&&integer(s.titleStyle.fontSize,1,200)&&integer(s.titleStyle.lineHeight,s.titleStyle.fontSize,300)&&integer(s.titleStyle.paragraphGap,0,200)&&color(s.titleStyle.color)&&
+  typeof s.titleStyle.bold==='boolean'&&FONT_OPTIONS.some(x=>x===s.titleStyle.fontFamily)&&integer(s.titleStyle.fontSize,1,200)&&integer(s.titleStyle.lineHeight,s.titleStyle.fontSize,300)&&integer(s.titleStyle.paragraphGap,0,200)&&color(s.titleStyle.color)&&
   FONT_OPTIONS.some(x=>x===s.leftFont.family)&&integer(s.leftFont.size,1,99)&&color(s.leftFont.color)&&color(s.leftFont.highlightColor)&&
   FONT_OPTIONS.some(x=>x===s.rightFont.family)&&integer(s.rightFont.size,1,99)&&color(s.rightFont.color)&&color(s.rightFont.backgroundColor)&&
   integer(s.paragraph.firstLineIndentEm,0,9)&&[1.2,1.3,1.4,1.5].includes(s.paragraph.lineHeight)&&integer(s.paragraph.gap,0,99)&&['justify','left'].includes(s.paragraph.alignment)&&
