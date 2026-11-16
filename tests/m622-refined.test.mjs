@@ -142,3 +142,12 @@ test('M6.22: interrupted legacy migration recovers only matching refined',()=>{
  modified.segments[0].words[0].word='Unexpected';
  assert.throws(()=>planRefinedOpen(source,modified,legacy),/不一致/);
 });
+
+test('M6.22: legacy project without overrides also resumes a matching migration',()=>{
+ const words=parseScriptToVideo(source).words;
+ const legacy=createProject('demo.mp4','demo.script.json',words);
+ const prepared=prepareLegacyMigration(source,legacy,false);
+ const plan=planRefinedOpen(source,prepared.refined,legacy);
+ assert.equal(plan.kind,'recover-migration');
+ assert.equal(plan.txt,prepared.txt);
+});
