@@ -696,7 +696,12 @@ internal sealed class ReaderWindow : Window
         // Read only: existing refined content is validated by the front end before use.
         // No work files are created during media probing or before pair acceptance.
         string? existingRefined;
-        try { existingRefined = RefinedStorage.ReadExisting(RefinedStorage.Resolve(pending.Subtitle)); }
+        try
+        {
+            var refinedPaths = RefinedStorage.Resolve(pending.Subtitle);
+            RefinedStorage.RecoverPendingPair(refinedPaths);
+            existingRefined = RefinedStorage.ReadExisting(refinedPaths);
+        }
         catch (Exception error)
         {
             AppLog.WriteException("Refined.ReadExisting", error);
