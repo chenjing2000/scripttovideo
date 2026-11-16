@@ -129,3 +129,16 @@ test('M6.22: refined does not preserve stale duplicate word_segments',()=>{
  assert.equal(Object.hasOwn(refined,'word_segments'),false);
  assert.equal(refined.segments[0].words[0].word,'Updated');
 });
+
+test('M6.22: interrupted legacy migration recovers only matching refined',()=>{
+ const original=parseScriptToVideo(source);
+ const legacy=createProject('demo.mp4','demo.script.json',original.words);
+ legacy.overrides={s0w0:{display:'Hi'}};
+ const prepared=prepareLegacyMigration(source,legacy,false);
+ const plan=planRefinedOpen(source,prepared.refined,legacy);
+ assert.equal(plan.kind,'recover-migration');
+ assert.equal(plan.txt,prepared.txt);
+ const modified=structuredClone(prepared.refined);
+ modified.segments[0].words[0].word='Unexpected';
+ assert.throws(()=>planRefinedOpen(source,modified,legacy),/不一致/);
+});
