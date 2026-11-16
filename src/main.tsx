@@ -339,6 +339,10 @@ function App(){
     }
    }catch(e){blocked=true;notify(`工程读取失败，已禁止覆盖原工程文件：${String(e)}`,true)}}
    activeRefinedSourceRef.current={fingerprint:data.fingerprint,subtitleName:data.subtitleName};
+   // Until the v3 save transaction exists, the legacy v2 save action is unsafe
+   // whenever refined is authoritative or being created.
+   if(desktop&&(openPlan.kind==='existing'||(openPlan.kind==='create'&&data.project===null)))
+    blocked=true;
    setProjectLoadBlocked(blocked);
    setMediaUrl(data.mediaUrl);setMediaName(data.mediaName);setKind(data.mediaKind);setProject(current);setWords(currentWords);setEditing(null);setWordTool(null);setToolLeaving(false);resetProjectDirtyState();setDuration(0);setVideoRatio(null);setMediaState('loading');setTime(0);setPlaying(false);
    transcriptRef.current?.scrollTo({top:0});
@@ -368,7 +372,7 @@ function App(){
     if(data.kind==='refined-create-failed'||data.kind==='refined-repair-failed'){
      setProjectLoadBlocked(true);
      notify(`refined/TXT 操作失败，已暂停工程保存：${data.message}`,true);
-    }else if(data.kind==='refined-created')notify(data.message);
+    }else if(data.kind==='refined-created')notify(`${data.message} 新版工程保存尚未接入，当前禁止使用旧版保存。`);
     else if(data.message!=='TXT 已存在，无需恢复。')notify(data.message);
    }
   }else if(data.kind==='saved'){
