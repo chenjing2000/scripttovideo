@@ -51,7 +51,7 @@ try{
  const bundleRoot=path.join(cacheDir,'bundle');
  const filename='__export_input'+ext;await copyFile(media,path.join(publicDir,filename));
  const pagePlan=getArg('page-plan')?JSON.parse(await readFile(getArg('page-plan'),'utf8')):undefined;
- if(pagePlan!==undefined)assertExportPagePlan(pagePlan,input,project,width,height-videoHeight);
+ if(pagePlan!==undefined)assertExportPagePlan(pagePlan,input,width,height-videoHeight);
  const inputProps={transcript:input,project,mediaKind,videoHeight,mediaFile:filename,pagePlan,durationSec};
  const {bundle}=await import('@remotion/bundler');const {getCompositions,renderMedia}=await import('@remotion/renderer');
  const browserExecutable=getArg('browser');console.log('Bundling Remotion...');
