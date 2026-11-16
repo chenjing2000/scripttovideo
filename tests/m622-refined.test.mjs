@@ -154,3 +154,10 @@ test('M6.22: legacy project without overrides also resumes a matching migration'
  assert.equal(plan.kind,'recover-migration');
  assert.equal(plan.txt,prepared.txt);
 });
+
+test('M6.22: revised v3 must never be opened or regenerated as immutable source v2',()=>{
+ const revised=buildRefinedScript(source,'A title',parseScriptToVideo(source).words);
+ assert.throws(()=>planRefinedOpen(revised,null,null),/v2/);
+ assert.throws(()=>buildRefinedScript(revised,'new title',parseScriptToVideo(revised).words),/v2/);
+ assert.throws(()=>prepareLegacyMigration(revised,createProject('demo.mp4','demo.script.json',parseScriptToVideo(revised).words),false),/v2/);
+});
