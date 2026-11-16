@@ -1,6 +1,6 @@
 export interface Word { id: string; segmentId: string; original: string; display: string; start: number; end: number; score?: number; hidden: boolean; breakParagraph: boolean; sourceBreakParagraph?: boolean; sourceDisplay?: string }
 export interface Transcript { language?: string; title: string; words: Word[]; warnings: string[] }
-export interface ScriptToVideoInput {title?:string;language:'en';segments:Array<{start?:number;end?:number;text?:string;words:Array<{word:string;start:number;end:number;score?:number;breakParagraph?:true;hidden?:true}>}>;word_segments?:unknown[];script_to_video:{format:'script-to-video';schemaVersion:2|3;displayOverrides?:Record<string,string>}}
+export interface ScriptToVideoInput {title:string;language:'en';segments:Array<{start?:number;end?:number;text?:string;words:Array<{word:string;start:number;end:number;score?:number;breakParagraph?:true;hidden?:true}>}>;word_segments?:unknown[];script_to_video:{format:'script-to-video';schemaVersion:3}}
 
 export interface TitleStyle {bold:boolean;fontFamily:string;fontSize:number;lineHeight:number;paragraphGap:number;color:string}
 export const DEFAULT_TITLE_STYLE:TitleStyle={bold:true,fontFamily:'Arial',fontSize:50,lineHeight:70,paragraphGap:20,color:'#C25160'};
