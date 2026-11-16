@@ -4,7 +4,7 @@ import {ReaderCanvas} from './ui/ReaderCanvas';
 import {StyleSettings} from './ui/StyleSettings';
 import {Dialog} from './ui/Dialog';
 import type {DialogAction} from './ui/Dialog';
-import {parseScriptToVideo,applyOverrides,createProject,updateWord,exportPlainText,saveProjectView,validateProject,paginate,measureWithCanvas,DEFAULT_STYLE,normalizeProjectStyle,WIDTH,HEIGHT,validCanvas,transcriptStem,findMediaCandidates,provisionalVideoHeight,describeMediaError,missingCompanionMessage,planRefinedOpen} from './core';
+import {parseScriptToVideo,applyOverrides,createProject,updateWord,exportPlainText,saveProjectView,validateProject,paginate,measureWithCanvas,DEFAULT_STYLE,normalizeProjectStyle,WIDTH,HEIGHT,validCanvas,transcriptStem,findMediaCandidates,provisionalVideoHeight,describeMediaError,missingCompanionMessage,planRefinedOpen,validatePresentationProject} from './core';
 import type {Word,Project} from './core';
 import {probeInPriority} from './core/media-probe';
 import {resolvePlayerShortcut} from './core/player-shortcuts';
@@ -310,13 +310,28 @@ function App(){
    let current=next,currentWords=effective.words,blocked=false;
    if(data.project!==null){try{
     const saved:unknown=JSON.parse(data.project);
-    if(!validateProject(saved,parsed.words)||saved.source.subtitleSha256!==data.fingerprint||
-      saved.source.videoName.toLowerCase()!==data.mediaName.toLowerCase()||
-      saved.source.subtitleName.toLowerCase()!==data.subtitleName.toLowerCase()||
-      (saved.mediaKind!==undefined&&saved.mediaKind!==data.mediaKind))
-      throw Error('工程格式、来源或字幕指纹不匹配');
-    current=normalizeProjectStyle(saved);currentWords=openPlan.kind==='existing'?effective.words:applyOverrides(parsed,current).words;
-    desktop?.postMessage({kind:'project-validated',fingerprint:data.fingerprint,subtitleName:data.subtitleName});
+    if(validatePresentationProject(saved)){
+     if(saved.source.subtitleSha256!==data.fingerprint||
+       saved.source.videoName.toLowerCase()!==data.mediaName.toLowerCase()||
+       saved.source.subtitleName.toLowerCase()!==data.subtitleName.toLowerCase()||
+       (saved.mediaKind!==undefined&&saved.mediaKind!==data.mediaKind))
+       throw Error('v3 工程来源与当前媒体或字幕不匹配');
+     // A v2 view is temporary for rendering only. The desktop save lock remains
+     // in place until native v3 project persistence is implemented.
+     current=normalizeProjectStyle({...saved,schemaVersion:2 as const,overrides:{}});
+     currentWords=effective.words;
+     blocked=true;
+     notify('已读取 v3 工程和 refined；新版工程保存尚未接入，暂时禁止覆盖工程文件。',true);
+    }else{
+     if(!validateProject(saved,parsed.words)||saved.source.subtitleSha256!==data.fingerprint||
+       saved.source.videoName.toLowerCase()!==data.mediaName.toLowerCase()||
+       saved.source.subtitleName.toLowerCase()!==data.subtitleName.toLowerCase()||
+       (saved.mediaKind!==undefined&&saved.mediaKind!==data.mediaKind))
+       throw Error('工程格式、来源或字幕指纹不匹配');
+     current=normalizeProjectStyle(saved);
+     currentWords=openPlan.kind==='existing'?effective.words:applyOverrides(parsed,current).words;
+     desktop?.postMessage({kind:'project-validated',fingerprint:data.fingerprint,subtitleName:data.subtitleName});
+    }
    }catch(e){blocked=true;notify(`工程读取失败，已禁止覆盖原工程文件：${String(e)}`,true)}}
    setProjectLoadBlocked(blocked);
    setMediaUrl(data.mediaUrl);setMediaName(data.mediaName);setKind(data.mediaKind);setProject(current);setWords(currentWords);setEditing(null);setWordTool(null);setToolLeaving(false);resetProjectDirtyState();setDuration(0);setVideoRatio(null);setMediaState('loading');setTime(0);setPlaying(false);
