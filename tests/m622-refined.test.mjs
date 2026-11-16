@@ -102,11 +102,14 @@ test('M6.22: existing invalid refined is never silently replaced',()=>{
  mismatched.segments[0].words[0].start=0.1;
  assert.throws(()=>planRefinedOpen(source,mismatched,null),/时间锚点/);
 });
-test('M6.22: legacy overrides conflict with existing refined',()=>{
+test('M6.22: matching refined resumes legacy migration, divergent refined is rejected',()=>{
  const words=parseScriptToVideo(source).words.map((w,i)=>i===0?{...w,display:'Hi'}:w);
  const legacy=createProject('demo.mp4','demo.script.json',words);
  const refined=buildRefinedScript(source,'',words);
- assert.throws(()=>planRefinedOpen(source,refined,legacy),/禁止自动合并/);
+ assert.equal(planRefinedOpen(source,refined,legacy).kind,'recover-migration');
+ const divergent=structuredClone(refined);
+ divergent.segments[0].words[0].word='Different';
+ assert.throws(()=>planRefinedOpen(source,divergent,legacy),/不一致/);
  const plan=planRefinedOpen(source,null,legacy);
  assert.equal(plan.kind,'create');
  assert.equal(plan.refined.segments[0].words[0].word,'Hi');
