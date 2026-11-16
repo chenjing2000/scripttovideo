@@ -4,7 +4,7 @@ import {ReaderCanvas} from './ui/ReaderCanvas';
 import {StyleSettings} from './ui/StyleSettings';
 import {Dialog} from './ui/Dialog';
 import type {DialogAction} from './ui/Dialog';
-import {parseScriptToVideo,applyOverrides,createProject,updateWord,exportPlainText,saveProjectView,validateProject,paginate,measureWithCanvas,DEFAULT_STYLE,normalizeProjectStyle,WIDTH,HEIGHT,validCanvas,transcriptStem,findMediaCandidates,provisionalVideoHeight,describeMediaError,missingCompanionMessage,planRefinedOpen,validatePresentationProject,finalizeLegacyProject} from './core';
+import {parseScriptToVideo,applyOverrides,createProject,updateWord,saveProjectView,validateProject,paginate,measureWithCanvas,DEFAULT_STYLE,normalizeProjectStyle,WIDTH,HEIGHT,validCanvas,transcriptStem,findMediaCandidates,provisionalVideoHeight,describeMediaError,missingCompanionMessage,planRefinedOpen,validatePresentationProject,finalizeLegacyProject} from './core';
 import type {Word,Project} from './core';
 import {probeInPriority} from './core/media-probe';
 import {resolvePlayerShortcut} from './core/player-shortcuts';
@@ -27,8 +27,6 @@ type DesktopMessage =
  | {kind:'refined-repair-failed';fingerprint:string;subtitleName:string;message:string}
  | {kind:'refined-migrated';fingerprint:string;subtitleName:string;message:string}
  | {kind:'refined-migrate-failed';fingerprint:string;subtitleName:string;message:string}
- | {kind:'text-exported';message:string}
- | {kind:'text-export-error';message:string}
  | {kind:'status';message:string;busy:boolean;error?:boolean;canCancel?:boolean}
  | {kind:'dependency-confirm';id:number;title:string;heading:string;details:string;action:string}
  | {kind:'dependency-progress';title:string;message:string}
@@ -224,27 +222,6 @@ function App(){
   const blob=new Blob([JSON.stringify(p,null,2)],{type:'application/json'}),u=URL.createObjectURL(blob),a=document.createElement('a');a.href=u;a.download=transcriptStem(project.source.subtitleName)+'.project.json';a.click();setTimeout(()=>URL.revokeObjectURL(u),1000);
   updateProjectEditState(acknowledgeProjectSave(projectEditStateRef.current,revision));
   notify('工程 JSON 已保存')};
- const doExportText=()=>{
-  if(!project||!words.length)return notify('尚未打开可导出的字幕',true);
-  if(exporting||dependencyDialogRef.current)return;
-  let currentWords=words;
-  const active=editRef.current;
-  if(active){
-   try{currentWords=updateWord(words,active.id,active.text)}
-   catch(error){notify(`无法导出正文：请先修正正在编辑的单词。${String(error)}`,true);return}
-   // Commit the active edit before taking the export snapshot. Use currentWords
-   // rather than React state, which does not update synchronously.
-   if(!commitEditing())return;
-  }
-  const text=exportPlainText(currentWords);
-  if(!text)return notify('右栏没有可导出的正文',true);
-  if(desktop){desktop.postMessage({kind:'export-text',text});return}
-  const name=transcriptStem(project.source.subtitleName)+'.article.txt';
-  const blob=new Blob([text],{type:'text/plain;charset=utf-8'});
-  const url=URL.createObjectURL(blob),link=document.createElement('a');
-  link.href=url;link.download=name;link.click();window.setTimeout(()=>URL.revokeObjectURL(url),1000);
-  notify(`已下载正文文本：${name}`);
- };
  const doExport=()=>{
   if(dependencyDialogRef.current)return;
   if(mediaState!=='ready'){notify(`媒体尚未就绪：${mediaName||'未选择媒体'}`,true);return}
@@ -389,7 +366,7 @@ function App(){
    const nextState=acknowledgeProjectSave(projectEditStateRef.current,data.revision);
    updateProjectEditState(nextState);
    notify(hasUnsavedProjectChanges(nextState)?`${data.message}；当前工程仍有未保存修改`:data.message);
-  }else if(data.kind==='text-exported')notify(data.message);else if(data.kind==='text-export-error')notify(data.message,true);else if(data.kind==='dependency-confirm')setDependency({mode:'confirm',...data});else if(data.kind==='dependency-progress')setDependency({mode:'progress',title:data.title,message:data.message});else if(data.kind==='dependency-cancelling'){const d=dependencyDialogRef.current;if(d?.mode==='progress')setDependency({mode:'cancelling',title:d.title,message:'正在停止安装任务并清理临时文件……'})}else if(data.kind==='dependency-end')setDependency(null);else if(data.kind==='export-cancelling')setExportTaskNotice('正在取消导出，等待渲染进程退出并清理缓存…',false);else if(data.kind==='dependency-failed')setDependency({mode:'error',message:data.message});else if(data.kind==='status'){if(data.error&&!data.busy&&reloadingRef.current)clearReload();setExporting(data.busy);if(data.busy){if(data.error)notify(data.message,true);else setExportTaskNotice(data.message,data.canCancel!==false)}else{clearExportTaskNotice();if(!data.error&&dependencyDialogRef.current?.mode==='progress')setDependency(null);if(!dependencyDialogRef.current||dependencyDialogRef.current.mode!=='error')notify(data.message,!!data.error)}}};desktop?.addEventListener('message',receive);return()=>desktop?.removeEventListener('message',receive)},[]);
+  }else if(data.kind==='dependency-confirm')setDependency({mode:'confirm',...data});else if(data.kind==='dependency-progress')setDependency({mode:'progress',title:data.title,message:data.message});else if(data.kind==='dependency-cancelling'){const d=dependencyDialogRef.current;if(d?.mode==='progress')setDependency({mode:'cancelling',title:d.title,message:'正在停止安装任务并清理临时文件……'})}else if(data.kind==='dependency-end')setDependency(null);else if(data.kind==='export-cancelling')setExportTaskNotice('正在取消导出，等待渲染进程退出并清理缓存…',false);else if(data.kind==='dependency-failed')setDependency({mode:'error',message:data.message});else if(data.kind==='status'){if(data.error&&!data.busy&&reloadingRef.current)clearReload();setExporting(data.busy);if(data.busy){if(data.error)notify(data.message,true);else setExportTaskNotice(data.message,data.canCancel!==false)}else{clearExportTaskNotice();if(!data.error&&dependencyDialogRef.current?.mode==='progress')setDependency(null);if(!dependencyDialogRef.current||dependencyDialogRef.current.mode!=='error')notify(data.message,!!data.error)}}};desktop?.addEventListener('message',receive);return()=>desktop?.removeEventListener('message',receive)},[]);
  useEffect(()=>{desktop?.postMessage({kind:'ready'})},[]);
  async function openBrowserJson(file:File){
   const controller=new AbortController(),id='browser-'+String(Date.now())+'-'+String(Math.random());
