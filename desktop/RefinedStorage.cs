@@ -21,8 +21,33 @@ internal static class RefinedStorage
         if (string.IsNullOrWhiteSpace(stem) || stem is "." or "..")
             throw new InvalidDataException("字幕文件名无效。");
         var folder = Path.Combine(Path.GetDirectoryName(full)!, stem);
-        return new Paths(folder, Path.Combine(folder, stem + ".script.refined.json"),
+        return new Paths(folder, Path.Combine(folder, stem + ".script.revise.json"),
             Path.Combine(folder, stem + ".txt"));
+    }
+
+    /// <summary>
+    /// Move the previous working-file name without changing its bytes.
+    /// Refuse migration while an old transaction is pending or either name conflicts.
+    /// No project or original subtitle is touched.
+    /// </summary>
+    internal static void MigrateLegacyFilename(Paths paths)
+    {
+        var currentName = Path.GetFileName(paths.Refined);
+        const string newSuffix = ".script.revise.json";
+        if (!currentName.EndsWith(newSuffix, StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException("工作字幕文件后缀无效。");
+        var stem = currentName[..^newSuffix.Length];
+        var oldPath = Path.Combine(paths.Folder, stem + ".script.refined.json");
+        if (Directory.Exists(oldPath))
+            throw new IOException("旧版工作字幕路径被目录占用，禁止自动更名。");
+        if (!File.Exists(oldPath)) return;
+        if (File.Exists(paths.Refined) || Directory.Exists(paths.Refined))
+            throw new IOException("旧版和新版工作字幕同时存在，禁止自动合并或覆盖。");
+        if (File.Exists(oldPath + ".save-journal") ||
+            File.Exists(oldPath + ".project-save-journal"))
+            throw new IOException("旧版工作字幕有未完成的保存日志，禁止自动更名。");
+        // A failed rename retains the original file; the next open may safely retry.
+        File.Move(oldPath, paths.Refined, overwrite: false);
     }
 
     internal static string? ReadExisting(Paths paths)
