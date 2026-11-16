@@ -2,9 +2,11 @@
 
 ## Windows build
 
+Run these commands on the already selected development branch; do not switch branches during verification.
+
 ```powershell
-git switch feature/m6-22-refined-data
-git pull --ff-only origin feature/m6-22-refined-data
+git status --short
+git pull --ff-only
 npm.cmd ci
 npm.cmd run verify
 dotnet publish desktop/ScriptToVideo.csproj -c Release -o dist/wpf
