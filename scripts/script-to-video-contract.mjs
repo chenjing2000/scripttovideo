@@ -3,9 +3,11 @@ import {createHash} from 'node:crypto';
 export function assertScriptToVideo(input){
  const object=x=>!!x&&typeof x==='object'&&!Array.isArray(x);
  const meta=input?.script_to_video;
- if(!object(input)||!object(meta)||meta.format!=='script-to-video'||meta.schemaVersion!==2)
-  throw new Error('仅支持 ScriptToVideo v2 (*.script.json)');
- if(Object.keys(meta).some(k=>!['format','schemaVersion','displayOverrides'].includes(k)))throw new Error('未知 script_to_video 字段');
+ if(!object(input)||!object(meta)||meta.format!=='script-to-video'||meta.schemaVersion!==3)
+  throw new Error('仅支持 ScriptToVideo v3 (*.script.json)');
+ if(typeof input.title!=='string')throw new Error('ScriptToVideo v3 必须包含 title 字符串');
+ if('displayOverrides' in meta)throw new Error('v3 不允许 displayOverrides');
+ if(Object.keys(meta).some(k=>!['format','schemaVersion'].includes(k)))throw new Error('未知 script_to_video 字段');
  if('enscript' in input||'evr' in input||'paragraphs' in input||'paragraphBreaksAfter' in input)throw new Error('禁止旧格式字段');
  if(input.language!=='en'||!Array.isArray(input.segments)||!input.segments.length)throw new Error('必须包含英语 segments');
  const ids=new Set();let last=-Infinity,paragraphs=1,terminal;
@@ -17,6 +19,7 @@ export function assertScriptToVideo(input){
    if(!object(w)||typeof w.word!=='string'||!w.word.trim()||/\s/u.test(w.word.trim()))throw new Error(`单词无效：${id}`);
    if(typeof w.start!=='number'||!Number.isFinite(w.start)||typeof w.end!=='number'||!Number.isFinite(w.end)||w.start<0||w.end<=w.start||w.start<last)throw new Error(`时间戳无效：${id}`);
    if('paragraphAfter' in w||'paragraphBreaksAfter' in w||'paragraph_start' in w)throw new Error(`旧版分段字段：${id}`);
+   if('hidden' in w&&w.hidden!==true)throw new Error(`hidden 必须为 true：${id}`);
    if('breakParagraph' in w&&w.breakParagraph!==true)throw new Error(`breakParagraph 必须为 true：${id}`);
    if(w.breakParagraph===true)paragraphs++;
    last=w.start;terminal=w;ids.add(id);
@@ -26,15 +29,11 @@ export function assertScriptToVideo(input){
  if(input.word_segments!==undefined){
   if(!Array.isArray(input.word_segments)||input.word_segments.some(w=>!object(w)||'breakParagraph' in w))throw new Error('word_segments 禁止分段标记');
  }
- if(meta.displayOverrides!==undefined){
-  if(!object(meta.displayOverrides))throw new Error('displayOverrides 必须为对象');
-  for(const [id,v] of Object.entries(meta.displayOverrides))if(!ids.has(id)||typeof v!=='string'||!v.trim()||/\s/u.test(v.trim()))throw new Error(`显示词覆盖无效：${id}`);
- }
  return {wordCount:ids.size,paragraphCount:paragraphs};
 }
 
 
-/** Validate a refined v3 subtitle against its immutable v2 source.
+/** Validate a refined v3 subtitle against its immutable v3 source.
  * The project still identifies the original subtitle by name and SHA256.
  */
 export function assertRefinedForExport(refined,original){
