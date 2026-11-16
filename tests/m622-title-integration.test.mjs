@@ -12,6 +12,9 @@ test('M6.22 title: defaults are persisted in presentation v3, never word overrid
  const project=createProject('example.mp4','example.script.json',[]);
  const presentation=toPresentationProject(project);
  assert.deepEqual(presentation.titleStyle,DEFAULT_TITLE_STYLE);
+ assert.equal(presentation.titleStyle.bold,true);
+ assert.equal(validatePresentationProject({...presentation,titleStyle:{...presentation.titleStyle,bold:false}}),true);
+ assert.equal(validatePresentationProject({...presentation,titleStyle:{...presentation.titleStyle,bold:'yes'}}),false);
  assert.equal(validatePresentationProject(presentation),true);
  assert.equal('overrides' in presentation,false);
  assert.equal(validatePresentationProject({...presentation,titleStyle:{...presentation.titleStyle,lineHeight:1}}),false);
@@ -60,6 +63,11 @@ test('M6.22 title: editor, save and export share the current title and title-awa
  const settings=readFileSync('src/ui/StyleSettings.tsx','utf8');
  assert.ok(settings.indexOf("['标题设置'")<settings.indexOf("['左栏字体'"));
  assert.match(app,/className="title-editor"/);
+ assert.match(app,/ref={titleEditorRef}/);
+ assert.match(app,/textarea\.style\.height=Math\.max\(70,textarea\.scrollHeight\)/);
+ assert.match(settings,/aria-pressed=\{value==='true'\}/);
+ assert.match(settings,/粗体<\/button>/);
+ assert.match(canvas,/titleStyle\.bold\?700:400/);
  assert.match(app,/setTitle\(next\);markDirty\(\)/);
  assert.equal((app.match(/planManualSave\([^;]*titleRef\.current\)/g)||[]).length,2);
  assert.match(app,/titleLayout\.height/);
