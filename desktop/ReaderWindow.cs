@@ -577,7 +577,7 @@ internal sealed class ReaderWindow : Window
                 version.ValueKind != JsonValueKind.Number ||
                 version.GetInt32() != 2 ||
                 root.TryGetProperty("video_transcript", out _) || root.TryGetProperty("enscript", out _))
-                throw new InvalidOperationException("字幕不是 ScriptToVideo v2/v3 标准格式。");
+                throw new InvalidOperationException("原始字幕必须是 ScriptToVideo v2 格式。");
         }
         var fingerprint = Convert.ToHexString(SHA256.HashData(bytes));
         // M6.12 is a breaking storage-layout change: do not search or migrate legacy projects.
