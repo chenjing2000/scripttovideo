@@ -1361,6 +1361,14 @@ internal sealed class ReaderWindow : Window
         if (isShuttingDown) return;
         var projectElement = request.GetProperty("project");
         var current = CheckSource(projectElement);
+        // The legacy renderer reads the immutable original subtitle and a v2
+        // project. Once refined exists, that path cannot represent edited
+        // words, even if the UI mistakenly submits a seemingly clean export.
+        // Fail closed until export is wired to the acknowledged refined snapshot.
+        var refinedPaths = RefinedStorage.Resolve(current.Transcript);
+        if (File.Exists(refinedPaths.Refined) || Directory.Exists(refinedPaths.Refined))
+            throw new InvalidOperationException(
+                "当前工程使用 refined 字幕；旧版导出路径会忽略正文修改，已禁止导出。");
         if (string.IsNullOrWhiteSpace(current.Project) || !File.Exists(current.Project))
         {
             Send(new { kind = "status", message = "请先保存项目，再导出视频。", busy = false, error = true });
