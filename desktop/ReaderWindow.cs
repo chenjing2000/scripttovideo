@@ -388,6 +388,19 @@ internal sealed class ReaderWindow : Window
                             message = error.Message });
                     }
                     break;
+                case "project-bundle-save":
+                    try { SaveProjectBundle(request); }
+                    catch (Exception error)
+                    {
+                        AppLog.WriteException("ProjectBundle.Save", error);
+                        Send(new { kind = "project-bundle-save-failed",
+                            operationId = request.GetProperty("operationId").GetInt32(),
+                            revision = request.GetProperty("revision").GetInt64(),
+                            fingerprint = request.GetProperty("fingerprint").GetString(),
+                            subtitleName = request.GetProperty("subtitleName").GetString(),
+                            message = error.Message });
+                    }
+                    break;
                 case "project-v3-save":
                     try { SavePresentationProject(request); }
                     catch (Exception error)
@@ -1020,6 +1033,110 @@ internal sealed class ReaderWindow : Window
             fingerprint = current.Fingerprint,
             subtitleName = Path.GetFileName(current.Transcript),
             message = "v3 展示工程已保存。" });
+    }
+
+    /// <summary>Single guarded entrypoint for a user-initiated save.
+    /// The frontend supplies a frozen old/new snapshot of all derived files.
+    /// No original subtitle file is ever written.</summary>
+    private void SaveProjectBundle(JsonElement request)
+    {
+        var current = source ?? throw new InvalidOperationException("没有正在打开的字幕。");
+        if (!string.Equals(request.GetProperty("fingerprint").GetString(),
+                current.Fingerprint, StringComparison.OrdinalIgnoreCase) ||
+            !string.Equals(request.GetProperty("subtitleName").GetString(),
+                Path.GetFileName(current.Transcript), StringComparison.OrdinalIgnoreCase) ||
+            Fingerprint(current.Transcript) != current.Fingerprint)
+            throw new InvalidOperationException("原始字幕或保存来源已变化，拒绝保存。");
+
+        var paths = RefinedStorage.Resolve(current.Transcript);
+        var oldRefined = request.GetProperty("previousRefined");
+        var nextRefined = request.GetProperty("refined");
+        var oldText = request.GetProperty("previousText").GetString()
+            ?? throw new InvalidDataException("缺少旧 TXT 快照。");
+        var nextText = request.GetProperty("text").GetString()
+            ?? throw new InvalidDataException("缺少新 TXT 内容。");
+        var previousProject = request.GetProperty("previousProject");
+        var nextProject = request.GetProperty("project");
+
+        if (oldRefined.GetProperty("script_to_video").GetProperty("schemaVersion").GetInt32() != 3 ||
+            nextRefined.GetProperty("script_to_video").GetProperty("schemaVersion").GetInt32() != 3 ||
+            nextRefined.GetProperty("language").GetString() != "en" ||
+            nextRefined.GetProperty("title").ValueKind != JsonValueKind.String)
+            throw new InvalidDataException("保存的 refined 必须为有效的英语 v3 字幕。");
+
+        // Revalidate immutable timing anchors against the original disk file.
+        using (var original = JsonDocument.Parse(File.ReadAllText(current.Transcript, Encoding.UTF8)))
+        {
+            var originalSegments = original.RootElement.GetProperty("segments");
+            var nextSegments = nextRefined.GetProperty("segments");
+            if (originalSegments.GetArrayLength() != nextSegments.GetArrayLength())
+                throw new InvalidDataException("refined 改变了原始段落数量。");
+            for (var si = 0; si < originalSegments.GetArrayLength(); si++)
+            {
+                var before = originalSegments[si].GetProperty("words");
+                var after = nextSegments[si].GetProperty("words");
+                if (before.GetArrayLength() != after.GetArrayLength())
+                    throw new InvalidDataException("refined 改变了原始单词数量。");
+                for (var wi = 0; wi < before.GetArrayLength(); wi++)
+                {
+                    if (!JsonElement.DeepEquals(before[wi].GetProperty("start"), after[wi].GetProperty("start")) ||
+                        !JsonElement.DeepEquals(before[wi].GetProperty("end"), after[wi].GetProperty("end")) ||
+                        after[wi].GetProperty("word").ValueKind != JsonValueKind.String ||
+                        string.IsNullOrWhiteSpace(after[wi].GetProperty("word").GetString()))
+                        throw new InvalidDataException($"refined 的 s{si}w{wi} 单词或时间锚点无效。");
+                }
+            }
+        }
+
+        if (nextProject.GetProperty("format").GetString() != "script-to-video-project" ||
+            nextProject.GetProperty("schemaVersion").GetInt32() != 3 ||
+            nextProject.TryGetProperty("overrides", out _))
+            throw new InvalidDataException("工程必须为不含正文覆盖的 project v3。");
+        var projectSource = nextProject.GetProperty("source");
+        if (!string.Equals(projectSource.GetProperty("subtitleSha256").GetString(),
+                current.Fingerprint, StringComparison.OrdinalIgnoreCase) ||
+            !string.Equals(projectSource.GetProperty("subtitleName").GetString(),
+                Path.GetFileName(current.Transcript), StringComparison.OrdinalIgnoreCase) ||
+            !string.Equals(projectSource.GetProperty("videoName").GetString(),
+                Path.GetFileName(current.Media), StringComparison.OrdinalIgnoreCase) ||
+            (nextProject.TryGetProperty("mediaKind", out var mediaKind) &&
+                mediaKind.GetString() != current.MediaKind))
+            throw new InvalidDataException("project v3 的媒体或字幕来源不匹配。");
+
+        var storedRefined = RefinedStorage.ReadExisting(paths)
+            ?? throw new FileNotFoundException("refined 不存在，禁止覆盖。");
+        using (var stored = JsonDocument.Parse(storedRefined))
+            if (!JsonElement.DeepEquals(stored.RootElement, oldRefined))
+                throw new IOException("refined 已被外部修改。");
+
+        string? oldProjectText = null;
+        if (previousProject.ValueKind == JsonValueKind.Null)
+        {
+            if (File.Exists(current.Project))
+                throw new IOException("工程文件已被外部创建。");
+        }
+        else
+        {
+            if (previousProject.GetProperty("schemaVersion").GetInt32() != 3 ||
+                !File.Exists(current.Project))
+                throw new IOException("已有工程不是可保存的 v3 快照。");
+            oldProjectText = File.ReadAllText(current.Project, Encoding.UTF8);
+            using var stored = JsonDocument.Parse(oldProjectText);
+            if (!JsonElement.DeepEquals(stored.RootElement, previousProject))
+                throw new IOException("工程已被外部修改。");
+        }
+
+        RefinedStorage.ReplaceProjectBundle(paths, current.Project,
+            storedRefined, nextRefined.GetRawText(),
+            oldText, nextText, oldProjectText, nextProject.GetRawText());
+        if (Fingerprint(current.Transcript) != current.Fingerprint)
+            throw new IOException("保存期间原始字幕发生变化。");
+        Send(new { kind = "project-bundle-saved",
+            operationId = request.GetProperty("operationId").GetInt32(),
+            revision = request.GetProperty("revision").GetInt64(),
+            fingerprint = current.Fingerprint,
+            subtitleName = Path.GetFileName(current.Transcript),
+            message = "refined、TXT 和 project v3 已保存。" });
     }
 
     private void SaveRefined(JsonElement request)
