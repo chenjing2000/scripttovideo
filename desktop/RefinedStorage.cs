@@ -256,6 +256,12 @@ internal static class RefinedStorage
         CheckExpected(paths.Refined, expectedRefined);
         CheckExpected(paths.Text, expectedText);
         CheckExpected(projectPath, expectedProject);
+        // A clean manual save/export must not create a journal or rewrite files.
+        if (string.Equals(expectedRefined, nextRefined, StringComparison.Ordinal) &&
+            string.Equals(expectedText, nextText, StringComparison.Ordinal) &&
+            expectedProject != null &&
+            string.Equals(expectedProject, nextProject, StringComparison.Ordinal))
+            return;
         var journalPath = ProjectJournalPath(paths);
         CreateNew(journalPath, JsonSerializer.Serialize(new PendingProjectSave(
             Path.GetFullPath(projectPath), expectedRefined, nextRefined, expectedText, nextText,
