@@ -26,7 +26,11 @@
     <ItemGroup>
       <EmbeddedResource Include="../dist/index.html" LogicalName="TSUI/index.html" />
       <EmbeddedResource Include="../dist/app.ico" LogicalName="TSUI/app.ico" />
-      <EmbeddedResource Include="../dist/assets/**/*" LogicalName="TSUI/assets/%(RecursiveDir)%(Filename)%(Extension)" />
+      <!-- Separate item type prevents target batching against unrelated TSRUNTIME resources. -->
+      <BuiltWebAsset Include="../dist/assets/**/*">
+        <LogicalName>TSUI/assets/%(RecursiveDir)%(Filename)%(Extension)</LogicalName>
+      </BuiltWebAsset>
+      <EmbeddedResource Include="@(BuiltWebAsset)" />
     </ItemGroup>
   </Target>
   <ItemGroup>
