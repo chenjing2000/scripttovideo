@@ -396,6 +396,8 @@ internal sealed class ReaderWindow : Window
                         Send(new { kind = "project-v3-save-failed",
                             operationId = request.GetProperty("operationId").GetInt32(),
                             revision = request.GetProperty("revision").GetInt64(),
+                            fingerprint = request.GetProperty("fingerprint").GetString(),
+                            subtitleName = request.GetProperty("subtitleName").GetString(),
                             message = error.Message });
                     }
                     break;
@@ -407,6 +409,8 @@ internal sealed class ReaderWindow : Window
                         Send(new { kind = "refined-save-failed",
                             operationId = request.GetProperty("operationId").GetInt32(),
                             revision = request.GetProperty("revision").GetInt64(),
+                            fingerprint = request.GetProperty("fingerprint").GetString(),
+                            subtitleName = request.GetProperty("subtitleName").GetString(),
                             message = error.Message });
                     }
                     break;
@@ -956,6 +960,9 @@ internal sealed class ReaderWindow : Window
     private void SavePresentationProject(JsonElement request)
     {
         var current = source ?? throw new InvalidOperationException("没有正在打开的字幕。");
+        if (!string.Equals(request.GetProperty("subtitleName").GetString(),
+                Path.GetFileName(current.Transcript), StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException("保存请求的字幕名称与当前来源不一致。");
         if (!string.Equals(request.GetProperty("fingerprint").GetString(),
                 current.Fingerprint, StringComparison.OrdinalIgnoreCase) ||
             Fingerprint(current.Transcript) != current.Fingerprint)
@@ -1005,6 +1012,8 @@ internal sealed class ReaderWindow : Window
         Send(new { kind = "project-v3-saved",
             operationId = request.GetProperty("operationId").GetInt32(),
             revision = request.GetProperty("revision").GetInt64(),
+            fingerprint = current.Fingerprint,
+            subtitleName = Path.GetFileName(current.Transcript),
             message = "v3 展示工程已保存。" });
     }
 
@@ -1076,6 +1085,8 @@ internal sealed class ReaderWindow : Window
         Send(new { kind = "refined-saved",
             operationId = request.GetProperty("operationId").GetInt32(),
             revision = request.GetProperty("revision").GetInt64(),
+            fingerprint = current.Fingerprint,
+            subtitleName = Path.GetFileName(current.Transcript),
             message = "refined 和 TXT 已保存。" });
     }
 
