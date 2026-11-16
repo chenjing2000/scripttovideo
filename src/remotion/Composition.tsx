@@ -15,7 +15,7 @@ export const ReadingComposition:React.FC<RenderProps>=({transcript,project,media
   project.schemaVersion===3?{...project,schemaVersion:2 as const,overrides:{}}:project
  ):null,[project]);
  const style=normalizedProject?.style??DEFAULT_STYLE;
- const titleStyle=project?.titleStyle??DEFAULT_TITLE_STYLE;
+ const titleStyle=useMemo(()=>({...DEFAULT_TITLE_STYLE,...project?.titleStyle}),[project?.titleStyle]);
  const canvasWidth=normalizedProject?.canvas.width??WIDTH,canvasHeight=normalizedProject?.canvas.height??HEIGHT;
  const src=staticFile(mediaFile);
  return <AbsoluteFill><ReaderCanvas words={words} title={transcript.title??''} titleStyle={titleStyle} style={style} time={frame/fps} canvasWidth={canvasWidth} canvasHeight={canvasHeight} videoHeight={mediaKind==='video'?videoHeight:0} pagePlan={pagePlan} video={mediaKind==='video'?<OffthreadVideo src={src} style={{width:canvasWidth,height:videoHeight,objectFit:'fill'}}/>:null}/>{mediaKind==='audio'&&<Audio src={src}/>}</AbsoluteFill>;
