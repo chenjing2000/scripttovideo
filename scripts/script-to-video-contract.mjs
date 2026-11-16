@@ -120,6 +120,14 @@ export function assertPresentationProjectForExport(project,context){
  if(!project||typeof project!=='object'||Array.isArray(project)||
     project.schemaVersion!==3||'overrides' in project)
   throw new Error('Expected presentation-only project v3');
+ if(project.titleStyle!==undefined){
+  const t=project.titleStyle;
+  if(!t||typeof t!=='object'||typeof t.fontFamily!=='string'||!t.fontFamily.trim()||
+     !Number.isInteger(t.fontSize)||t.fontSize<1||t.fontSize>200||
+     !Number.isInteger(t.lineHeight)||t.lineHeight<t.fontSize||t.lineHeight>300||
+     !Number.isInteger(t.paragraphGap)||t.paragraphGap<0||t.paragraphGap>200||
+     typeof t.color!=='string'||!/^#[0-9a-f]{6}$/i.test(t.color))throw Error('Invalid project title style');
+ }
  assertProjectForExport({...project,schemaVersion:2,overrides:{}},context);
  return project;
 }
