@@ -597,9 +597,7 @@ internal sealed class ReaderWindow : Window
                 !meta.TryGetProperty("format", out var format) || format.GetString() != "script-to-video" ||
                 !meta.TryGetProperty("schemaVersion", out var version) ||
                 version.ValueKind != JsonValueKind.Number ||
-                (version.GetInt32() != 2 && version.GetInt32() != 3) ||
-                (version.GetInt32() == 3 &&
-                 (!root.TryGetProperty("title", out var title) || title.ValueKind != JsonValueKind.String)) ||
+                version.GetInt32() != 2 ||
                 root.TryGetProperty("video_transcript", out _) || root.TryGetProperty("enscript", out _))
                 throw new InvalidOperationException("字幕不是 ScriptToVideo v2/v3 标准格式。");
         }
