@@ -106,6 +106,43 @@ internal static class RefinedStorage
         }
     }
 
+    /// <summary>
+    /// Persist the authoritative refined and its derived TXT together as far as
+    /// the filesystem permits. If the second replacement fails, restore refined
+    /// only when its bytes still equal the version written by this operation.
+    /// A process crash between replacements still requires journal recovery.
+    /// </summary>
+    internal static void ReplaceContentPair(Paths paths,
+        string expectedRefined, string nextRefined,
+        string expectedText, string nextText)
+    {
+        if (!File.Exists(paths.Refined) || !File.Exists(paths.Text) ||
+            Directory.Exists(paths.Refined) || Directory.Exists(paths.Text))
+            throw new IOException("refined/TXT 文件不完整，禁止保存。");
+        if (!string.Equals(File.ReadAllText(paths.Refined, Encoding.UTF8), expectedRefined, StringComparison.Ordinal) ||
+            !string.Equals(File.ReadAllText(paths.Text, Encoding.UTF8), expectedText, StringComparison.Ordinal))
+            throw new IOException("refined/TXT 已被外部修改，禁止保存。");
+
+        ReplaceIfUnchanged(paths.Refined, expectedRefined, nextRefined);
+        try
+        {
+            ReplaceIfUnchanged(paths.Text, expectedText, nextText);
+        }
+        catch (Exception writeError)
+        {
+            try
+            {
+                ReplaceIfUnchanged(paths.Refined, nextRefined, expectedRefined);
+            }
+            catch (Exception rollbackError)
+            {
+                throw new IOException("TXT 保存失败且 refined 回滚失败；请保留文件并人工恢复。",
+                    new AggregateException(writeError, rollbackError));
+            }
+            throw new IOException("TXT 保存失败，refined 已恢复到保存前版本。", writeError);
+        }
+    }
+
     /// <summary>Repair only a missing TXT. Never replace an existing file, even if
     /// its content differs; reconciliation requires a separate explicit operation.</summary>
     internal static bool CreateMissingText(Paths paths, string text)
