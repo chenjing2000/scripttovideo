@@ -19,11 +19,15 @@ export type SaveOperation = Readonly<{
 export type SaveReply = Readonly<{
  operationId:number;
  revision:number;
+ fingerprint:string;
+ subtitleName:string;
  kind:'refined-saved'|'refined-save-failed'|'project-v3-saved'|'project-v3-save-failed';
 }>;
 
 export function matchesSaveReply(operation:SaveOperation,reply:SaveReply):boolean{
- if(operation.operationId!==reply.operationId||operation.revision!==reply.revision)return false;
+ if(operation.operationId!==reply.operationId||operation.revision!==reply.revision ||
+    operation.fingerprint!==reply.fingerprint ||
+    operation.subtitleName.toLowerCase()!==reply.subtitleName.toLowerCase())return false;
  return operation.stage==='refined'
   ?reply.kind==='refined-saved'||reply.kind==='refined-save-failed'
   :reply.kind==='project-v3-saved'||reply.kind==='project-v3-save-failed';
