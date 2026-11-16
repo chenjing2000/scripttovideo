@@ -27,6 +27,7 @@ type DesktopMessage =
  | {kind:'refined-repair-failed';fingerprint:string;subtitleName:string;message:string;operationId:number}
  | {kind:'refined-migrated';fingerprint:string;subtitleName:string;message:string;operationId:number}
  | {kind:'refined-migrate-failed';fingerprint:string;subtitleName:string;message:string;operationId:number}
+ | {kind:'refined-saved'|'refined-save-failed'|'project-v3-saved'|'project-v3-save-failed';message:string;operationId:number;revision:number}
  | {kind:'status';message:string;busy:boolean;error?:boolean;canCancel?:boolean}
  | {kind:'dependency-confirm';id:number;title:string;heading:string;details:string;action:string}
  | {kind:'dependency-progress';title:string;message:string}
@@ -368,6 +369,10 @@ function App(){
     }else if(data.kind==='refined-migrated')notify(data.message);else if(data.kind==='refined-created')notify(`${data.message} 新版工程保存尚未接入，当前禁止使用旧版保存。`);
     else if(data.message!=='TXT 已存在，无需恢复。')notify(data.message);
    }
+  }else if(data.kind==='refined-saved'||data.kind==='refined-save-failed'||data.kind==='project-v3-saved'||data.kind==='project-v3-save-failed'){
+   // Native v3 save operations are not yet dispatched by this UI. In
+   // particular, do not acknowledge an unsolicited or stale revision.
+   notify(`收到未匹配的新版保存响应（${data.kind}，操作 ${data.operationId}），已保持保存锁定。`,true);
   }else if(data.kind==='saved'){
    const nextState=acknowledgeProjectSave(projectEditStateRef.current,data.revision);
    updateProjectEditState(nextState);
