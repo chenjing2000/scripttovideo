@@ -26,6 +26,8 @@ class TestTranscriptTool(unittest.TestCase):
             args=type('Args',(),{'input':src,'boundaries':decisions,'output':out,'preview':preview,'force':False})
             mod.build(args);mod.validate(type('VArgs',(),{'input':out,'source':src,'preview':None}))
             self.assertEqual(len(mod.check(mod.load(out))),200)
+            self.assertEqual(mod.load(out)['script_to_video']['schemaVersion'],3)
+            self.assertEqual(mod.load(out)['title'],'')
             self.assertTrue(mod.load(out)['segments'][3]['words'][2]['breakParagraph'])
             self.assertNotIn('breakParagraph',mod.load(out)['segments'][-1]['words'][-1])
             self.assertIn('\n\n',preview.read_text(encoding='utf-8'))
