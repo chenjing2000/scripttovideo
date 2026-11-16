@@ -21,8 +21,9 @@ try{
   throw Error('Refined export requires a separate refined subtitle path');
  if(sourceJson&&path.resolve(sourceJson)!==path.resolve(path.join(path.dirname(sourceJson),stem+'.script.json')))
   throw Error('Invalid original subtitle path');
- if(sourceJson&&path.resolve(json)!==path.resolve(path.join(path.dirname(sourceJson),stem+'.script.refined.json')))
-  throw Error('Refined subtitle must be the companion of the original');
+ // Derived files live under <original-folder>/<stem>/, not beside the original.
+ if(sourceJson&&path.resolve(json)!==path.resolve(path.join(path.dirname(sourceJson),stem,stem+'.script.refined.json')))
+  throw Error('Refined subtitle must be in the companion derived-data folder');
  const input=sourceJson?assertRefinedForExport(
   JSON.parse((await readFile(json,'utf8')).replace(/^\uFEFF/,'')),original):original;
  const ext=path.extname(media).toLowerCase();if(!['.mp4','.mkv','.m4a','.mp3','.wav'].includes(ext))throw Error('Unsupported media extension');
