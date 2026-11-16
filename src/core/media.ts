@@ -16,11 +16,6 @@ export function findMediaCandidates(filename:string,names:readonly string[]):Med
   return name?[{name,kind:kindFor(extension),extension}]:[];
  });
 }
-/** Compatibility helper for callers requiring the first existing match only. */
-export function selectCompanion(filename:string,names:readonly string[]):{name:string;kind:MediaKind}|null {
- const candidate=findMediaCandidates(filename,names)[0];
- return candidate?{name:candidate.name,kind:candidate.kind}:null;
-}
 export function validCanvas(width:number,height:number):boolean {
  return Number.isInteger(width)&&Number.isInteger(height)&&width>=320&&height>=320&&width<=3840&&height<=3840&&width%2===0&&height%2===0;
 }
