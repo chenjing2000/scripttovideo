@@ -16,7 +16,7 @@ export function buildRefinedScript(source:ScriptToVideoInput,title:string,words:
    if(word.id!==`s${si}w${wi}`||word.segmentId!==`s${si}`||
       word.start!==entry.start||word.end!==entry.end)
     throw new Error(`refined 单词锚点不匹配：s${si}w${wi}`);
-   if(!word.display.trim()||/\\s/u.test(word.display.trim()))
+   if(!word.display.trim()||/\s/u.test(word.display.trim()))
     throw new Error(`refined 单词文字无效：${word.id}`);
    const {breakParagraph:oldBreak,hidden:oldHidden,...rest}=entry;
    void oldBreak;void oldHidden;
