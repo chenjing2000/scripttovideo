@@ -16,6 +16,8 @@ Edit the title, word display, visibility and paragraph boundaries without rewrit
 
 For `lesson01.script.json`, the working directory contains `lesson01/lesson01.script.revise.json` (editable word/title content, v3), `lesson01/lesson01.txt` (derived plain text), and `lesson01/lesson01.project.json` (presentation settings, v3). MP4 output goes to `lesson01/lesson01.exported.mp4` or the next available numbered name; temporary render files are under `lesson01/cache/`. The original JSON and media remain untouched. This is a breaking change: existing project v2 files and old `.script.refined.json` working files are **not migrated**. Only source subtitle v2 and current project/revise v3 files are accepted. Current-version three-file save journals remain recoverable.
 
+In browser-only mode, Save requests separate downloads of the current-format revise JSON, derived TXT and project v3 files; the browser may require permission for multiple downloads. Only the Windows desktop application provides the guarded three-file disk transaction.
+
 ## Build on Windows (PowerShell)
 
 ```powershell
