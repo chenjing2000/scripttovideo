@@ -204,6 +204,15 @@ function App(){
  };
  const cancelExport=()=>{
   if(exportNoticeId.current===null)return;
+  // The save transaction cannot be interrupted safely. Cancel only the
+  // subsequent export, then let the save acknowledgement settle normally.
+  if(pendingExportRef.current){
+   pendingExportRef.current=null;
+   setExporting(false);
+   clearExportTaskNotice();
+   notify('已取消导出；正在进行的工程保存仍会正常完成。');
+   return;
+  }
   setExportTaskNotice('正在取消导出，等待渲染进程退出并清理缓存…',false);
   desktop?.postMessage({kind:'export-cancel'});
  };
