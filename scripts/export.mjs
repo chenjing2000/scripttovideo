@@ -18,18 +18,18 @@ try{
     path.basename(media,path.extname(media)).toLowerCase()!==stem.toLowerCase())
   throw Error('Media and original .script.json must have the same stem');
  if(sourceJson&&path.resolve(sourceJson)===path.resolve(json))
-  throw Error('Refined export requires a separate refined subtitle path');
+  throw Error('Revised export requires a separate revised subtitle path');
  if(sourceJson&&path.resolve(sourceJson)!==path.resolve(path.join(path.dirname(sourceJson),stem+'.script.json')))
   throw Error('Invalid original subtitle path');
  // Derived files live under <original-folder>/<stem>/, not beside the original.
- if(sourceJson&&path.resolve(json)!==path.resolve(path.join(path.dirname(sourceJson),stem,stem+'.script.refined.json')))
-  throw Error('Refined subtitle must be in the companion derived-data folder');
+ if(sourceJson&&path.resolve(json)!==path.resolve(path.join(path.dirname(sourceJson),stem,stem+'.script.revise.json')))
+  throw Error('Revised subtitle must be in the companion derived-data folder');
  const input=sourceJson?assertRefinedForExport(
   JSON.parse((await readFile(json,'utf8')).replace(/^\uFEFF/,'')),original):original;
  const ext=path.extname(media).toLowerCase();if(!['.mp4','.mkv','.m4a','.mp3','.wav'].includes(ext))throw Error('Unsupported media extension');
  const mediaKind=['.m4a','.mp3','.wav'].includes(ext)?'audio':'video';
  const project=projectPath?JSON.parse(await readFile(projectPath,'utf8')):undefined;
- if(sourceJson&&!projectPath)throw Error('Refined export requires a saved project v3');
+ if(sourceJson&&!projectPath)throw Error('Revised export requires a saved project v3');
  if(projectPath){
   const context={mediaName:path.basename(media),subtitleName:path.basename(originalPath),subtitleBytes,mediaKind,transcript:original};
   if(sourceJson)assertPresentationProjectForExport(project,context);
