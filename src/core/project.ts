@@ -34,7 +34,7 @@ export function validateProject(value:unknown,words?:readonly Word[]):value is P
  if(s.firstLineIndentCh!==undefined&&(!Number.isFinite(s.firstLineIndentCh)||s.firstLineIndentCh<0))return false;
  if(s.minScrollDuration!==undefined&&(!Number.isFinite(s.minScrollDuration)||s.minScrollDuration<0))return false;
  if(p.titleStyle!==undefined){const t=p.titleStyle;
-  if(typeof t.bold!=='boolean'||typeof t.fontFamily!=='string'||!t.fontFamily.trim()||!Number.isInteger(t.fontSize)||t.fontSize<1||t.fontSize>200||!Number.isInteger(t.lineHeight)||t.lineHeight<t.fontSize||t.lineHeight>300||!Number.isInteger(t.paragraphGap)||t.paragraphGap<0||t.paragraphGap>200||typeof t.color!=='string'||!/^#[0-9a-f]{6}$/i.test(t.color))return false;
+  if(t.bold!==undefined&&typeof t.bold!=='boolean'||typeof t.fontFamily!=='string'||!t.fontFamily.trim()||!Number.isInteger(t.fontSize)||t.fontSize<1||t.fontSize>200||!Number.isInteger(t.lineHeight)||t.lineHeight<t.fontSize||t.lineHeight>300||!Number.isInteger(t.paragraphGap)||t.paragraphGap<0||t.paragraphGap>200||typeof t.color!=='string'||!/^#[0-9a-f]{6}$/i.test(t.color))return false;
  }
  if(!p.overrides||typeof p.overrides!=='object'||Array.isArray(p.overrides))return false;
  const validWordIds=words?new Set(words.map(word=>word.id)):null;
