@@ -4,7 +4,7 @@ import {ReaderCanvas} from './ui/ReaderCanvas';
 import {StyleSettings} from './ui/StyleSettings';
 import {Dialog} from './ui/Dialog';
 import type {DialogAction} from './ui/Dialog';
-import {parseScriptToVideo,createProject,updateWord,saveProjectView,paginate,measureWithCanvas,DEFAULT_STYLE,normalizeProjectStyle,WIDTH,HEIGHT,validCanvas,transcriptStem,findMediaCandidates,provisionalVideoHeight,describeMediaError,missingCompanionMessage,planRefinedOpen,validatePresentationProject,buildRefinedText} from './core';
+import {parseScriptToVideo,createProject,updateWord,buildRefinedScript,toPresentationProject,paginate,measureWithCanvas,DEFAULT_STYLE,normalizeProjectStyle,WIDTH,HEIGHT,validCanvas,transcriptStem,findMediaCandidates,provisionalVideoHeight,describeMediaError,missingCompanionMessage,planRefinedOpen,validatePresentationProject,buildRefinedText} from './core';
 import type {Word,Project} from './core';
 import {probeInPriority} from './core/media-probe';
 import {resolvePlayerShortcut} from './core/player-shortcuts';
@@ -275,10 +275,27 @@ function App(){
   // Browser-only fallback. Desktop saves exclusively through project-bundle-save.
   let currentWords=words;const active=editRef.current;
   if(active){try{currentWords=updateWord(words,active.id,active.text)}catch(error){notify(`无法保存工程：请先修正正在编辑的单词。${String(error)}`,true);return}if(!commitEditing())return}
-  const p=saveProjectView(project,currentWords),revision=projectEditStateRef.current.currentRevision;
-  const blob=new Blob([JSON.stringify(p,null,2)],{type:'application/json'}),u=URL.createObjectURL(blob),a=document.createElement('a');a.href=u;a.download=transcriptStem(project.source.subtitleName)+'.project.json';a.click();setTimeout(()=>URL.revokeObjectURL(u),1000);
-  updateProjectEditState(acknowledgeProjectSave(projectEditStateRef.current,revision));
-  notify('工程 JSON 已保存')};
+  const source=openingOriginalRef.current;
+  if(!source)return notify('缺少已验证的原始 v2 字幕，不能保存。',true);
+  try{
+   const revised=buildRefinedScript(source.original,titleRef.current,currentWords);
+   const text=buildRefinedText(titleRef.current,currentWords);
+   const presentation=toPresentationProject(project);
+   const stem=transcriptStem(project.source.subtitleName);
+   const downloads=[
+    [stem+'.script.revise.json',JSON.stringify(revised,null,2),'application/json'],
+    [stem+'.txt',text,'text/plain'],
+    [stem+'.project.json',JSON.stringify(presentation,null,2),'application/json']
+   ];
+   for(const [name,content,mime] of downloads){
+    const blob=new Blob([content],{type:mime}),u=URL.createObjectURL(blob),a=document.createElement('a');
+    a.href=u;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(u),1000);
+   }
+   const revision=projectEditStateRef.current.currentRevision;
+   updateProjectEditState(acknowledgeProjectSave(projectEditStateRef.current,revision));
+   notify('已请求下载 revise、TXT 和 project v3；浏览器可能要求允许多个文件下载。');
+  }catch(error){notify('无法导出当前格式文件：'+String(error),true)}
+ };
  const doExport=()=>{
   if(dependencyDialogRef.current)return;
   if(mediaState!=='ready'){notify(`媒体尚未就绪：${mediaName||'未选择媒体'}`,true);return}
@@ -555,12 +572,18 @@ function App(){
    if(controller.signal.aborted)return;
    if(changedDuringImport())throw Error('导入期间原工程发生新的修改，已取消导入。');
    const match=probe.selected.item,url=urls.get(match.name)!;
+   if(input.script_to_video.schemaVersion!==2)throw Error('浏览器只接受原始 ScriptToVideo v2 字幕');
+   const hash=new Uint8Array(await crypto.subtle.digest('SHA-256',await file.arrayBuffer()));
+   const fingerprint=Array.from(hash,b=>b.toString(16).padStart(2,'0')).join('').toUpperCase();
+   if(controller.signal.aborted||changedDuringImport())throw Error('字幕导入已取消或原工程发生修改');
    const next=createProject(match.name,file.name,parsed.words);
+   next.source.subtitleSha256=fingerprint;
    next.style=settingsToStyle(appSettingsRef.current);next.canvas={...appSettingsRef.current.output};next.mediaKind=match.kind;
+   openingOriginalRef.current={fingerprint,subtitleName:file.name,mediaName:match.name,mediaKind:match.kind,original:input};
    keepUrl=url;
    setProjectLoadBlocked(false);setContentSaveUnavailable(false);setRefinedPreparationPending(false);
    setMediaUrl(url);setMediaName(match.name);setKind(match.kind);setProject(next);
-   setWords(parsed.words);setEditing(null);setWordTool(null);resetProjectDirtyState();
+   setWords(parsed.words);titleRef.current=parsed.title;setTitle(parsed.title);setEditing(null);setWordTool(null);resetProjectDirtyState();
    setVideoRatio(null);setMediaState('loading');setDuration(0);
    notify(`已找到可播放媒体：${match.name}（${match.kind==='audio'?'音频':'视频'}模式）`);
   }catch(e){if(!controller.signal.aborted)notify(`导入失败：${String(e)}`,true)}
