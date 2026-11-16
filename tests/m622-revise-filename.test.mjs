@@ -17,27 +17,14 @@ test('M6.22: all active working and export paths use .script.revise.json',()=>{
  assert.doesNotMatch(cli,/\.script\.refined\.json/);
 });
 
-test('M6.22: old working filename safely recovers its journals before rename',()=>{
- const start=storage.indexOf('internal static void MigrateLegacyFilename(');
- const end=storage.indexOf('internal static string? ReadExisting',start);
- assert.ok(start>0&&end>start);
- const migration=storage.slice(start,end);
- assert.match(migration,/\.script\.refined\.json/);
- assert.match(migration,/File\.Exists\(paths\.Refined\) \|\| Directory\.Exists\(paths\.Refined\)/);
- assert.match(migration,/hasPairJournal && hasProjectJournal/);
- assert.match(migration,/Directory\.Exists\(pairJournal\) \|\| Directory\.Exists\(projectJournal\)/);
- assert.match(migration,/if \(hasPairJournal\) RecoverPendingPair\(legacy\)/);
- assert.match(migration,/if \(hasProjectJournal\) RecoverPendingProjectSave\(legacy, projectPath\)/);
- assert.ok(migration.indexOf('RecoverPendingPair(legacy)')<migration.indexOf('File.Move(oldPath, paths.Refined'));
- assert.ok(migration.indexOf('RecoverPendingProjectSave(legacy, projectPath)')<migration.indexOf('File.Move(oldPath, paths.Refined'));
- assert.match(migration,/File\.Move\(oldPath, paths\.Refined, overwrite: false\)/);
- assert.match(host,/MigrateLegacyFilename\(storagePaths, projectPath\)/);
- assert.match(host,/MigrateLegacyFilename\(refinedPaths, pending\.ProjectPath\)/);
+test('M6.22 breaking: no old filename migration or legacy pair journal recovery remains',()=>{
+ assert.doesNotMatch(storage,/MigrateLegacyFilename|RecoverPendingPair|PendingPair|\.script\.refined\.json/);
+ assert.doesNotMatch(host,/MigrateLegacyFilename|RecoverPendingPair|MigrateLegacyRefined|refined-migrate/);
+ assert.match(storage,/internal static void RecoverPendingProjectSave\(/);
+ assert.match(storage,/internal static void ReplaceProjectBundle\(/);
 });
 
-test('M6.22 cleanup: only three-file bundle save entry remains; older pair journals are recoverable',()=>{
- assert.doesNotMatch(storage,/internal static void ReplaceContentPair\(/);
- assert.match(storage,/internal static void ReplaceProjectBundle\(/);
- assert.match(storage,/internal static void RecoverPendingPair\(/);
- assert.match(storage,/private sealed record PendingPair\(/);
+test('M6.22 breaking: revised filename is the only persisted content path',()=>{
+ assert.match(storage,/stem \+ "\.script\.revise\.json"/);
+ assert.doesNotMatch(host,/\.script\.refined\.json/);
 });
