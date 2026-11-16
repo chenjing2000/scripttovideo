@@ -31,13 +31,13 @@ The revised JSON contains the current title and full edited word sequence (inclu
 
 The v3 `<stem>.project.json` stores source/media identity and fingerprint, canvas, reading style, title presentation style and export settings. It does **not** store sparse word overrides. Title presentation style includes font family, font size, color, line height, following gap and bold state. Title/content edits and presentation edits remain separate.
 
-## Creation, migration and saving
+## Current-version creation and saving (breaking change)
 
-On first opening a valid source, a missing revised working copy and derived TXT can be created. An existing revised file is authoritative and must pass strict source-anchor checks. A v2 project may be migrated into v3 revised content plus a presentation-only v3 project, with guarded recovery on interruption.
+When a valid v2 original subtitle is first opened without a project or revised copy, the application creates a new v3 revise working file and derived TXT. An existing v3 revise file is authoritative and must match the source word/time anchors. An existing project must be a valid v3 presentation-only project; a v3 project without its revised working file is blocked, not recreated.
 
-The older `<stem>.script.refined.json` filename is replaced by `<stem>.script.revise.json` only if no target conflict exists. If an old-name save journal exists, the application first verifies and rolls forward its recorded two-file or three-file transaction, then performs a no-overwrite rename. Conflicting, orphaned or simultaneous journals are retained and migration is blocked. No automatic merge or overwrite occurs when both names exist. Internal symbols named `refined` currently remain in the code and message protocol; these are not user-facing filenames.
+**No old-format compatibility or migration:** project v2 files, `<stem>.script.refined.json`, and their old save journals are not recognized as working data, renamed, imported or repaired. The application does not delete them. Any existing project v2 is rejected rather than overwritten. To start a fresh project, manually move old work files out of the companion directory after backing them up.
 
-A user-triggered Ctrl+S save uses a revision-bound bundle snapshot. It validates the previously confirmed disk contents, then saves revised JSON, TXT and project with a journal and guarded recovery. No implicit autosave is introduced. An export first confirms the same bundle and then freezes the revised subtitle, presentation project and page plan. A stale save acknowledgment must not clear a newer dirty revision.
+Only the **current v3 three-file save transaction** retains guarded journal recovery for interrupted Ctrl+S and pre-export saves. A failed or conflicting recovery leaves the journal and user files intact. The original v2 subtitle never changes.
 
 ## Preview and export
 
