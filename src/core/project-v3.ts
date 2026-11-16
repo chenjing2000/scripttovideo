@@ -15,11 +15,11 @@ export interface PresentationProject {
  savedAt?:string;
 }
 
-export function toPresentationProject(legacy:Project):PresentationProject{
- if(!validateProject(legacy))throw new Error('旧项目格式无效，不能转换');
- const {format,source,mediaKind,canvas,style,savedAt}=legacy;
+export function toPresentationProject(view:Project):PresentationProject{
+ if(!validateProject(view))throw new Error('工程视图格式无效，不能生成 project v3');
+ const {format,source,mediaKind,canvas,style,savedAt}=view;
  return {format,schemaVersion:3,source:{...source},...(mediaKind?{mediaKind}:{}),
-  canvas:{...canvas},style:{...style},titleStyle:{...DEFAULT_TITLE_STYLE,...legacy.titleStyle},export:{...legacy.export},
+  canvas:{...canvas},style:{...style},titleStyle:{...DEFAULT_TITLE_STYLE,...view.titleStyle},export:{...legacy.export},
   ...(savedAt?{savedAt}:{})};
 }
 
