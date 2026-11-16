@@ -320,6 +320,10 @@ function App(){
   }
  };
  const applyPair=(data:Extract<DesktopMessage,{kind:'pair'}>)=>{
+  if(pendingBundleSaveRef.current){
+   if(data.requestId)desktop?.postMessage({kind:'pair-rejected',requestId:data.requestId});
+   clearReload();notify('保存尚未完成，已拒绝切换素材。',true);return;
+  }
   if(data.requestId&&data.requestId!==expectedDesktopImportIdRef.current){
    desktop?.postMessage({kind:'pair-rejected',requestId:data.requestId});clearReload();return;
   }
