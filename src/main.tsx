@@ -413,7 +413,7 @@ function App(){
     // Runtime display model is not a persisted v2 project.
     current=normalizeProjectStyle({...saved,schemaVersion:2 as const,overrides:{}});
     currentWords=effective.words;
-    notify('已读取 v3 工程和 revise 字幕，正在验证磁盘内容。');
+    notify(existingRefined===null?'已读取 v3 工程；未找到 revise，使用原始 v3 字幕。':'已读取 v3 工程和 revise 字幕，正在验证磁盘内容。');
    }catch(e){blocked=true;notify(`工程读取失败，已禁止覆盖原工程文件：${String(e)}`,true)}}
    if(blocked)throw Error('工程来源或格式校验失败，已拒绝切换到不安全的工作副本');
    const operationId=++nextRefinedOperationIdRef.current;
@@ -435,8 +435,8 @@ function App(){
    transcriptRef.current?.scrollTo({top:0});
    clearReload();
    if(data.requestId)committedPairAckRef.current=data.requestId;
-   // Never create a revised copy when a project exists but its pair is missing.
-   if(desktop&&openPlan.kind==='create'&&data.project===null){
+   // Revise is optional. Prepare a safe initial working copy even if project v3 exists.
+   if(desktop&&openPlan.kind==='create'){
     desktop.postMessage({kind:'refined-create',fingerprint:data.fingerprint,
      subtitleName:data.subtitleName,operationId,refined:openPlan.refined,text:openPlan.txt});
    }
