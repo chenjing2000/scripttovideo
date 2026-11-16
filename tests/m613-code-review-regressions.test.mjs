@@ -19,7 +19,10 @@ test('Code review: MP4 export commits the active word and snapshots a matching p
  assert.match(body,/updateWord\(words,active\.id,active\.text\)/);
  assert.match(body,/if\(!commitEditing\(\)\)return/);
  assert.match(body,/paginate\(exportWords,style,canvasWidth,canvasHeight-mediaHeight/);
- assert.match(body,/saveProjectView\(project,exportWords\)/);
+ assert.match(body,/planManualSave\(disk\.original,disk\.refined,disk\.text,disk\.project,project,exportWords/);
+ assert.match(body,/pendingExportRef\.current=\{operationId,revision,duration,videoHeight:mediaHeight,pagePlan:exportPlan\}/);
+ assert.match(body,/kind:'project-bundle-save'/);
+ assert.doesNotMatch(body,/kind:'export',project:/);
  assert.match(body,/pagePlan:exportPlan/);
 });
 
@@ -54,7 +57,9 @@ test('Code review: media response streams are disposed if response handoff fails
 });
 
 test('Code review: standalone export checks saved project media kind',()=>{
- assert.match(exportScript,/if\(projectPath\)assertProjectForExport\(project,/);
+ assert.match(exportScript,/if\(projectPath\)\{/);
+ assert.match(exportScript,/if\(sourceJson\)assertPresentationProjectForExport\(project,context\)/);
+ assert.match(exportScript,/else assertProjectForExport\(project,context\)/);
 });
 
 
