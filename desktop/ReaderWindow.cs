@@ -1157,9 +1157,23 @@ internal sealed class ReaderWindow : Window
                 throw new IOException("工程已被外部修改。");
         }
 
+        // Preserve exact on-disk JSON when its parsed content is unchanged.
+        // Otherwise a clean save rewrites files merely because JS serializes
+        // properties/whitespace differently from the original file.
+        var nextRefinedText = nextRefined.GetRawText();
+        using (var existing = JsonDocument.Parse(storedRefined))
+            if (JsonElement.DeepEquals(existing.RootElement, nextRefined))
+                nextRefinedText = storedRefined;
+        var nextProjectText = nextProject.GetRawText();
+        if (oldProjectText is not null)
+        {
+            using var existing = JsonDocument.Parse(oldProjectText);
+            if (JsonElement.DeepEquals(existing.RootElement, nextProject))
+                nextProjectText = oldProjectText;
+        }
         RefinedStorage.ReplaceProjectBundle(paths, current.Project,
-            storedRefined, nextRefined.GetRawText(),
-            oldText, nextText, oldProjectText, nextProject.GetRawText());
+            storedRefined, nextRefinedText,
+            oldText, nextText, oldProjectText, nextProjectText);
         if (Fingerprint(current.Transcript) != current.Fingerprint)
             throw new IOException("保存期间原始字幕发生变化。");
         Send(new { kind = "project-bundle-saved",
