@@ -4,6 +4,7 @@ import {buildRefinedScript,buildRefinedText} from './refined';
 import {prepareLegacyMigration} from './migration';
 import {validateProject} from './project';
 import {validatePresentationProject} from './project-v3';
+import {sameCanonicalJson} from './canonical-json';
 
 export type RefinedOpenPlan =
  | {kind:'existing';refined:ScriptToVideoInput;txt:string}
@@ -46,11 +47,7 @@ export function planRefinedOpen(source:unknown,existingRefined:unknown|null,proj
    // A crash may leave refined in place while the legacy project is still v2.
    // Resume only when every migrated word and metadata field matches exactly.
    const expected=prepareLegacyMigration(source,legacy,false);
-   const canonical=(value:unknown):string=>JSON.stringify(value,(_,v)=>
-    v&&typeof v==='object'&&!Array.isArray(v)
-     ?Object.fromEntries(Object.entries(v).sort(([a],[b])=>a.localeCompare(b)))
-     :v);
-   if(canonical(existingRefined)!==canonical(expected.refined))
+   if(!sameCanonicalJson(existingRefined,expected.refined))
     throw new Error('现有 refined 与旧工程迁移结果不一致，禁止自动合并');
    return {kind:'recover-migration',refined:existingRefined,txt:expected.txt,legacyProject:legacy};
   }
