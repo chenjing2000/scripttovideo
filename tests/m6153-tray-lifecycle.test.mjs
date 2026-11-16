@@ -44,9 +44,11 @@ test('tray activation restores taskbar visibility and refuses activation during 
  assert.match(activation,/Topmost = wasTopmost/);
  assert.doesNotMatch(host,/SetForegroundWindow|DllImport\("user32\.dll"\)/);
 });
-test('minimizing to tray is guarded against re-entrant state changes',()=>{
- assert.match(host,/isMinimizingToTray/);
- assert.match(host,/WindowState = WindowState\.Normal;\s*ShowInTaskbar = false;\s*Hide\(\)/);
+test('native minimize keeps taskbar visibility without a re-entrant restore path',()=>{
+ const state=host.slice(host.indexOf('StateChanged += '),host.indexOf('Closing += OnClosing'));
+ assert.match(state,/WindowState == WindowState\.Minimized/);
+ assert.doesNotMatch(state,/isMinimizingToTray|WindowState\s*=\s*WindowState\.Normal|ShowInTaskbar\s*=\s*false|Hide\(\)/);
+ assert.match(host,/internal void ActivateFromTray\(\)/);
 });
 test('single-instance listener is cancelled and joined without a fixed two-second wait',()=>{
  assert.match(single,/stop\.Cancel\(\)/);
