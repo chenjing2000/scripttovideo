@@ -28,7 +28,7 @@ test('M6.20: native reload reuses the current full transcript path and existing 
 
 test('M6.20: absent project is re-evaluated from disk and project save lock is reset', () => {
   assert.match(host, /File\.Exists\(projectPath\) \? File\.ReadAllText\(projectPath\) : null/);
-  assert.match(host, /projectSaveLocked = pending\.ProjectContent != null/);
+  assert.doesNotMatch(host, /projectSaveLocked|previousProjectSaveLocked/);
   assert.match(ui, /if\(data\.project!==null\)/);
   assert.match(ui, /setProjectLoadBlocked\(blocked\)/);
 });
