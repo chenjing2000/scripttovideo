@@ -798,7 +798,9 @@ internal sealed class ReaderWindow : Window
             ?? throw new InvalidDataException("TXT 内容必须是字符串。");
         var paths = RefinedStorage.Resolve(current.Transcript);
         RefinedStorage.CreateInitial(paths, refined, text);
-        // Do not unlock project saves: the legacy v2 save path is still active.
+        // Refined is now the authoritative content store. The old v2 project
+        // save command must never create a parallel, conflicting overrides file.
+        projectSaveLocked = true;
         Send(new { kind = "refined-created", fingerprint = current.Fingerprint,
             subtitleName, message = "refined 和 TXT 已创建。" });
     }
