@@ -46,3 +46,14 @@ test('M6.12: saves only on demand and does not create empty directory on import'
  assert.match(cs,/File\.ReadAllText\(paths\.Text, Encoding\.UTF8\)/);
  assert.match(cs,/kind = "project-bundle-saved"/);
 });
+
+test('M6.22: browser downloads cannot acknowledge an unverified save',()=>{
+ const start=ui.indexOf('// Browser-only fallback.');
+ const end=ui.indexOf(' const doExport=()=>{',start);
+ assert.ok(start>0&&end>start);
+ const branch=ui.slice(start,end);
+ assert.match(branch,/\.script\.revise\.json/);
+ assert.match(branch,/\.project\.json/);
+ assert.doesNotMatch(branch,/acknowledgeProjectSave|updateProjectEditState/);
+ assert.match(branch,/浏览器下载不清除未保存标记/);
+});
