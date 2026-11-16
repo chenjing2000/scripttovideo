@@ -427,10 +427,10 @@ function App(){
     desktop.postMessage({kind:'refined-repair-text',fingerprint:data.fingerprint,
      subtitleName:data.subtitleName,operationId,refined:openPlan.refined,text:openPlan.txt});
    }
-   if(desktop&&(openPlan.kind==='recover-migration'||(openPlan.kind==='create'&&openPlan.legacyProject))){
+   if(desktop&&((openPlan.kind==='recover-migration')||(openPlan.kind==='create'&&openPlan.legacyProject!==undefined))){
     desktop.postMessage({kind:'refined-migrate',fingerprint:data.fingerprint,
      subtitleName:data.subtitleName,operationId,legacyProject:openPlan.legacyProject,
-     projectV3:finalizeLegacyProject(openPlan.legacyProject),
+     projectV3:finalizeLegacyProject(openPlan.legacyProject!),
      refined:openPlan.refined,text:openPlan.txt,recovery:openPlan.kind==='recover-migration'});
    }
    notify(`已找到媒体：${data.mediaName}（${data.mediaKind==='audio'?'音频':'视频'}模式），正在读取媒体信息；${parsed.words.length} 个单词`);
