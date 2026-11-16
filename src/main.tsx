@@ -472,7 +472,7 @@ function App(){
   setMediaState('error');setPlaying(false);
   notify(`无法播放媒体：${mediaName||'未知文件'}。${describeMediaError(element.error?.code)}。请核对文件名与内部编码。`,true);
  };
- const refresh=(newWords:Word[])=>{setWords(newWords);markDirty()};
+ const refresh=(newWords:Word[])=>{if(desktop&&contentSaveUnavailable){notify('当前工作副本尚不支持可靠保存，已禁止修改正文。',true);return}setWords(newWords);markDirty()};
  const snapshot=(w:Word,text=w.display):WordToolSnapshot=>({id:w.id,text,start:w.start,end:w.end,breakParagraph:w.breakParagraph});
  const setEditing=(next:{id:string;text:string}|null)=>{
   editRef.current=next;setEdit(next);
@@ -494,6 +494,7 @@ function App(){
   setEditing(null);
  };
  const startEditing=(w:Word)=>{
+   if(desktop&&contentSaveUnavailable){notify('新版保存机制尚未完成，暂时只能阅读和导出，不能编辑正文。',true);return}
   if(editRef.current?.id===w.id)return;
   if(!commitEditing())return;
   mediaRef.current?.pause();
@@ -531,7 +532,7 @@ function App(){
   const layoutChanged=JSON.stringify({...next,rightFont:undefined})!==JSON.stringify({...displayedSettings,rightFont:undefined});
   const globalNext=layoutChanged?next:{...appSettings,rightFont:next.rightFont};
   appSettingsRef.current=globalNext;setAppSettings(globalNext);
-  if(project&&layoutChanged){mediaRef.current?.pause();setProject(p=>p?{...p,canvas:{...next.output},style:settingsToStyle(next)}:p);markDirty()}
+  if(project&&layoutChanged){if(desktop&&contentSaveUnavailable){notify('当前工程尚不支持保存展示设置，已保留原工程样式。',true);return}mediaRef.current?.pause();setProject(p=>p?{...p,canvas:{...next.output},style:settingsToStyle(next)}:p);markDirty()}
   if(desktop&&loadedSettingsRef.current)desktop.postMessage({kind:'settings-save',settings:globalNext});
  };
  shortcutRef.current=(e:KeyboardEvent)=>{if(e.defaultPrevented||e.altKey||e.metaKey||settingsOpen||dependencyDialogRef.current)return;const target=e.target;if(target instanceof HTMLElement&&(target.isContentEditable||['INPUT','TEXTAREA','SELECT','BUTTON'].includes(target.tagName)))return;
