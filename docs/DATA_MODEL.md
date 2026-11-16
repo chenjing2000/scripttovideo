@@ -6,7 +6,7 @@ The normal import entry is `<stem>.script.json`: English (`language: "en"`), `sc
 
 Words carry the source `word`, `start`, `end` and optional `score` fields. Paragraph boundaries are word-local `segments[].words[].breakParagraph: true`; omission means no boundary. Do not infer breaks from punctuation, segments or timestamps. The parser derives internal IDs such as `s0w1`, rather than writing IDs into the source.
 
-**Review note:** the current WPF import guard permits a source `schemaVersion` of 2 *or* 3, even though the normal source contract and paragraph-generation skill specify v2. This compatibility behavior is tracked as a review decision; it must not be silently changed during cleanup.
+The desktop import boundary, revised-open planner, legacy migration and CLI all require a v2 **original**. The v3 format is valid only for the independently stored `.script.revise.json` working copy.
 
 ## Working files
 
@@ -35,7 +35,7 @@ The v3 `<stem>.project.json` stores source/media identity and fingerprint, canva
 
 On first opening a valid source, a missing revised working copy and derived TXT can be created. An existing revised file is authoritative and must pass strict source-anchor checks. A v2 project may be migrated into v3 revised content plus a presentation-only v3 project, with guarded recovery on interruption.
 
-The older `<stem>.script.refined.json` filename is replaced by `<stem>.script.revise.json` only if no target conflict and no pending old-name save journal exist. No automatic merge or overwrite occurs when both names exist. Internal symbols named `refined` currently remain in the code and message protocol; these are not user-facing filenames.
+The older `<stem>.script.refined.json` filename is replaced by `<stem>.script.revise.json` only if no target conflict exists. If an old-name save journal exists, the application first verifies and rolls forward its recorded two-file or three-file transaction, then performs a no-overwrite rename. Conflicting, orphaned or simultaneous journals are retained and migration is blocked. No automatic merge or overwrite occurs when both names exist. Internal symbols named `refined` currently remain in the code and message protocol; these are not user-facing filenames.
 
 A user-triggered Ctrl+S save uses a revision-bound bundle snapshot. It validates the previously confirmed disk contents, then saves revised JSON, TXT and project with a journal and guarded recovery. No implicit autosave is introduced. An export first confirms the same bundle and then freezes the revised subtitle, presentation project and page plan. A stale save acknowledgment must not clear a newer dirty revision.
 
