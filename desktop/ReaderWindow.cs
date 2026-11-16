@@ -33,14 +33,12 @@ internal sealed class ReaderWindow : Window
     private string? previousMediaUrl;
     private string? lastCommittedImportId;
     private Source? previousSource;
-    private bool previousProjectSaveLocked;
     private readonly ExportTaskManager exportTasks = new();
     private readonly ExportProcessManager exportProcesses = new();
     private bool isShuttingDown;
     private bool isCloseConfirmationOpen;
     private bool exporting => exportTasks.IsBusy;
     // A discovered project cannot be overwritten until the front end validates it.
-    private bool projectSaveLocked;
     private bool hasUnsavedChanges;
     private bool initialLayoutApplied;
     private LocalMediaServer? mediaServer;
@@ -661,14 +659,12 @@ internal sealed class ReaderWindow : Window
         server.ReleasePrevious(previousMediaUrl);
         previousMediaUrl = server.ActiveUrl;
         previousSource = source;
-        previousProjectSaveLocked = projectSaveLocked;
         server.CommitCandidate(selected.Url);
         foreach (var candidate in pending.Candidates)
             if (candidate.Url != selected.Url) server.ReleaseCandidate(candidate.Url);
         pendingMediaImport = null;
         lastCommittedImportId = pending.Id;
         source = new Source(selected.Path, pending.Subtitle, pending.Fingerprint, pending.ProjectPath, selected.Kind);
-        projectSaveLocked = pending.ProjectContent != null;
         // Read only: existing refined content is validated by the front end before use.
         // No work files are created during media probing or before pair acceptance.
         string? existingRefined;
@@ -699,7 +695,6 @@ internal sealed class ReaderWindow : Window
             return;
         }
         if (existingRefined != null)
-            projectSaveLocked = true;
         Send(new
         {
             kind = "pair", requestId = pending.Id, mediaName = Path.GetFileName(selected.Path),
@@ -722,7 +717,6 @@ internal sealed class ReaderWindow : Window
             server.ReleasePrevious(invalidUrl);
         }
         source = previousSource;
-        projectSaveLocked = previousProjectSaveLocked;
         previousSource = null;
         previousMediaUrl = null;
         lastCommittedImportId = null;
@@ -850,7 +844,6 @@ internal sealed class ReaderWindow : Window
             throw new IOException("TXT 写入验证失败。");
         // Refined is now the authoritative content store. The old v2 project
         // save command must never create a parallel, conflicting overrides file.
-        projectSaveLocked = true;
         var snapshot = ReadConfirmedPreparationSnapshot();
         Send(new { refinedSnapshot = snapshot.refined, textSnapshot = snapshot.text,
             projectSnapshot = snapshot.project, kind = "refined-created", fingerprint = current.Fingerprint,
