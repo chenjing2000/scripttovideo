@@ -527,7 +527,8 @@ function App(){
         projectEditStateRef.current.currentRevision===exportRequest.revision&&
         !hasUnsavedProjectChanges(projectEditStateRef.current)){
       setExportTaskNotice('工程已保存，正在启动视频导出…');
-      desktop?.postMessage({kind:'export',project:savedProject,duration:exportRequest.duration,
+      desktop?.postMessage({kind:'export',project:savedProject,
+       refined:confirmedDiskSnapshotRef.current!.refined,duration:exportRequest.duration,
        videoHeight:exportRequest.videoHeight,pagePlan:exportRequest.pagePlan});
      }else{
       setExporting(false);
