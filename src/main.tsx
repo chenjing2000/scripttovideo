@@ -267,6 +267,12 @@ function App(){
   if(mediaState!=='ready'){notify(`媒体尚未就绪：${mediaName||'未选择媒体'}`,true);return}
   if(!desktop){notify('请使用 Windows 桌面版导出 MP4',true);return}
   if(projectLoadBlocked){notify('现有工程未能通过验证，已禁止导出。请检查工程文件并重新打开字幕。',true);return}
+  // Export must use an acknowledged disk snapshot, not an unsaved editor
+  // view. Keep it locked until the save-before-export coordinator is wired.
+  if(pendingBundleSaveRef.current||hasUnsavedProjectChanges(projectEditStateRef.current)||
+     !confirmedDiskSnapshotRef.current||contentSaveUnavailable){
+   notify('导出前保存协调流程尚未完成，当前已禁止导出以防止视频与工程内容不一致。',true);return;
+  }
    if(refinedPreparationPending){notify('refined/TXT 尚未完成磁盘确认，请稍后再导出。',true);return}
   if(!project||!mediaUrl||!duration||!plan){notify('尚未载入可导出的媒体和字幕，或画布无法排版',true);return}
   let exportWords=words;
