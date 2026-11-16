@@ -861,9 +861,16 @@ internal sealed class ReaderWindow : Window
             v3.GetProperty("schemaVersion").GetInt32() != 3 ||
             v3.TryGetProperty("overrides", out _))
             throw new InvalidDataException("目标工程不是纯展示设置的 v3 工程。");
-        var originalSource = stored.RootElement.GetProperty("source");
-        if (!JsonElement.DeepEquals(originalSource, v3.GetProperty("source")))
-            throw new InvalidDataException("迁移不能更改工程来源。");
+        // The v3 project must be exactly the old presentation project with
+        // schemaVersion upgraded and overrides removed. Checking only source
+        // would allow unreviewed style/export settings to be substituted.
+        var expectedPresentation = JsonNode.Parse(storedProject) as JsonObject
+            ?? throw new InvalidDataException("旧工程必须是 JSON 对象。");
+        expectedPresentation.Remove("overrides");
+        expectedPresentation["schemaVersion"] = 3;
+        var submittedPresentation = JsonNode.Parse(v3.GetRawText());
+        if (!JsonNode.DeepEquals(expectedPresentation, submittedPresentation))
+            throw new InvalidDataException("v3 工程与旧工程展示设置不一致，拒绝迁移。");
         using var refined = JsonDocument.Parse(request.GetProperty("refined").GetRawText());
         var root = refined.RootElement;
         if (root.GetProperty("script_to_video").GetProperty("schemaVersion").GetInt32() != 3 ||
