@@ -30,3 +30,10 @@ test('M6.22: existing old filename moves only without conflicts or pending trans
  assert.match(host,/MigrateLegacyFilename\(storagePaths\)/);
  assert.match(host,/MigrateLegacyFilename\(refinedPaths\)/);
 });
+
+test('M6.22 cleanup: only three-file bundle save entry remains; older pair journals are recoverable',()=>{
+ assert.doesNotMatch(storage,/internal static void ReplaceContentPair\(/);
+ assert.match(storage,/internal static void ReplaceProjectBundle\(/);
+ assert.match(storage,/internal static void RecoverPendingPair\(/);
+ assert.match(storage,/private sealed record PendingPair\(/);
+});
