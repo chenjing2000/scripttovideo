@@ -729,11 +729,20 @@ internal sealed class ReaderWindow : Window
         // Read only: existing refined content is validated by the front end before use.
         // No work files are created during media probing or before pair acceptance.
         string? existingRefined;
+        string? existingText = null;
         try
         {
             var refinedPaths = RefinedStorage.Resolve(pending.Subtitle);
             RefinedStorage.RecoverPendingPair(refinedPaths);
+            RefinedStorage.RecoverPendingProjectSave(refinedPaths, pending.ProjectPath);
             existingRefined = RefinedStorage.ReadExisting(refinedPaths);
+            if (existingRefined != null)
+            {
+                if (Directory.Exists(refinedPaths.Text))
+                    throw new IOException("TXT 文件路径被目录占用。");
+                if (File.Exists(refinedPaths.Text))
+                    existingText = File.ReadAllText(refinedPaths.Text, Encoding.UTF8);
+            }
         }
         catch (Exception error)
         {
@@ -754,7 +763,8 @@ internal sealed class ReaderWindow : Window
             kind = "pair", requestId = pending.Id, mediaName = Path.GetFileName(selected.Path),
             mediaKind = selected.Kind, subtitleName = Path.GetFileName(pending.Subtitle),
             mediaUrl = selected.Url, transcript = pending.Transcript, fingerprint = pending.Fingerprint,
-            project = pending.ProjectContent, refined = existingRefined
+            project = File.Exists(pending.ProjectPath) ? File.ReadAllText(pending.ProjectPath, Encoding.UTF8) : null,
+            refined = existingRefined, refinedText = existingText
         });
     }
 
