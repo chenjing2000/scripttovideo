@@ -28,7 +28,7 @@ type DesktopMessage =
  | {kind:'refined-repair-failed';fingerprint:string;subtitleName:string;message:string;operationId:number}
  | {kind:'refined-migrated';fingerprint:string;subtitleName:string;message:string;operationId:number;refinedSnapshot:string;textSnapshot:string;projectSnapshot:string|null}
  | {kind:'refined-migrate-failed';fingerprint:string;subtitleName:string;message:string;operationId:number}
- | {kind:'project-bundle-saved'|'project-bundle-save-failed';message:string;operationId:number;revision:number;fingerprint:string;subtitleName:string}
+ | {kind:'project-bundle-saved'|'project-bundle-save-failed';message:string;operationId:number;revision:number;fingerprint:string;subtitleName:string;refinedSnapshot?:string;textSnapshot?:string;projectSnapshot?:string}
  | {kind:'status';message:string;busy:boolean;error?:boolean;canCancel?:boolean}
  | {kind:'dependency-confirm';id:number;title:string;heading:string;details:string;action:string}
  | {kind:'dependency-progress';title:string;message:string}
@@ -462,10 +462,29 @@ function App(){
     if(bundleSaveSucceeded(data)){
      const disk=confirmedDiskSnapshotRef.current;
      if(disk&&disk.fingerprint===pending.fingerprint&&disk.subtitleName.toLowerCase()===pending.subtitleName.toLowerCase()){
-      confirmedDiskSnapshotRef.current={...disk,refined:pending.refined,text:pending.text,project:pending.project};
-      const next=acknowledgeProjectSave(projectEditStateRef.current,pending.revision);
-      updateProjectEditState(next);
-      notify(hasUnsavedProjectChanges(next)?'已保存请求时的版本；后续修改仍未保存。':data.message);
+      // The native host rereads all three files after committing them.
+      // Never promote a proposed request payload into an acknowledged disk
+      // snapshot: the persisted JSON may retain its previous serialization.
+      try{
+       if(typeof data.refinedSnapshot!=='string'||typeof data.textSnapshot!=='string'||
+          typeof data.projectSnapshot!=='string')
+        throw new Error('保存响应缺少磁盘回读快照');
+       const persistedRefined=JSON.parse(data.refinedSnapshot) as ScriptToVideoInput;
+       const persistedProject=JSON.parse(data.projectSnapshot) as PresentationProject;
+       parseScriptToVideo(persistedRefined);
+       if(!validatePresentationProject(persistedProject))
+        throw new Error('保存后的 project v3 校验失败');
+       if(data.textSnapshot!==pending.text)
+        throw new Error('保存后的 TXT 与提交内容不一致');
+       confirmedDiskSnapshotRef.current={...disk,refined:persistedRefined,text:data.textSnapshot,project:persistedProject};
+       const next=acknowledgeProjectSave(projectEditStateRef.current,pending.revision);
+       updateProjectEditState(next);
+       notify(hasUnsavedProjectChanges(next)?'已保存请求时的版本；后续修改仍未保存。':data.message);
+      }catch(error){
+       confirmedDiskSnapshotRef.current=null;
+       setContentSaveUnavailable(true);
+       notify(`保存响应无法验证：${String(error)}。请重新打开素材以核对磁盘状态。`,true);
+      }
      }
     }else notify(`保存失败：${data.message}`,true);
    }
