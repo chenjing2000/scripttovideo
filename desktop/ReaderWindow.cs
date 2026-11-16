@@ -56,6 +56,7 @@ internal sealed class ReaderWindow : Window
     private static readonly object DefaultSettings = new
     {
         format = SettingsFormat, schemaVersion = 1,
+        titleStyle = new { fontFamily = "Arial", fontSize = 50, lineHeight = 70, paragraphGap = 20, color = "#C25160" },
         leftFont = new { family = "Arial", size = 40, color = "#293847", highlightColor = "#B81A35" },
         rightFont = new { family = "Arial", size = 16, color = "#293847", backgroundColor = "#F7F4EC" },
         paragraph = new { firstLineIndentEm = 2, lineHeight = 1.4, gap = 20, alignment = "justify" },
@@ -552,9 +553,13 @@ internal sealed class ReaderWindow : Window
         {
             if (root.GetProperty("format").GetString() != SettingsFormat || root.GetProperty("schemaVersion").GetInt32() != 1) return false;
             var lf = root.GetProperty("leftFont"); var rf = root.GetProperty("rightFont");
+            var title = root.GetProperty("titleStyle");
             static bool Color(string? s) => s is not null && System.Text.RegularExpressions.Regex.IsMatch(s, "^#[a-fA-F0-9]{6}$");
             static bool Font(JsonElement e) => new[] { "Arial", "Nunito Sans", "Segoe UI" }.Contains(e.GetString());
             static bool Range(JsonElement e, int lo, int hi) => e.ValueKind == JsonValueKind.Number && e.TryGetInt32(out int x) && x >= lo && x <= hi;
+            if (!Font(title.GetProperty("fontFamily")) || !Range(title.GetProperty("fontSize"),1,200) ||
+                !Range(title.GetProperty("lineHeight"),title.GetProperty("fontSize").GetInt32(),300) ||
+                !Range(title.GetProperty("paragraphGap"),0,200) || !Color(title.GetProperty("color").GetString())) return false;
             if (!Font(lf.GetProperty("family")) || !Range(lf.GetProperty("size"), 1, 99) || !Color(lf.GetProperty("color").GetString()) || !Color(lf.GetProperty("highlightColor").GetString()) ||
                 !Font(rf.GetProperty("family")) || !Range(rf.GetProperty("size"), 1, 99) || !Color(rf.GetProperty("color").GetString()) || !Color(rf.GetProperty("backgroundColor").GetString())) return false;
             var paragraph = root.GetProperty("paragraph"); var page = root.GetProperty("page"); var output = root.GetProperty("output");
