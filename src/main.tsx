@@ -321,6 +321,7 @@ function App(){
       desktop?.postMessage({kind:'project-validated',fingerprint:data.fingerprint,subtitleName:data.subtitleName});
     }
    }catch(e){blocked=true;notify(`工程读取失败，已禁止覆盖原工程文件：${String(e)}`,true)}}
+   if(blocked)throw Error('工程来源或格式校验失败，已拒绝切换到不安全的工作副本');
    activeRefinedSourceRef.current={fingerprint:data.fingerprint,subtitleName:data.subtitleName};
    // Until the v3 save transaction exists, the legacy v2 save action is unsafe
    // whenever refined is authoritative or being created.
