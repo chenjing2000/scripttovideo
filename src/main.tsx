@@ -22,7 +22,6 @@ type DesktopMessage =
  | {kind:'import-candidates';requestId:string;subtitleName:string;transcript:string;candidates:Array<{index:number;mediaName:string;mediaKind:'video'|'audio';mediaUrl:string}>}
  | {kind:'settings';settings:unknown}
  | {kind:'reload-failed';message:string}
- | {kind:'saved';message:string;revision:number}
  | {kind:'refined-created';fingerprint:string;subtitleName:string;message:string;operationId:number;refinedSnapshot:string;textSnapshot:string;projectSnapshot:string|null}
  | {kind:'refined-create-failed';fingerprint:string;subtitleName:string;message:string;operationId:number}
  | {kind:'refined-text-repaired';fingerprint:string;subtitleName:string;message:string;operationId:number;refinedSnapshot:string;textSnapshot:string;projectSnapshot:string|null}
@@ -470,10 +469,6 @@ function App(){
      }
     }else notify(`保存失败：${data.message}`,true);
    }
-  }else if(data.kind==='saved'){
-   const nextState=acknowledgeProjectSave(projectEditStateRef.current,data.revision);
-   updateProjectEditState(nextState);
-   notify(hasUnsavedProjectChanges(nextState)?`${data.message}；当前工程仍有未保存修改`:data.message);
   }else if(data.kind==='dependency-confirm')setDependency({mode:'confirm',...data});else if(data.kind==='dependency-progress')setDependency({mode:'progress',title:data.title,message:data.message});else if(data.kind==='dependency-cancelling'){const d=dependencyDialogRef.current;if(d?.mode==='progress')setDependency({mode:'cancelling',title:d.title,message:'正在停止安装任务并清理临时文件……'})}else if(data.kind==='dependency-end')setDependency(null);else if(data.kind==='export-cancelling')setExportTaskNotice('正在取消导出，等待渲染进程退出并清理缓存…',false);else if(data.kind==='dependency-failed')setDependency({mode:'error',message:data.message});else if(data.kind==='status'){if(data.error&&!data.busy&&reloadingRef.current)clearReload();setExporting(data.busy);if(data.busy){if(data.error)notify(data.message,true);else setExportTaskNotice(data.message,data.canCancel!==false)}else{clearExportTaskNotice();if(!data.error&&dependencyDialogRef.current?.mode==='progress')setDependency(null);if(!dependencyDialogRef.current||dependencyDialogRef.current.mode!=='error')notify(data.message,!!data.error)}}};desktop?.addEventListener('message',receive);return()=>desktop?.removeEventListener('message',receive)},[]);
  useEffect(()=>{desktop?.postMessage({kind:'ready'})},[]);
  async function openBrowserJson(file:File){
