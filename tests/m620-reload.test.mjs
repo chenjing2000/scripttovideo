@@ -7,7 +7,7 @@ const host = readFileSync(new URL('../desktop/ReaderWindow.cs', import.meta.url)
 const media = readFileSync(new URL('../desktop/LocalMediaServer.cs', import.meta.url), 'utf8');
 
 test('M6.20: reload button follows settings and is disabled without a desktop project or while busy', () => {
-  assert.match(ui, /iconButton\('settings','设置',openSettings\)}\{iconButton\('reload','重新加载当前文章',requestReload,/);
+  assert.match(ui, /iconButton\('settings','设置',openSettings,exporting\)}\{iconButton\('reload','重新加载当前文章',requestReload,/);
   assert.match(ui, /requestReload,!desktop\|\|!project\|\|exporting\|\|importing\|\|reloading/);
 });
 
