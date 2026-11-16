@@ -15,11 +15,11 @@ test('M6.12: exact JSON suffix becomes shared work-folder and both output names'
  assert.match(cs,/RefinedStorage\.RecoverPendingProjectSave\(storagePaths, projectPath\)/);
  assert.doesNotMatch(cs,/MigrateLegacyFilename|RecoverPendingPair/);
 });
-test('M6.22: no obsolete global project location; v2 originals and separate revised v3 working copies are supported',()=>{
+test('M6.22: no obsolete global project location; v3 originals and separate revised v3 working copies are supported',()=>{
  assert.doesNotMatch(cs,/"\.script-to-video", "projects"/);
  assert.doesNotMatch(cs,/project\.settings\.json/);
- assert.match(cs,/version\.GetInt32\(\) != 2/);
- assert.doesNotMatch(cs,/version\.GetInt32\(\) != 2 && version\.GetInt32\(\) != 3/);
+ assert.match(cs,/version\.GetInt32\(\) != 3/);
+ assert.doesNotMatch(cs,/version\.GetInt32\(\) != 2/);
  assert.match(ui,/planManualSave\(disk\.original,disk\.refined,disk\.text,disk\.project,project,currentWords/);
  assert.match(ui,/kind:'project-bundle-save'/);
  assert.match(ui,/stem\+'\.script\.revise\.json'/);
