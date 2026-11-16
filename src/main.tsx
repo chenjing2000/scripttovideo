@@ -4,7 +4,7 @@ import {ReaderCanvas} from './ui/ReaderCanvas';
 import {StyleSettings} from './ui/StyleSettings';
 import {Dialog} from './ui/Dialog';
 import type {DialogAction} from './ui/Dialog';
-import {parseScriptToVideo,applyOverrides,createProject,updateWord,saveProjectView,validateProject,paginate,measureWithCanvas,DEFAULT_STYLE,normalizeProjectStyle,WIDTH,HEIGHT,validCanvas,transcriptStem,findMediaCandidates,provisionalVideoHeight,describeMediaError,missingCompanionMessage,planRefinedOpen,validatePresentationProject,finalizeLegacyProject,buildRefinedText} from './core';
+import {parseScriptToVideo,applyOverrides,createProject,updateWord,saveProjectView,validateProject,paginate,measureWithCanvas,DEFAULT_STYLE,normalizeProjectStyle,WIDTH,HEIGHT,validCanvas,transcriptStem,findMediaCandidates,provisionalVideoHeight,describeMediaError,missingCompanionMessage,planRefinedOpen,validatePresentationProject,buildRefinedText} from './core';
 import type {Word,Project} from './core';
 import {probeInPriority} from './core/media-probe';
 import {resolvePlayerShortcut} from './core/player-shortcuts';
@@ -383,32 +383,22 @@ function App(){
    const input=JSON.parse(data.transcript),parsed=parseScriptToVideo(input);
    const existingRefined=data.refined?JSON.parse(data.refined):null;
    const openPlan=planRefinedOpen(input,existingRefined,data.project?JSON.parse(data.project):null);
-   const effective=openPlan.kind==='existing'||openPlan.kind==='recover-migration'?parseScriptToVideo(openPlan.refined):parsed;
+   const effective=openPlan.kind==='existing'?parseScriptToVideo(openPlan.refined):parsed;
    const next=createProject(data.mediaName,data.subtitleName,parsed.words);next.style=settingsToStyle(appSettingsRef.current);next.titleStyle={...appSettingsRef.current.titleStyle};next.canvas={...appSettingsRef.current.output};next.source.subtitleSha256=data.fingerprint;next.mediaKind=data.mediaKind;
    let current=next,currentWords=effective.words,blocked=false;
    if(data.project!==null){try{
     const saved:unknown=JSON.parse(data.project);
-    if(validatePresentationProject(saved)){
-     if(saved.source.subtitleSha256!==data.fingerprint||
+    if(!validatePresentationProject(saved))
+     throw Error('工程仅支持 project v3，不允许使用旧版 v2');
+    if(saved.source.subtitleSha256!==data.fingerprint||
        saved.source.videoName.toLowerCase()!==data.mediaName.toLowerCase()||
        saved.source.subtitleName.toLowerCase()!==data.subtitleName.toLowerCase()||
        (saved.mediaKind!==undefined&&saved.mediaKind!==data.mediaKind))
-       throw Error('v3 工程来源与当前媒体或字幕不匹配');
-     // A v2 view is temporary for rendering; the persisted project stays v3.
-     current=normalizeProjectStyle({...saved,schemaVersion:2 as const,overrides:{}});
-     currentWords=effective.words;
-     notify('已读取 v3 工程和 refined，正在验证磁盘内容。');
-    }else{
-     if(!validateProject(saved,parsed.words)||saved.source.subtitleSha256!==data.fingerprint||
-       saved.source.videoName.toLowerCase()!==data.mediaName.toLowerCase()||
-       saved.source.subtitleName.toLowerCase()!==data.subtitleName.toLowerCase()||
-       (saved.mediaKind!==undefined&&saved.mediaKind!==data.mediaKind))
-       throw Error('工程格式、来源或字幕指纹不匹配');
-     current=normalizeProjectStyle(saved);
-     currentWords=openPlan.kind==='existing'||openPlan.kind==='recover-migration'?effective.words:applyOverrides(parsed,current).words;
-     if(openPlan.kind==='existing')
-      desktop?.postMessage({kind:'project-validated',fingerprint:data.fingerprint,subtitleName:data.subtitleName});
-    }
+     throw Error('v3 工程来源与当前媒体或字幕不匹配');
+    // Runtime display model is not a persisted v2 project.
+    current=normalizeProjectStyle({...saved,schemaVersion:2 as const,overrides:{}});
+    currentWords=effective.words;
+    notify('已读取 v3 工程和 revise 字幕，正在验证磁盘内容。');
    }catch(e){blocked=true;notify(`工程读取失败，已禁止覆盖原工程文件：${String(e)}`,true)}}
    if(blocked)throw Error('工程来源或格式校验失败，已拒绝切换到不安全的工作副本');
    const operationId=++nextRefinedOperationIdRef.current;
@@ -430,8 +420,7 @@ function App(){
    transcriptRef.current?.scrollTo({top:0});
    clearReload();
    if(data.requestId)committedPairAckRef.current=data.requestId;
-   // First-create only for a project-free source. Legacy projects require a
-   // separate verified migration transaction before any refined write.
+   // Never create a revised copy when a project exists but its pair is missing.
    if(desktop&&openPlan.kind==='create'&&data.project===null){
     desktop.postMessage({kind:'refined-create',fingerprint:data.fingerprint,
      subtitleName:data.subtitleName,operationId,refined:openPlan.refined,text:openPlan.txt});
@@ -439,12 +428,6 @@ function App(){
    if(desktop&&openPlan.kind==='existing'){
     desktop.postMessage({kind:'refined-repair-text',fingerprint:data.fingerprint,
      subtitleName:data.subtitleName,operationId,refined:openPlan.refined,text:openPlan.txt});
-   }
-   if(desktop&&((openPlan.kind==='recover-migration')||(openPlan.kind==='create'&&openPlan.legacyProject!==undefined))){
-    desktop.postMessage({kind:'refined-migrate',fingerprint:data.fingerprint,
-     subtitleName:data.subtitleName,operationId,legacyProject:openPlan.legacyProject,
-     projectV3:finalizeLegacyProject(openPlan.legacyProject!),
-     refined:openPlan.refined,text:openPlan.txt,recovery:openPlan.kind==='recover-migration'});
    }
    notify(`已找到媒体：${data.mediaName}（${data.mediaKind==='audio'?'音频':'视频'}模式），正在读取媒体信息；${parsed.words.length} 个单词`);
   }catch(e){
@@ -454,11 +437,11 @@ function App(){
    notify(`字幕读取失败：${String(e)}`,true);
   }
  };
- useEffect(()=>{const receive=({data}:MessageEvent<DesktopMessage>)=>{if(data.kind==='settings'){if(validateSettings(data.settings)){loadedSettingsRef.current=true;appSettingsRef.current=data.settings;setAppSettings(data.settings)}}else if(data.kind==='import-candidates')void runDesktopProbe(data);else if(data.kind==='pair')applyPair(data);else if(data.kind==='reload-failed'){clearReload();notify(`重新加载失败：${data.message}`,true);}else if(data.kind==='refined-created'||data.kind==='refined-text-repaired'||data.kind==='refined-create-failed'||data.kind==='refined-repair-failed'||data.kind==='refined-migrated'||data.kind==='refined-migrate-failed'){
+ useEffect(()=>{const receive=({data}:MessageEvent<DesktopMessage>)=>{if(data.kind==='settings'){if(validateSettings(data.settings)){loadedSettingsRef.current=true;appSettingsRef.current=data.settings;setAppSettings(data.settings)}}else if(data.kind==='import-candidates')void runDesktopProbe(data);else if(data.kind==='pair')applyPair(data);else if(data.kind==='reload-failed'){clearReload();notify(`重新加载失败：${data.message}`,true);}else if(data.kind==='refined-created'||data.kind==='refined-text-repaired'||data.kind==='refined-create-failed'||data.kind==='refined-repair-failed'){
    const active=activeRefinedSourceRef.current;
    if(active&&active.operationId===data.operationId&&active.fingerprint===data.fingerprint&&active.subtitleName.toLowerCase()===data.subtitleName.toLowerCase()){
     setRefinedPreparationPending(false);
-    if(data.kind==='refined-create-failed'||data.kind==='refined-repair-failed'||data.kind==='refined-migrate-failed'){
+    if(data.kind==='refined-create-failed'||data.kind==='refined-repair-failed'){
      setProjectLoadBlocked(true);
      notify(`refined/TXT 操作失败，已暂停工程保存：${data.message}`,true);
     }else{
