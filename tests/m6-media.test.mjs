@@ -1,13 +1,13 @@
 import test from 'node:test';import assert from 'node:assert/strict';
 import {createRequire} from 'node:module';const require=createRequire(import.meta.url);
-const {MEDIA_PRIORITY,findMediaCandidates,selectCompanion,transcriptStem,validCanvas}=require('../.tmp-core/media.js');
+const {MEDIA_PRIORITY,findMediaCandidates,transcriptStem,validCanvas}=require('../.tmp-core/media.js');
 test('JSON drives prioritized same-stem media discovery',()=>{
  const f='My Lesson.script.json',files=['My Lesson.wav','My Lesson.mkv','My Lesson.mp3','My Lesson.mp4'];
  assert.equal(transcriptStem(f),'My Lesson');
- assert.deepEqual(selectCompanion(f,files),{name:'My Lesson.mp4',kind:'video'});
- assert.deepEqual(selectCompanion(f,files.slice(0,3)),{name:'My Lesson.mkv',kind:'video'});
- assert.deepEqual(selectCompanion(f,['My Lesson.WAV','My Lesson.MP3']),{name:'My Lesson.MP3',kind:'audio'});
- assert.equal(selectCompanion(f,['Other.mp4']),null);
+ assert.deepEqual(findMediaCandidates(f,files)[0]?.name,'My Lesson.mp4');
+ assert.deepEqual(findMediaCandidates(f,files.slice(0,3))[0]?.name,'My Lesson.mkv');
+ assert.deepEqual(findMediaCandidates(f,['My Lesson.WAV','My Lesson.MP3'])[0]?.kind,'audio');
+ assert.equal(findMediaCandidates(f,['Other.mp4']).length,0);
  assert.throws(()=>transcriptStem('raw.json'));
 });
 test('Canvas accepts even pixels and rejects invalid export dimensions',()=>{
