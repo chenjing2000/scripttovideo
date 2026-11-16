@@ -2,8 +2,8 @@ export interface Word { id: string; segmentId: string; original: string; display
 export interface Transcript { language?: string; title: string; words: Word[]; warnings: string[] }
 export interface ScriptToVideoInput {title?:string;language:'en';segments:Array<{start?:number;end?:number;text?:string;words:Array<{word:string;start:number;end:number;score?:number;breakParagraph?:true;hidden?:true}>}>;word_segments?:unknown[];script_to_video:{format:'script-to-video';schemaVersion:2|3;displayOverrides?:Record<string,string>}}
 
-export interface TitleStyle {fontFamily:string;fontSize:number;lineHeight:number;paragraphGap:number;color:string}
-export const DEFAULT_TITLE_STYLE:TitleStyle={fontFamily:'Arial',fontSize:50,lineHeight:70,paragraphGap:20,color:'#C25160'};
+export interface TitleStyle {bold:boolean;fontFamily:string;fontSize:number;lineHeight:number;paragraphGap:number;color:string}
+export const DEFAULT_TITLE_STYLE:TitleStyle={bold:true,fontFamily:'Arial',fontSize:50,lineHeight:70,paragraphGap:20,color:'#C25160'};
 export interface ReadingStyle {textAlign:'justify'|'left';fontFamily:string;fontSize:number;fontWeight:number;firstLineIndentCh?:number;firstLineIndentEm?:number;lineHeight:number;paragraphGap:number;paddingX:number;paddingY:number;textColor:string;highlightColor:string;backgroundColor:string;minScrollDuration:number}
 export interface Row { index:number; startWord:number; endWord:number; top:number; bottom:number; firstStart:number; lastEnd:number }
 export interface Layout {rows:Row[]; wordRows:number[]; totalHeight:number; viewportHeight:number; viewportWidth:number}
