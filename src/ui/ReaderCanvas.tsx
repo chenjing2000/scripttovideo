@@ -5,7 +5,7 @@ import type {Word,ReadingStyle,PagePlan,TitleStyle} from '../core';
 export function ReaderCanvas({words,style,time,videoHeight,video,canvasWidth,canvasHeight,pagePlan,title='',titleStyle=DEFAULT_TITLE_STYLE}:{words:Word[];style:ReadingStyle;time:number;videoHeight:number;video:React.ReactNode;canvasWidth:number;canvasHeight:number;pagePlan?:PagePlan;title?:string;titleStyle?:TitleStyle}){
  const availableHeight=canvasHeight-videoHeight;
  const visible=useMemo(()=>words.filter(w=>!w.hidden),[words]);
- const titleLayout=useMemo(()=>layoutTitle(title,titleStyle,canvasWidth-2*style.paddingX,measureWithCanvas(titleStyle.fontFamily,titleStyle.fontSize,400)),[title,titleStyle,canvasWidth,style.paddingX]);
+ const titleLayout=useMemo(()=>layoutTitle(title,titleStyle,canvasWidth-2*style.paddingX,measureWithCanvas(titleStyle.fontFamily,titleStyle.fontSize,titleStyle.bold?700:400)),[title,titleStyle,canvasWidth,style.paddingX]);
  const plan=useMemo(()=>{
   if(pagePlan!==undefined){
    if(pagePlan.viewportWidth!==canvasWidth||pagePlan.viewportHeight!==availableHeight||!isPagePlan(pagePlan,visible))
@@ -21,7 +21,7 @@ export function ReaderCanvas({words,style,time,videoHeight,video,canvasWidth,can
  return <div data-reader-time={time} data-page-index={index} data-page-count={plan?.pages.length??0} style={{width:canvasWidth,height:canvasHeight,overflow:'hidden',background:style.backgroundColor,position:'relative'}}>
   <div style={{width:canvasWidth,height:videoHeight,overflow:'hidden',position:'relative',background:'#172536'}}>{video}</div>
   <div style={{height:Math.max(0,availableHeight),position:'relative',overflow:'hidden',background:style.backgroundColor}}>
-   {index===0&&titleLayout.lines.length>0&&<div data-reader-title style={{position:"absolute",top:style.paddingY,left:style.paddingX,width:canvasWidth-2*style.paddingX,textAlign:"center",fontFamily:titleStyle.fontFamily,fontSize:titleStyle.fontSize,fontWeight:400,color:titleStyle.color}}>{titleLayout.lines.map((line,i)=><div key={i} style={{height:titleStyle.lineHeight,lineHeight:`${titleStyle.lineHeight}px`,whiteSpace:"pre"}}>{line}</div>)}</div>}
+   {index===0&&titleLayout.lines.length>0&&<div data-reader-title style={{position:"absolute",top:style.paddingY,left:style.paddingX,width:canvasWidth-2*style.paddingX,textAlign:"center",fontFamily:titleStyle.fontFamily,fontSize:titleStyle.fontSize,fontWeight:titleStyle.bold?700:400,color:titleStyle.color}}>{titleLayout.lines.map((line,i)=><div key={i} style={{height:titleStyle.lineHeight,lineHeight:`${titleStyle.lineHeight}px`,whiteSpace:"pre"}}>{line}</div>)}</div>}
    {!plan?<div style={{padding:20,color:'#b81a35'}}>当前标题和正文无法在画布中排版，请调整标题字号、间距或页面尺寸</div>:page?.rows.map((row,i)=><div key={`${index}:${i}`} data-reader-row={i} style={{position:'absolute',top:row.top,left:style.paddingX,width:plan.availableWidth,height:row.height,fontFamily:style.fontFamily,fontSize:style.fontSize,lineHeight:style.lineHeight,fontWeight:style.fontWeight,color:style.textColor,whiteSpace:'nowrap'}}>
     {row.words.map(item=>{
      const w=visible[item.index];if(!w||w.id!==item.id)return null;
