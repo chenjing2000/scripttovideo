@@ -801,6 +801,16 @@ internal sealed class ReaderWindow : Window
             ?? throw new InvalidDataException("TXT 内容必须是字符串。");
         var paths = RefinedStorage.Resolve(current.Transcript);
         RefinedStorage.CreateInitial(paths, refined, text);
+        // Read back both files before acknowledging the first write.
+        var persistedRefined = RefinedStorage.ReadExisting(paths)
+            ?? throw new IOException("refined 写入后无法重新读取。");
+        using (var persisted = JsonDocument.Parse(persistedRefined))
+        {
+            if (!JsonElement.DeepEquals(persisted.RootElement, root))
+                throw new IOException("refined 写入验证失败。");
+        }
+        if (!string.Equals(File.ReadAllText(paths.Text, Encoding.UTF8), text, StringComparison.Ordinal))
+            throw new IOException("TXT 写入验证失败。");
         // Refined is now the authoritative content store. The old v2 project
         // save command must never create a parallel, conflicting overrides file.
         projectSaveLocked = true;
