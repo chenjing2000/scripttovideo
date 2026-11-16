@@ -45,8 +45,8 @@ test('M6.22: v3 requires title including empty title',()=>{
 
 
 test('M6.22: v3 presentation projects reject embedded subtitle overrides',()=>{
- const old=createProject('demo.mp4','demo.script.json',parseScriptToVideo(source).words);
- const clean=toPresentationProject(old);
+ const view=createProject('demo.mp4','demo.script.json',parseScriptToVideo(source).words);
+ const clean=toPresentationProject(view);
  assert.equal(validatePresentationProject({...clean,overrides:{}}),false);
  assert.equal(validatePresentationProject({...clean,schemaVersion:2}),false);
  assert.equal(validatePresentationProject({...clean,style:{...clean.style,fontSize:-1}}),false);
@@ -90,7 +90,7 @@ test('M6.22: v3 project requires a valid refined working copy',()=>{
  const original=createProject('demo.mp4','demo.script.json',parseScriptToVideo(source).words);
  const v3=toPresentationProject(original);
  assert.equal(validatePresentationProject(v3),true);
- assert.throws(()=>planRefinedOpen(source,null,v3),/缺少 refined/);
+ assert.throws(()=>planRefinedOpen(source,null,v3),/缺少 \.script\.revise\.json/);
  const refined=buildRefinedScript(source,'',parseScriptToVideo(source).words);
  assert.equal(planRefinedOpen(source,refined,v3).kind,'existing');
  assert.throws(()=>planRefinedOpen(source,refined,{...v3,overrides:{}}),/仅支持 project v3/);
