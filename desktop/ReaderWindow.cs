@@ -347,6 +347,7 @@ internal sealed class ReaderWindow : Window
                     break;
                 case "project-validated":
                     if (source != null && projectSaveLocked &&
+                        RefinedStorage.ReadExisting(RefinedStorage.Resolve(source.Transcript)) == null &&
                         request.GetProperty("fingerprint").GetString() == source.Fingerprint &&
                         string.Equals(request.GetProperty("subtitleName").GetString(), Path.GetFileName(source.Transcript), StringComparison.OrdinalIgnoreCase))
                         projectSaveLocked = false;
@@ -682,6 +683,8 @@ internal sealed class ReaderWindow : Window
                 project = pending.ProjectContent, refinedError = error.Message });
             return;
         }
+        if (existingRefined != null)
+            projectSaveLocked = true;
         Send(new
         {
             kind = "pair", requestId = pending.Id, mediaName = Path.GetFileName(selected.Path),
