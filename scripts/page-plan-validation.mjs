@@ -13,7 +13,8 @@ export function assertExportPagePlan(plan, transcript, project, width, height) {
  const visible=[];
  transcript.segments.forEach((segment,si)=>segment.words.forEach((word,wi)=>{
   const id=`s${si}w${wi}`;
-  if(project?.overrides?.[id]?.hidden!==true)visible.push({id,start:word.start,end:word.end});
+  if(word.hidden!==true&&project?.overrides?.[id]?.hidden!==true)
+   visible.push({id,start:word.start,end:word.end});
  }));
  if((visible.length===0)!==(plan.pages.length===0))fail();
  if(plan.pages.length&&plan.switches[0]!==0)fail();
