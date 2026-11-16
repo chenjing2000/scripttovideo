@@ -8,13 +8,13 @@ export interface PagePlan {pages:Page[];switches:number[];warnings:string[];avai
 const EPS=1e-6;
 const isSentenceEnd=(s:string)=>/[.!?][)'"”’]*$/u.test(s.trim());
 interface RawRow extends Omit<PageRow,'top'> {}
-export function paginate(words:Word[],style:ReadingStyle,viewportWidth:number,viewportHeight:number,measure:Measure):PagePlan{
- const numeric=[style.fontSize,style.lineHeight,style.paragraphGap,style.paddingX,style.paddingY,style.firstLineIndentEm??style.firstLineIndentCh??0,viewportWidth,viewportHeight];
+export function paginate(words:Word[],style:ReadingStyle,viewportWidth:number,viewportHeight:number,measure:Measure,titleHeight=0):PagePlan{
+ const numeric=[style.fontSize,style.lineHeight,style.paragraphGap,style.paddingX,style.paddingY,style.firstLineIndentEm??style.firstLineIndentCh??0,viewportWidth,viewportHeight,titleHeight];
  if(numeric.some(x=>!Number.isFinite(x)))throw new Error('排版参数必须为有限数值');
  if(style.fontSize<=0||style.lineHeight<=0||style.paddingX<0||style.paddingY<0||style.paragraphGap<0||(style.firstLineIndentEm??style.firstLineIndentCh??0)<0)throw new Error('无效的排版参数');
  const availableWidth=viewportWidth-2*style.paddingX,availableHeight=viewportHeight-2*style.paddingY;
  const height=style.fontSize*style.lineHeight;
- if(availableWidth<=0||availableHeight+EPS<height)throw new Error('阅读区域不足以容纳一行文字');
+ if(titleHeight<0||availableWidth<=0||availableHeight+EPS<height+titleHeight)throw new Error('阅读区域不足以容纳一行文字');
  // Hidden words do not render, but a paragraph break attached to a hidden
  // word still ends that paragraph. Transfer the boundary to the last visible
  // word before it, without mutating the source transcript or edit overrides.
@@ -68,12 +68,12 @@ export function paginate(words:Word[],style:ReadingStyle,viewportWidth:number,vi
  // Every page consumes the maximum number of complete lines that physically fit.
  const pages:Page[]=[];
  for(let i=0;i<raw.length;){
-  const rows:PageRow[]=[];let y=style.paddingY;
+  const rows:PageRow[]=[];let y=style.paddingY+(pages.length===0?titleHeight:0);
   while(i<raw.length){
    const line=raw[i];
    const gap=rows.length>0&&line.paragraphStart?style.paragraphGap:0;
    if(rows.length>0&&y+gap+height>style.paddingY+availableHeight+EPS)break;
-   if(rows.length===0&&height>availableHeight+EPS)throw new Error('自动分页失败：一行文字无法容纳');
+   if(rows.length===0&&y+height>style.paddingY+availableHeight+EPS)throw new Error('标题与正文无法在首页同时容纳至少一行文字');
    y+=gap;rows.push({...line,top:y});y+=height;i++;
   }
   const a=visible[rows[0].startWord],b=visible[rows[rows.length-1].endWord];
