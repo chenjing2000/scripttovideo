@@ -111,6 +111,12 @@ internal static class RefinedStorage
 
     private static string JournalPath(Paths paths) => paths.Refined + ".save-journal";
 
+    internal static void EnsureNoPendingPair(Paths paths)
+    {
+        if (File.Exists(JournalPath(paths)) || Directory.Exists(JournalPath(paths)))
+            throw new IOException("存在未完成的 refined/TXT 保存日志，禁止修改工程。");
+    }
+
     /// <summary>
     /// Resume a previously interrupted save only when each file is exactly
     /// the old or new version in the durable journal. Never overwrite a
@@ -145,8 +151,7 @@ internal static class RefinedStorage
         string expectedRefined, string nextRefined,
         string expectedText, string nextText)
     {
-        if (File.Exists(JournalPath(paths)))
-            throw new IOException("存在尚未恢复的 refined 保存日志，禁止再次保存。");
+        EnsureNoPendingPair(paths);
         if (!File.Exists(paths.Refined) || !File.Exists(paths.Text) ||
             Directory.Exists(paths.Refined) || Directory.Exists(paths.Text))
             throw new IOException("refined/TXT 文件不完整，禁止保存。");
