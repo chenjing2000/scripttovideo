@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {createHash} from 'node:crypto';
 import {createRequire} from 'node:module';
-import {assertProjectForExport} from '../scripts/script-to-video-contract.mjs';
+import {assertPresentationProjectForExport} from '../scripts/script-to-video-contract.mjs';
 
 const ui=readFileSync('src/main.tsx','utf8');
 const reader=readFileSync('desktop/ReaderWindow.cs','utf8');
@@ -57,9 +57,8 @@ test('Code review: media response streams are disposed if response handoff fails
 });
 
 test('Code review: standalone export checks saved project media kind',()=>{
- assert.match(exportScript,/if\(projectPath\)\{/);
- assert.match(exportScript,/if\(sourceJson\)assertPresentationProjectForExport\(project,context\)/);
- assert.match(exportScript,/else assertProjectForExport\(project,context\)/);
+ assert.match(exportScript,/assertPresentationProjectForExport\(project,context\)/);
+ assert.doesNotMatch(exportScript,/assertProjectForExport\(project,context\)/);
 });
 
 
@@ -70,12 +69,12 @@ test('Code review: direct export CLI rejects projects with bad source, media kin
  const bytes=readFileSync('fixtures/6 Minute English 01-seg1.script.json');
  const transcript=JSON.parse(bytes.toString('utf8'));
  const words=core.parseScriptToVideo(transcript).words;
- const project=core.createProject(mediaName,subtitleName,words);
+ const project=core.toPresentationProject(core.createProject(mediaName,subtitleName,words));
  project.source.subtitleSha256=createHash('sha256').update(bytes).digest('hex');
  project.mediaKind='video';
  const context={mediaName,subtitleName,subtitleBytes:bytes,mediaKind:'video',transcript};
- assert.equal(assertProjectForExport(project,context),project);
- assert.throws(()=>assertProjectForExport(null,context),/project v2/i);
+ assert.equal(assertPresentationProjectForExport(project,context),project);
+ assert.throws(()=>assertProjectForExport(null,context),/project v3/i);
  assert.throws(()=>assertProjectForExport({...project,mediaKind:'audio'},context),/media kind/i);
  assert.throws(()=>assertProjectForExport({...project,source:{...project.source,subtitleSha256:'0'.repeat(64)}},context),/SHA256/);
  assert.throws(()=>assertProjectForExport({...project,style:{...project.style,fontSize:0}},context),/style/i);
