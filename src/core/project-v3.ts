@@ -1,6 +1,6 @@
 import {DEFAULT_TITLE_STYLE} from './types';
 import type {Project,ReadingStyle,TitleStyle} from './types';
-import {validateProject} from './project';
+import {validateProject,validateProjectSharedFields} from './project';
 
 /** Project v3 contains presentation settings only; subtitle edits live in refined JSON. */
 export interface PresentationProject {
@@ -28,13 +28,5 @@ export function validatePresentationProject(value:unknown):value is Presentation
  const p=value as Record<string,unknown>;
  if(p.schemaVersion!==3||'overrides' in p)return false;
  // Reuse the existing strict validation for shared layout/style/export fields.
- if(p.titleStyle!==undefined){
-  const t=p.titleStyle as TitleStyle;
-  if(!t||typeof t!=='object'||(t.bold!==undefined&&typeof t.bold!=='boolean')||typeof t.fontFamily!=='string'||!t.fontFamily.trim()||
-     !Number.isInteger(t.fontSize)||t.fontSize<1||t.fontSize>200||
-     !Number.isInteger(t.lineHeight)||t.lineHeight<t.fontSize||t.lineHeight>300||
-     !Number.isInteger(t.paragraphGap)||t.paragraphGap<0||t.paragraphGap>200||
-     typeof t.color!=='string'||!/^#[0-9a-f]{6}$/i.test(t.color))return false;
- }
- return validateProject({...p,schemaVersion:2,overrides:{}});
+ return validateProjectSharedFields(value);
 }
