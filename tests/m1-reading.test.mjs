@@ -5,7 +5,7 @@ import {createRequire} from 'node:module';
 const require = createRequire(import.meta.url);
 const core = require('../.tmp-core/index.js');
 
-const transcript = core.parseScriptToVideo({language:'en',script_to_video:{format:'script-to-video',schemaVersion:2},segments: [
+const transcript = core.parseScriptToVideo({title:'',language:'en',script_to_video:{format:'script-to-video',schemaVersion:3},segments: [
   {words: [{word:'Hello.',start:7.293,end:7.613}]},
   {words: [{word:'Here',start:8,end:8.4},{word:'again.',start:8.5,end:9}]}
 ]});
