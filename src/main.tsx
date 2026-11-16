@@ -22,6 +22,7 @@ type DesktopMessage =
  | {kind:'reload-failed';message:string}
  | {kind:'saved';message:string;revision:number}
  | {kind:'refined-created';fingerprint:string;subtitleName:string;message:string}
+ | {kind:'refined-create-failed';fingerprint:string;subtitleName:string;message:string}
  | {kind:'text-exported';message:string}
  | {kind:'text-export-error';message:string}
  | {kind:'status';message:string;busy:boolean;error?:boolean;canCancel?:boolean}
@@ -353,7 +354,7 @@ function App(){
    notify(`字幕读取失败：${String(e)}`,true);
   }
  };
- useEffect(()=>{const receive=({data}:MessageEvent<DesktopMessage>)=>{if(data.kind==='settings'){if(validateSettings(data.settings)){loadedSettingsRef.current=true;appSettingsRef.current=data.settings;setAppSettings(data.settings)}}else if(data.kind==='import-candidates')void runDesktopProbe(data);else if(data.kind==='pair')applyPair(data);else if(data.kind==='reload-failed'){clearReload();notify(`重新加载失败：${data.message}`,true);}else if(data.kind==='refined-created'){notify(data.message);}else if(data.kind==='saved'){
+ useEffect(()=>{const receive=({data}:MessageEvent<DesktopMessage>)=>{if(data.kind==='settings'){if(validateSettings(data.settings)){loadedSettingsRef.current=true;appSettingsRef.current=data.settings;setAppSettings(data.settings)}}else if(data.kind==='import-candidates')void runDesktopProbe(data);else if(data.kind==='pair')applyPair(data);else if(data.kind==='reload-failed'){clearReload();notify(`重新加载失败：${data.message}`,true);}else if(data.kind==='refined-created'){notify(data.message);}else if(data.kind==='refined-create-failed'){setProjectLoadBlocked(true);notify(`refined 创建失败，已暂停工程保存：${data.message}`,true);}else if(data.kind==='saved'){
    const nextState=acknowledgeProjectSave(projectEditStateRef.current,data.revision);
    updateProjectEditState(nextState);
    notify(hasUnsavedProjectChanges(nextState)?`${data.message}；当前工程仍有未保存修改`:data.message);
