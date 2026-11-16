@@ -111,3 +111,13 @@ test('M6.22: legacy overrides conflict with existing refined',()=>{
  assert.equal(plan.kind,'create');
  assert.equal(plan.refined.segments[0].words[0].word,'Hi');
 });
+
+test('M6.22: v3 project requires a valid refined working copy',()=>{
+ const original=createProject('demo.mp4','demo.script.json',parseScriptToVideo(source).words);
+ const v3=finalizeLegacyProject(original);
+ assert.equal(validatePresentationProject(v3),true);
+ assert.throws(()=>planRefinedOpen(source,null,v3),/缺少 refined/);
+ const refined=buildRefinedScript(source,'',parseScriptToVideo(source).words);
+ assert.equal(planRefinedOpen(source,refined,v3).kind,'existing');
+ assert.throws(()=>planRefinedOpen(source,refined,{...v3,overrides:{}}),/v3 工程校验失败/);
+});
