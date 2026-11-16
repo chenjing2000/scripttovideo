@@ -26,11 +26,11 @@ internal static class RefinedStorage
     }
 
     /// <summary>
-    /// Move the previous working-file name without changing its bytes.
-    /// Refuse migration while an old transaction is pending or either name conflicts.
-    /// No project or original subtitle is touched.
+    /// Recover interrupted saves under the legacy filename before renaming it.
+    /// Conflicts and orphan journals are never discarded or overwritten.
+    /// This runs before loading the project snapshot or switching active media.
     /// </summary>
-    internal static void MigrateLegacyFilename(Paths paths)
+    internal static void MigrateLegacyFilename(Paths paths, string projectPath)
     {
         var currentName = Path.GetFileName(paths.Refined);
         const string newSuffix = ".script.revise.json";
@@ -38,15 +38,32 @@ internal static class RefinedStorage
             throw new InvalidOperationException("工作字幕文件后缀无效。");
         var stem = currentName[..^newSuffix.Length];
         var oldPath = Path.Combine(paths.Folder, stem + ".script.refined.json");
-        if (Directory.Exists(oldPath))
-            throw new IOException("旧版工作字幕路径被目录占用，禁止自动更名。");
-        if (!File.Exists(oldPath)) return;
+        var legacy = new Paths(paths.Folder, oldPath, paths.Text);
+        var pairJournal = oldPath + ".save-journal";
+        var projectJournal = oldPath + ".project-save-journal";
+        if (Directory.Exists(oldPath) ||
+            Directory.Exists(pairJournal) || Directory.Exists(projectJournal))
+            throw new IOException("旧工作文件或保存日志路径被目录占用，禁止迁移。");
+
+        var hasPairJournal = File.Exists(pairJournal);
+        var hasProjectJournal = File.Exists(projectJournal);
+        if (!File.Exists(oldPath))
+        {
+            if (hasPairJournal || hasProjectJournal)
+                throw new IOException("旧工作字幕已丢失，但保存日志仍存在，禁止自动恢复。");
+            return;
+        }
         if (File.Exists(paths.Refined) || Directory.Exists(paths.Refined))
             throw new IOException("旧版和新版工作字幕同时存在，禁止自动合并或覆盖。");
-        if (File.Exists(oldPath + ".save-journal") ||
-            File.Exists(oldPath + ".project-save-journal"))
-            throw new IOException("旧版工作字幕有未完成的保存日志，禁止自动更名。");
-        // A failed rename retains the original file; the next open may safely retry.
+        if (hasPairJournal && hasProjectJournal)
+            throw new IOException("存在两份旧保存日志，无法确定恢复顺序，禁止自动迁移。");
+
+        // Each recovery validates every affected file against its logged old/new
+        // content before applying anything. On conflict, leave the journal intact.
+        if (hasPairJournal) RecoverPendingPair(legacy);
+        if (hasProjectJournal) RecoverPendingProjectSave(legacy, projectPath);
+
+        // A failed move leaves the recovered legacy filename intact to retry.
         File.Move(oldPath, paths.Refined, overwrite: false);
     }
 
