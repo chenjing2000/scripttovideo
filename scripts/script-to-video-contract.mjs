@@ -34,6 +34,36 @@ export function assertScriptToVideo(input){
 }
 
 
+/** Validate a refined v3 subtitle against its immutable v2 source.
+ * The project still identifies the original subtitle by name and SHA256.
+ */
+export function assertRefinedForExport(refined,original){
+ const object=x=>!!x&&typeof x==='object'&&!Array.isArray(x);
+ if(!object(refined)||!object(refined.script_to_video)||
+    refined.script_to_video.format!=='script-to-video'||
+    refined.script_to_video.schemaVersion!==3||
+    'displayOverrides' in refined.script_to_video||
+    typeof refined.title!=='string'||refined.language!=='en'||
+    !Array.isArray(refined.segments)||refined.segments.length!==original.segments.length)
+  throw new Error('Invalid refined v3 subtitle');
+ for(let si=0;si<original.segments.length;si++){
+  const before=original.segments[si],after=refined.segments[si];
+  if(!object(after)||!Array.isArray(after.words)||after.words.length!==before.words.length)
+   throw new Error('Refined segment structure mismatch');
+  for(let wi=0;wi<before.words.length;wi++){
+   const oldWord=before.words[wi],word=after.words[wi];
+   if(!object(word)||word.start!==oldWord.start||word.end!==oldWord.end||
+      typeof word.word!=='string'||!word.word.trim()||/\s/u.test(word.word.trim())||
+      (word.hidden!==undefined&&word.hidden!==true)||
+      (word.breakParagraph!==undefined&&word.breakParagraph!==true))
+    throw new Error(`Refined word or timing anchor mismatch: s${si}w${wi}`);
+  }
+ }
+ if(refined.segments.at(-1).words.at(-1).breakParagraph===true)
+  throw new Error('Refined final word cannot end a paragraph');
+ return refined;
+}
+
 /** Strict admission check for a saved project supplied directly to the export CLI. */
 export function assertProjectForExport(project,{mediaName,subtitleName,subtitleBytes,mediaKind,transcript}){
  const object=x=>!!x&&typeof x==='object'&&!Array.isArray(x);
