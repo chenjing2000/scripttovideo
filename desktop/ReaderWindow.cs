@@ -818,8 +818,6 @@ internal sealed class ReaderWindow : Window
             !string.Equals(subtitleName, Path.GetFileName(current.Transcript), StringComparison.OrdinalIgnoreCase) ||
             Fingerprint(current.Transcript) != current.Fingerprint)
             throw new InvalidOperationException("字幕来源已经变化，拒绝创建 refined。");
-        if (File.Exists(current.Project))
-            throw new InvalidOperationException("已有工程文件，必须先完成旧工程迁移校验，不能直接创建 refined。");
         var refined = request.GetProperty("refined").GetRawText();
         using var document = JsonDocument.Parse(refined);
         var root = document.RootElement;
