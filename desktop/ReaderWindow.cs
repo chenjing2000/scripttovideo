@@ -626,6 +626,7 @@ internal sealed class ReaderWindow : Window
         // Complete guarded recovery before taking the project snapshot. Reading
         // the project first would expose a stale v3 version after roll-forward.
         var storagePaths = RefinedStorage.Resolve(subtitle);
+        RefinedStorage.MigrateLegacyFilename(storagePaths);
         RefinedStorage.RecoverPendingPair(storagePaths);
         RefinedStorage.RecoverPendingProjectSave(storagePaths, projectPath);
         // Read the project before switching the active media token/source. If the
@@ -710,6 +711,7 @@ internal sealed class ReaderWindow : Window
         try
         {
             var refinedPaths = RefinedStorage.Resolve(pending.Subtitle);
+            RefinedStorage.MigrateLegacyFilename(refinedPaths);
             RefinedStorage.RecoverPendingPair(refinedPaths);
             RefinedStorage.RecoverPendingProjectSave(refinedPaths, pending.ProjectPath);
             existingRefined = RefinedStorage.ReadExisting(refinedPaths);
