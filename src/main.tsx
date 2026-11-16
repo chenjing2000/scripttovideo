@@ -27,7 +27,7 @@ type DesktopMessage =
  | {kind:'refined-repair-failed';fingerprint:string;subtitleName:string;message:string;operationId:number}
  | {kind:'refined-migrated';fingerprint:string;subtitleName:string;message:string;operationId:number}
  | {kind:'refined-migrate-failed';fingerprint:string;subtitleName:string;message:string;operationId:number}
- | {kind:'refined-saved'|'refined-save-failed'|'project-v3-saved'|'project-v3-save-failed';message:string;operationId:number;revision:number}
+ | {kind:'refined-saved'|'refined-save-failed'|'project-v3-saved'|'project-v3-save-failed';message:string;operationId:number;revision:number;fingerprint:string;subtitleName:string}
  | {kind:'status';message:string;busy:boolean;error?:boolean;canCancel?:boolean}
  | {kind:'dependency-confirm';id:number;title:string;heading:string;details:string;action:string}
  | {kind:'dependency-progress';title:string;message:string}
