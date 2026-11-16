@@ -14,6 +14,12 @@ export function StyleSettings({settings:s,onChange,onInvalid}:Props){
  const select=(label:string,value:string,values:Array<{value:string;label:string}>,set:Field['set'])=>mk(label,value,set,{options:values});
  const families=choices(FONT_OPTIONS);
  const groups:[string,Field[]][]=[
+ ['标题设置',[
+  select('字体',s.titleStyle.fontFamily,families,(x,v)=>({...x,titleStyle:{...x.titleStyle,fontFamily:v}})),
+  numeric('大小',s.titleStyle.fontSize,(x,v)=>({...x,titleStyle:{...x.titleStyle,fontSize:Number(v),lineHeight:Math.max(x.titleStyle.lineHeight,Number(v))}}),3,1,200,'px'),
+  clr('字体色',s.titleStyle.color,(x,v)=>({...x,titleStyle:{...x.titleStyle,color:'#'+v.toUpperCase()}})),
+  numeric('行高',s.titleStyle.lineHeight,(x,v)=>({...x,titleStyle:{...x.titleStyle,lineHeight:Number(v)}}),3,s.titleStyle.fontSize,300,'px'),
+  numeric('标题间距',s.titleStyle.paragraphGap,(x,v)=>({...x,titleStyle:{...x.titleStyle,paragraphGap:Number(v)}}),3,0,200,'px')]],
  ['左栏字体',[
   select('字体',s.leftFont.family,families,(x,v)=>({...x,leftFont:{...x.leftFont,family:v}})),
   numeric('大小',s.leftFont.size,(x,v)=>({...x,leftFont:{...x.leftFont,size:Number(v)}}),2,1,99,'px'),
