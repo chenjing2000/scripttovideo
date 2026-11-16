@@ -74,11 +74,11 @@ test('Code review: direct export CLI rejects projects with bad source, media kin
  project.mediaKind='video';
  const context={mediaName,subtitleName,subtitleBytes:bytes,mediaKind:'video',transcript};
  assert.equal(assertPresentationProjectForExport(project,context),project);
- assert.throws(()=>assertProjectForExport(null,context),/project v3/i);
- assert.throws(()=>assertProjectForExport({...project,mediaKind:'audio'},context),/media kind/i);
- assert.throws(()=>assertProjectForExport({...project,source:{...project.source,subtitleSha256:'0'.repeat(64)}},context),/SHA256/);
- assert.throws(()=>assertProjectForExport({...project,style:{...project.style,fontSize:0}},context),/style/i);
- assert.throws(()=>assertProjectForExport({...project,overrides:{s999w999:{hidden:true}}},context),/override/i);
+ assert.throws(()=>assertPresentationProjectForExport(null,context),/project v3/i);
+ assert.throws(()=>assertPresentationProjectForExport({...project,mediaKind:'audio'},context),/media kind/i);
+ assert.throws(()=>assertPresentationProjectForExport({...project,source:{...project.source,subtitleSha256:'0'.repeat(64)}},context),/SHA256/);
+ assert.throws(()=>assertPresentationProjectForExport({...project,style:{...project.style,fontSize:0}},context),/style/i);
+ assert.throws(()=>assertPresentationProjectForExport({...project,overrides:{s999w999:{hidden:true}}},context),/project v3/i);
 });
 
 test('Code review: optional M1 evidence capture supports both video and audio-only preview',()=>{
