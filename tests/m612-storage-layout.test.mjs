@@ -12,8 +12,8 @@ test('M6.12: exact JSON suffix becomes shared work-folder and both output names'
  assert.match(cs,/var workFolder = Path.Combine\(folder, stem\)/);
  assert.match(cs,/var projectPath = Path.Combine\(workFolder, stem \+ "\.project\.json"\)/);
  assert.match(cs,/var storagePaths = RefinedStorage\.Resolve\(subtitle\)/);
- assert.match(cs,/RefinedStorage\.RecoverPendingPair\(storagePaths\)/);
  assert.match(cs,/RefinedStorage\.RecoverPendingProjectSave\(storagePaths, projectPath\)/);
+ assert.doesNotMatch(cs,/MigrateLegacyFilename|RecoverPendingPair/);
 });
 test('M6.22: no obsolete global project location; v2 originals and separate revised v3 working copies are supported',()=>{
  assert.doesNotMatch(cs,/"\.script-to-video", "projects"/);
@@ -27,12 +27,9 @@ test('M6.22: no obsolete global project location; v2 originals and separate revi
 });
 test('M6.12: existing corrupt project cannot be silently overwritten',()=>{
  assert.match(cs,/projectSaveLocked = pending\.ProjectContent != null/);
- assert.match(cs,/case "project-validated":/);
- assert.match(cs,/source != null && projectSaveLocked/);
- assert.match(cs,/RefinedStorage\.ReadExisting\(RefinedStorage\.Resolve\(source\.Transcript\)\) == null/);
  assert.match(cs,/if \(!JsonElement\.DeepEquals\(stored\.RootElement, oldRefined\)\)/);
+ assert.match(cs,/schema\.GetInt32\(\) != 3/);
  assert.match(ui,/setProjectLoadBlocked\(blocked\)/);
- assert.match(ui,/kind:'project-validated',fingerprint:data\.fingerprint,subtitleName:data\.subtitleName/);
  assert.match(ui,/if\(projectLoadBlocked\)return notify/);
  assert.match(ui,/保存工程 Ctrl\+S',doSave,!project\|\|exporting\|\|projectLoadBlocked/);
 });
