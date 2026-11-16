@@ -29,3 +29,11 @@ export function layoutTitle(title:string,style:TitleStyle,width:number,measure:M
  }
  return {lines,height:lines.length*style.lineHeight+style.paragraphGap};
 }
+
+/** Preview-safe title measurement. Invalid typography must never crash React.
+ * Callers performing an export must reject a non-null error explicitly.
+ */
+export function tryLayoutTitle(title:string,style:TitleStyle,width:number,measure:Measure){
+ try{return {...layoutTitle(title,style,width,measure),error:null as string|null}}
+ catch(error){return {lines:[] as string[],height:0,error:error instanceof Error?error.message:String(error)}}
+}
