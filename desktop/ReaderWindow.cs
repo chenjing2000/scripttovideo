@@ -991,6 +991,7 @@ internal sealed class ReaderWindow : Window
             throw new IOException("refined/TXT 不完整，禁止保存 v3 工程。");
         // A pending content transaction must be reconciled before changing the project.
         RefinedStorage.EnsureNoPendingPair(paths);
+        RefinedStorage.EnsureNoPendingProjectSave(paths);
 
         var next = request.GetProperty("project");
         if (next.GetProperty("format").GetString() != "script-to-video-project" ||
@@ -1148,6 +1149,7 @@ internal sealed class ReaderWindow : Window
             Fingerprint(current.Transcript) != current.Fingerprint)
             throw new InvalidOperationException("字幕来源已经变化，拒绝保存 refined。");
         var paths = RefinedStorage.Resolve(current.Transcript);
+        RefinedStorage.EnsureNoPendingProjectSave(paths);
         var oldRefined = request.GetProperty("previousRefined").GetRawText();
         var nextRefined = request.GetProperty("refined").GetRawText();
         var oldText = request.GetProperty("previousText").GetString()
