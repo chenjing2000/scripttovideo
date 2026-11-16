@@ -1100,6 +1100,9 @@ internal sealed class ReaderWindow : Window
             revision = request.GetProperty("revision").GetInt64(),
             fingerprint = current.Fingerprint,
             subtitleName = Path.GetFileName(current.Transcript),
+            refinedSnapshot = confirmedRefined,
+            textSnapshot = confirmedText,
+            projectSnapshot = confirmedProject,
             message = "refined、TXT 和 project v3 已保存。" });
     }
 
