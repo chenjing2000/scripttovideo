@@ -9,7 +9,7 @@ import {createRequire} from 'node:module';
 const require = createRequire(import.meta.url);
 const {parseScriptToVideo, updateWord} = require('../.tmp-core/transcript.js');
 const input = {
-  language:'en', script_to_video:{format:'script-to-video',schemaVersion:2},
+  title:'',language:'en', script_to_video:{format:'script-to-video',schemaVersion:3},
   segments:[{words:[{word:'person',start:0,end:0.4},{word:'talks',start:0.5,end:0.8}]}]
 };
 
