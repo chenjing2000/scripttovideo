@@ -38,7 +38,6 @@ internal sealed class ReaderWindow : Window
     private bool isShuttingDown;
     private bool isCloseConfirmationOpen;
     private bool exporting => exportTasks.IsBusy;
-    // A discovered project cannot be overwritten until the front end validates it.
     private bool hasUnsavedChanges;
     private bool initialLayoutApplied;
     private LocalMediaServer? mediaServer;
@@ -694,7 +693,6 @@ internal sealed class ReaderWindow : Window
                 project = pending.ProjectContent, refinedError = error.Message });
             return;
         }
-        if (existingRefined != null)
         Send(new
         {
             kind = "pair", requestId = pending.Id, mediaName = Path.GetFileName(selected.Path),
@@ -842,8 +840,6 @@ internal sealed class ReaderWindow : Window
         }
         if (!string.Equals(File.ReadAllText(paths.Text, Encoding.UTF8), text, StringComparison.Ordinal))
             throw new IOException("TXT 写入验证失败。");
-        // Refined is now the authoritative content store. The old v2 project
-        // save command must never create a parallel, conflicting overrides file.
         var snapshot = ReadConfirmedPreparationSnapshot();
         Send(new { refinedSnapshot = snapshot.refined, textSnapshot = snapshot.text,
             projectSnapshot = snapshot.project, kind = "refined-created", fingerprint = current.Fingerprint,
