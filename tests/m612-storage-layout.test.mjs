@@ -26,7 +26,7 @@ test('M6.22: no obsolete global project location; v2 originals and separate revi
  assert.doesNotMatch(ui,/transcriptStem\(project\.source\.subtitleName\)\+'\.article\.txt'/);
 });
 test('M6.12: existing corrupt project cannot be silently overwritten',()=>{
- assert.match(cs,/projectSaveLocked = pending\.ProjectContent != null/);
+ assert.doesNotMatch(cs,/projectSaveLocked|previousProjectSaveLocked/);
  assert.match(cs,/if \(!JsonElement\.DeepEquals\(stored\.RootElement, oldRefined\)\)/);
  assert.match(cs,/schema\.GetInt32\(\) != 3/);
  assert.match(ui,/setProjectLoadBlocked\(blocked\)/);
