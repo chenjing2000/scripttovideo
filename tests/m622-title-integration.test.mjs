@@ -64,7 +64,12 @@ test('M6.22 title: editor, save and export share the current title and title-awa
  assert.ok(settings.indexOf("['标题设置'")<settings.indexOf("['左栏字体'"));
  assert.match(app,/className="title-editor"/);
  assert.match(app,/ref={titleEditorRef}/);
- assert.match(app,/textarea\.style\.height=Math\.max\(70,textarea\.scrollHeight\)/);
+ assert.match(app,/textarea\.style\.height=textarea\.scrollHeight/);
+ assert.match(app,/placeholder="Title is empty\."/);
+ assert.match(app,/fontFamily:appSettings\.rightFont\.family,fontSize:editorFontSize,fontWeight:700,lineHeight:1\.5,color:appSettings\.rightFont\.color/);
+ const css=readFileSync('src/style.css','utf8');
+ assert.match(css,/\.m65-toggle-holder\{grid-column:3 \/ 5;/);
+ assert.match(css,/\.m65-bold-toggle\{width:70px;/);
  assert.match(settings,/aria-pressed=\{value==='true'\}/);
  assert.match(settings,/粗体<\/button>/);
  assert.match(canvas,/titleStyle\.bold\?700:400/);
