@@ -121,3 +121,11 @@ test('M6.22: v3 project requires a valid refined working copy',()=>{
  assert.equal(planRefinedOpen(source,refined,v3).kind,'existing');
  assert.throws(()=>planRefinedOpen(source,refined,{...v3,overrides:{}}),/v3 工程校验失败/);
 });
+
+test('M6.22: refined does not preserve stale duplicate word_segments',()=>{
+ const input={...source,word_segments:[{word:'obsolete',start:0,end:0.4}]};
+ const words=parseScriptToVideo(input).words.map((w,i)=>i===0?{...w,display:'Updated'}:w);
+ const refined=buildRefinedScript(input,'',words);
+ assert.equal(Object.hasOwn(refined,'word_segments'),false);
+ assert.equal(refined.segments[0].words[0].word,'Updated');
+});
