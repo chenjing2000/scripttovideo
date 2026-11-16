@@ -1,5 +1,5 @@
 import React,{useMemo} from 'react';
-import {paginate,pageAtTime,measureWithCanvas,wordGradient,wordProgress,isPagePlan,layoutTitle,measureWithCanvas,DEFAULT_TITLE_STYLE} from '../core';
+import {paginate,pageAtTime,measureWithCanvas,wordGradient,wordProgress,isPagePlan,layoutTitle,DEFAULT_TITLE_STYLE} from '../core';
 import type {Word,ReadingStyle,PagePlan,TitleStyle} from '../core';
 /** Same component is used by WebView2 and Remotion. Text is positioned explicitly from the shared page plan. */
 export function ReaderCanvas({words,style,time,videoHeight,video,canvasWidth,canvasHeight,pagePlan,title='',titleStyle=DEFAULT_TITLE_STYLE}:{words:Word[];style:ReadingStyle;time:number;videoHeight:number;video:React.ReactNode;canvasWidth:number;canvasHeight:number;pagePlan?:PagePlan;title?:string;titleStyle?:TitleStyle}){
