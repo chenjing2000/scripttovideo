@@ -2,6 +2,7 @@ import type {Project,ScriptToVideoInput,Word} from './types';
 import {buildRefinedScript,buildRefinedText} from './refined';
 import {toPresentationProject,type PresentationProject} from './project-v3';
 import {validateScriptToVideo} from './transcript';
+import {sameCanonicalJson} from './canonical-json';
 
 export type SaveSnapshot = Readonly<{
  refined:ScriptToVideoInput;
@@ -38,15 +39,10 @@ export function planManualSave(
  const {savedAt:_candidateSavedAt,...candidatePresentation}=candidate;
  void _previousSavedAt;void _candidateSavedAt;
  // Compare parsed JSON structure, not object identity or formatting.
- const canonical=(value:unknown):string=>JSON.stringify(value,(_,item)=>
-  item&&typeof item==='object'&&!Array.isArray(item)
-   ?Object.fromEntries(Object.entries(item).sort(([a],[b])=>a.localeCompare(b)))
-   :item);
- const same=(a:unknown,b:unknown):boolean=>canonical(a)===canonical(b);
- const projectChanged=previousProject===null||!same(previousPresentation,candidatePresentation);
+ const projectChanged=previousProject===null||!sameCanonicalJson(previousPresentation,candidatePresentation);
  return {
   refined,text,project:projectChanged?candidate:previousProject!,
-  contentChanged:!same(previousRefined,refined)||previousText!==text,
+  contentChanged:!sameCanonicalJson(previousRefined,refined)||previousText!==text,
   projectChanged
  };
 }
