@@ -580,9 +580,13 @@ internal sealed class ReaderWindow : Window
             if (!root.TryGetProperty("language", out var language) || language.GetString() != "en" ||
                 !root.TryGetProperty("script_to_video", out var meta) || meta.ValueKind != JsonValueKind.Object ||
                 !meta.TryGetProperty("format", out var format) || format.GetString() != "script-to-video" ||
-                !meta.TryGetProperty("schemaVersion", out var version) || version.GetInt32() != 2 ||
+                !meta.TryGetProperty("schemaVersion", out var version) ||
+                version.ValueKind != JsonValueKind.Number ||
+                (version.GetInt32() != 2 && version.GetInt32() != 3) ||
+                (version.GetInt32() == 3 &&
+                 (!root.TryGetProperty("title", out var title) || title.ValueKind != JsonValueKind.String)) ||
                 root.TryGetProperty("video_transcript", out _) || root.TryGetProperty("enscript", out _))
-                throw new InvalidOperationException("字幕不是 ScriptToVideo v2 标准格式。");
+                throw new InvalidOperationException("字幕不是 ScriptToVideo v2/v3 标准格式。");
         }
         var fingerprint = Convert.ToHexString(SHA256.HashData(bytes));
         // M6.12 is a breaking storage-layout change: do not search or migrate legacy projects.
