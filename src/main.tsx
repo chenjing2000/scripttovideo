@@ -188,7 +188,7 @@ function App(){
  const style=project?.style??settingsToStyle(appSettings);
  const titleStyle=useMemo(()=>({...DEFAULT_TITLE_STYLE,...(project?.titleStyle??appSettings.titleStyle)}),[project?.titleStyle,appSettings.titleStyle]);
  const titleLayout=useMemo(()=>layoutTitle(title,titleStyle,canvasWidth-2*style.paddingX,measureWithCanvas(titleStyle.fontFamily,titleStyle.fontSize,titleStyle.bold?700:400)),[title,titleStyle,canvasWidth,style.paddingX]);
- const displayedSettings=useMemo(()=>project?projectStyleToSettings(style,project.canvas,{...appSettings,titleStyle:project.titleStyle??appSettings.titleStyle}):appSettings,[project,style,appSettings]);
+ const displayedSettings=useMemo(()=>project?projectStyleToSettings(style,project.canvas,{...appSettings,titleStyle:{...DEFAULT_TITLE_STYLE,...(project.titleStyle??appSettings.titleStyle)}}):appSettings,[project,style,appSettings]);
  // A multiline title grows and shrinks with its content and available editor width.
  useLayoutEffect(()=>{
   const textarea=titleEditorRef.current;if(!textarea)return;
