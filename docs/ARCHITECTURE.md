@@ -4,7 +4,7 @@
 
 - **WPF / WebView2 (`desktop/`)**: native window, single-instance activation, tray, trusted file access, project/settings persistence, media token server, dependency preparation and export process lifetime.
 - **React (`src/main.tsx`, `src/ui/`)**: editing, preview, keyboard commands, dialogs, task notices and dirty-state reporting.
-- **Core (`src/core/`)**: ScriptToVideo v2 source/v3 revised validation, current-format open and save planning, media candidate priority, initial decode probing, deterministic pagination, title layout, page plans and derived text.
+- **Core (`src/core/`)**: ScriptToVideo v3 original/revised validation, current-format open and save planning, media candidate priority, initial decode probing, deterministic pagination, title layout, page plans and derived text.
 - **Remotion (`src/remotion/`, `scripts/export.mjs`)**: renders the shared reader canvas from an immutable export snapshot. CLI validates source/project independently.
 
 ## Media import transaction
