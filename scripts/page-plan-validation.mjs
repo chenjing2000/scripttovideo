@@ -1,5 +1,5 @@
 /** Preflight an explicit export snapshot before bundling or touching the final MP4. */
-export function assertExportPagePlan(plan, transcript, project, width, height) {
+export function assertExportPagePlan(plan, transcript, width, height) {
  const fail=()=>{throw new Error('Invalid export page-plan snapshot: viewport, structure or word coverage does not match');};
  const obj=v=>v!==null&&typeof v==='object'&&!Array.isArray(v);
  const finite=v=>typeof v==='number'&&Number.isFinite(v);
@@ -13,7 +13,7 @@ export function assertExportPagePlan(plan, transcript, project, width, height) {
  const visible=[];
  transcript.segments.forEach((segment,si)=>segment.words.forEach((word,wi)=>{
   const id=`s${si}w${wi}`;
-  if(word.hidden!==true&&project?.overrides?.[id]?.hidden!==true)
+  if(word.hidden!==true)
    visible.push({id,start:word.start,end:word.end});
  }));
  if((visible.length===0)!==(plan.pages.length===0))fail();
