@@ -388,9 +388,6 @@ internal sealed class ReaderWindow : Window
                 case "save":
                     SaveProject(request.GetProperty("project"), request.GetProperty("revision").GetInt64());
                     break;
-                case "export-text":
-                    ExportPlainText(request.GetProperty("text"));
-                    break;
                 case "export":
                     await ExportAsync(request);
                     break;
@@ -931,33 +928,6 @@ internal sealed class ReaderWindow : Window
             throw new InvalidOperationException("refined 工作副本已存在，禁止使用 v2 工程保存。");
         AtomicWrite(current.Project, project.GetRawText());
         Send(new { kind = "saved", revision, message = $"工程已保存至 {current.Project}" });
-    }
-
-    private void ExportPlainText(JsonElement content)
-    {
-        try
-        {
-            var current = source ?? throw new InvalidOperationException("请先打开字幕和媒体文件。");
-            if (content.ValueKind != JsonValueKind.String)
-                throw new InvalidOperationException("导出的正文内容无效。");
-            var text = content.GetString() ?? string.Empty;
-            if (string.IsNullOrEmpty(text))
-                throw new InvalidOperationException("没有可导出的正文文本。");
-
-            // Same source-derived work directory as the project; no SaveFileDialog.
-            var workFolder = Path.GetDirectoryName(current.Project)!;
-            // The project filename is <stem>.project.json: remove the entire suffix.
-            var stem = Path.GetFileName(current.Project)[..^".project.json".Length];
-            var articlePath = Path.Combine(workFolder, stem + ".article.txt");
-            // Preserve punctuation, casing and spaces; normalize line endings to Windows CRLF.
-            var windowsText = text.Replace("\r\n", "\n").Replace('\r', '\n').Replace("\n", "\r\n");
-            AtomicWrite(articlePath, windowsText); // UTF-8 without BOM, staged replacement.
-            Send(new { kind = "text-exported", message = $"正文已导出至 {articlePath}" });
-        }
-        catch (Exception error)
-        {
-            Send(new { kind = "text-export-error", message = $"正文导出失败：{error.Message}" });
-        }
     }
 
     private async Task<string> PrepareExportRuntimeAsync(CancellationToken cancellationToken)
