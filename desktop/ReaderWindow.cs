@@ -896,6 +896,15 @@ internal sealed class ReaderWindow : Window
                 throw new IOException("refined 持久化校验失败。");
         if (!string.Equals(File.ReadAllText(paths.Text, Encoding.UTF8), txt, StringComparison.Ordinal))
             throw new IOException("TXT 持久化校验失败。");
+        // Re-check the old project immediately before replacing it: migration
+        // may have taken time, and an external editor could have changed it.
+        using (var latestProject = JsonDocument.Parse(File.ReadAllText(current.Project, Encoding.UTF8)))
+        {
+            if (!JsonElement.DeepEquals(latestProject.RootElement, expected.RootElement))
+                throw new InvalidOperationException("旧工程在迁移期间被外部修改，拒绝替换。");
+        }
+        if (Fingerprint(current.Transcript) != current.Fingerprint)
+            throw new InvalidOperationException("原始字幕在迁移期间发生变化，拒绝替换工程。");
         // If replacement fails, the original v2 project remains recoverable.
         AtomicWrite(current.Project, v3.GetRawText());
         projectSaveLocked = true;
