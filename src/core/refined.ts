@@ -24,7 +24,6 @@ export function buildRefinedScript(source:ScriptToVideoInput,title:string,words:
     ...(word.breakParagraph?{breakParagraph:true as const}:{}),
     ...(word.hidden?{hidden:true as const}:{})};
   }),
-  text:undefined as string|undefined
  }));
  // Derive segment text from the same effective visible words as the TXT export.
  let offset=0;
