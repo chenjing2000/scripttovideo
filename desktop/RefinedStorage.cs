@@ -25,48 +25,6 @@ internal static class RefinedStorage
             Path.Combine(folder, stem + ".txt"));
     }
 
-    /// <summary>
-    /// Recover interrupted saves under the legacy filename before renaming it.
-    /// Conflicts and orphan journals are never discarded or overwritten.
-    /// This runs before loading the project snapshot or switching active media.
-    /// </summary>
-    internal static void MigrateLegacyFilename(Paths paths, string projectPath)
-    {
-        var currentName = Path.GetFileName(paths.Refined);
-        const string newSuffix = ".script.revise.json";
-        if (!currentName.EndsWith(newSuffix, StringComparison.OrdinalIgnoreCase))
-            throw new InvalidOperationException("工作字幕文件后缀无效。");
-        var stem = currentName[..^newSuffix.Length];
-        var oldPath = Path.Combine(paths.Folder, stem + ".script.refined.json");
-        var legacy = new Paths(paths.Folder, oldPath, paths.Text);
-        var pairJournal = oldPath + ".save-journal";
-        var projectJournal = oldPath + ".project-save-journal";
-        if (Directory.Exists(oldPath) ||
-            Directory.Exists(pairJournal) || Directory.Exists(projectJournal))
-            throw new IOException("旧工作文件或保存日志路径被目录占用，禁止迁移。");
-
-        var hasPairJournal = File.Exists(pairJournal);
-        var hasProjectJournal = File.Exists(projectJournal);
-        if (!File.Exists(oldPath))
-        {
-            if (hasPairJournal || hasProjectJournal)
-                throw new IOException("旧工作字幕已丢失，但保存日志仍存在，禁止自动恢复。");
-            return;
-        }
-        if (File.Exists(paths.Refined) || Directory.Exists(paths.Refined))
-            throw new IOException("旧版和新版工作字幕同时存在，禁止自动合并或覆盖。");
-        if (hasPairJournal && hasProjectJournal)
-            throw new IOException("存在两份旧保存日志，无法确定恢复顺序，禁止自动迁移。");
-
-        // Each recovery validates every affected file against its logged old/new
-        // content before applying anything. On conflict, leave the journal intact.
-        if (hasPairJournal) RecoverPendingPair(legacy);
-        if (hasProjectJournal) RecoverPendingProjectSave(legacy, projectPath);
-
-        // A failed move leaves the recovered legacy filename intact to retry.
-        File.Move(oldPath, paths.Refined, overwrite: false);
-    }
-
     internal static string? ReadExisting(Paths paths)
     {
         if (Directory.Exists(paths.Refined))
@@ -146,41 +104,6 @@ internal static class RefinedStorage
         {
             if (File.Exists(temp)) File.Delete(temp);
         }
-    }
-
-    private sealed record PendingPair(string OldRefined, string NewRefined,
-        string OldText, string NewText);
-
-    private static string JournalPath(Paths paths) => paths.Refined + ".save-journal";
-
-    internal static void EnsureNoPendingPair(Paths paths)
-    {
-        if (File.Exists(JournalPath(paths)) || Directory.Exists(JournalPath(paths)))
-            throw new IOException("存在未完成的 refined/TXT 保存日志，禁止修改工程。");
-    }
-
-    /// <summary>
-    /// Resume a previously interrupted save only when each file is exactly
-    /// the old or new version in the durable journal. Never overwrite a
-    /// third-party edit. Leave the journal in place on conflict.
-    /// </summary>
-    internal static void RecoverPendingPair(Paths paths)
-    {
-        var journalPath = JournalPath(paths);
-        if (!File.Exists(journalPath)) return;
-        var pending = JsonSerializer.Deserialize<PendingPair>(
-            File.ReadAllText(journalPath, Encoding.UTF8))
-            ?? throw new InvalidDataException("refined 保存日志无效。");
-        if (!File.Exists(paths.Refined) || !File.Exists(paths.Text))
-            throw new IOException("保存日志存在，但 refined/TXT 不完整，拒绝自动恢复。");
-        var refined = File.ReadAllText(paths.Refined, Encoding.UTF8);
-        var text = File.ReadAllText(paths.Text, Encoding.UTF8);
-        if ((refined != pending.OldRefined && refined != pending.NewRefined) ||
-            (text != pending.OldText && text != pending.NewText))
-            throw new IOException("保存日志与磁盘内容冲突，拒绝自动覆盖。");
-        ReplaceIfUnchanged(paths.Refined, refined, pending.NewRefined);
-        ReplaceIfUnchanged(paths.Text, text, pending.NewText);
-        File.Delete(journalPath);
     }
 
     // A complete user-triggered save may update refined, TXT and project v3.
@@ -265,7 +188,6 @@ internal static class RefinedStorage
         string expectedText, string nextText,
         string? expectedProject, string nextProject)
     {
-        EnsureNoPendingPair(paths);
         EnsureNoPendingProjectSave(paths);
         CheckExpected(paths.Refined, expectedRefined);
         CheckExpected(paths.Text, expectedText);
