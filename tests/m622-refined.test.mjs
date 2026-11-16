@@ -6,6 +6,7 @@ const {parseScriptToVideo,validateScriptToVideo}=require('../.tmp-core/transcrip
 const {buildRefinedScript,buildRefinedText}=require('../.tmp-core/refined.js');
 const {prepareLegacyMigration,finalizeLegacyProject}=require('../.tmp-core/migration.js');
 const {createProject}=require('../.tmp-core/project.js');
+const {validatePresentationProject}=require('../.tmp-core/project-v3.js');
 
 const source={script_to_video:{format:'script-to-video',schemaVersion:2},language:'en',segments:[{words:[{word:'Hello',start:0,end:0.4},{word:'world.',start:0.4,end:1}]}]};
 test('M6.22: v2 to full v3 refined, title and word edits survive round trip',()=>{
@@ -51,7 +52,17 @@ test('M6.22: migrate legacy overrides without mutating old project',()=>{
  assert.equal(prepared.txt,'world.');
  assert.ok(Object.keys(old.overrides).length);
  const clean=finalizeLegacyProject(old);
- assert.deepEqual(clean.overrides,{});
+ assert.equal(clean.schemaVersion,3);
+ assert.equal('overrides' in clean,false);
+ assert.equal(validatePresentationProject(clean),true);
  assert.ok(Object.keys(old.overrides).length);
  assert.throws(()=>prepareLegacyMigration(source,old,true),/refined/);
+});
+
+test('M6.22: v3 presentation projects reject embedded subtitle overrides',()=>{
+ const old=createProject('demo.mp4','demo.script.json',parseScriptToVideo(source).words);
+ const clean=finalizeLegacyProject(old);
+ assert.equal(validatePresentationProject({...clean,overrides:{}}),false);
+ assert.equal(validatePresentationProject({...clean,schemaVersion:2}),false);
+ assert.equal(validatePresentationProject({...clean,style:{...clean.style,fontSize:-1}}),false);
 });
