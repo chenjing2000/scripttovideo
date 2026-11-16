@@ -958,6 +958,33 @@ internal sealed class ReaderWindow : Window
         if (next.GetProperty("script_to_video").GetProperty("schemaVersion").GetInt32() != 3 ||
             next.GetProperty("title").ValueKind != JsonValueKind.String)
             throw new InvalidDataException("保存内容必须是 refined v3。");
+        // Validate against the original on disk, not only the frontend payload.
+        // Every segment and word anchor must remain identical in count and time.
+        using (var originalDoc = JsonDocument.Parse(File.ReadAllText(current.Transcript, Encoding.UTF8)))
+        {
+            var originalSegments = originalDoc.RootElement.GetProperty("segments");
+            var nextSegments = next.GetProperty("segments");
+            if (originalSegments.GetArrayLength() != nextSegments.GetArrayLength())
+                throw new InvalidDataException("refined 改变了原始 segment 数量。");
+            for (var si = 0; si < originalSegments.GetArrayLength(); si++)
+            {
+                var originalWords = originalSegments[si].GetProperty("words");
+                var nextWords = nextSegments[si].GetProperty("words");
+                if (originalWords.GetArrayLength() != nextWords.GetArrayLength())
+                    throw new InvalidDataException($"refined 改变了 segment {si} 的单词数量。");
+                for (var wi = 0; wi < originalWords.GetArrayLength(); wi++)
+                {
+                    var originalWord = originalWords[wi];
+                    var newWord = nextWords[wi];
+                    if (!JsonElement.DeepEquals(originalWord.GetProperty("start"), newWord.GetProperty("start")) ||
+                        !JsonElement.DeepEquals(originalWord.GetProperty("end"), newWord.GetProperty("end")))
+                        throw new InvalidDataException($"refined 改变了 s{si}w{wi} 的原始时间锚点。");
+                    if (newWord.GetProperty("word").ValueKind != JsonValueKind.String ||
+                        string.IsNullOrWhiteSpace(newWord.GetProperty("word").GetString()))
+                        throw new InvalidDataException($"refined 的 s{si}w{wi} 单词无效。");
+                }
+            }
+        }
         var storedRefined = RefinedStorage.ReadExisting(paths)
             ?? throw new FileNotFoundException("refined 文件不存在。");
         using (var stored = JsonDocument.Parse(storedRefined))
