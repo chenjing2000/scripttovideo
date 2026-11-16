@@ -80,8 +80,13 @@ class TestTranscriptTool(unittest.TestCase):
         del data['segments'][0]['words'][0]['breakParagraph']
         data['segments'][-1]['words'][-1]['breakParagraph']=True
         with self.assertRaises(mod.ValidationError):mod.check(data)
-    def test_old_format_rejected(self):
+    def test_v2_and_old_formats_rejected(self):
         with self.assertRaises(mod.ValidationError):mod.check(self.raw)
+        current=mod.load(SOURCE.with_name('6 Minute English 01-seg1.script.json'))
+        legacy={**current, 'script_to_video':{**current['script_to_video'],'schemaVersion':2}}
+        with self.assertRaises(mod.ValidationError):mod.check(legacy)
+        no_title={key:value for key,value in current.items() if key!='title'}
+        with self.assertRaises(mod.ValidationError):mod.check(no_title)
         with self.assertRaises(mod.ValidationError):mod.check({**self.raw,'enscript':{'format':'enscript-transcript','schemaVersion':1}})
     def test_bad_decision_ids(self):
         ids=[ident for ident,_ in mod.words_of(self.raw)]
