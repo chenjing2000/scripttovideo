@@ -1,0 +1,70 @@
+using System;
+using System.IO;
+using System.Text;
+using System.Text.Json;
+
+namespace ScriptToVideo;
+
+/// <summary>Disk-only storage primitives for M6.22. No source subtitle is ever written.</summary>
+internal static class RefinedStorage
+{
+    internal sealed record Paths(string Folder, string Refined, string Text);
+
+    internal static Paths Resolve(string originalSubtitle)
+    {
+        var full = Path.GetFullPath(originalSubtitle);
+        var name = Path.GetFileName(full);
+        const string suffix = ".script.json";
+        if (!name.EndsWith(suffix, StringComparison.OrdinalIgnoreCase))
+            throw new InvalidDataException("必须选择 .script.json 原始字幕。");
+        var stem = name[..^suffix.Length];
+        if (string.IsNullOrWhiteSpace(stem) || stem is "." or "..")
+            throw new InvalidDataException("字幕文件名无效。");
+        var folder = Path.Combine(Path.GetDirectoryName(full)!, stem);
+        return new Paths(folder, Path.Combine(folder, stem + ".script.refined.json"),
+            Path.Combine(folder, stem + ".txt"));
+    }
+
+    internal static string? ReadExisting(Paths paths)
+    {
+        if (Directory.Exists(paths.Refined))
+            throw new IOException("refined 文件路径被目录占用。");
+        if (!File.Exists(paths.Refined)) return null;
+        var json = File.ReadAllText(paths.Refined, Encoding.UTF8);
+        using var doc = JsonDocument.Parse(json);
+        var root = doc.RootElement;
+        if (root.ValueKind != JsonValueKind.Object ||
+            !root.TryGetProperty("script_to_video", out var meta) ||
+            meta.ValueKind != JsonValueKind.Object ||
+            !meta.TryGetProperty("schemaVersion", out var version) ||
+            version.ValueKind != JsonValueKind.Number || version.GetInt32() != 3 ||
+            !root.TryGetProperty("title", out var title) ||
+            title.ValueKind != JsonValueKind.String)
+            throw new InvalidDataException("已有 refined 文件不是合法的 v3 字幕，已禁止覆盖。");
+        return json;
+    }
+
+    /// <summary>Creates a file exclusively. Never replaces existing user content.</summary>
+    internal static void CreateNew(string path, string content)
+    {
+        var folder = Path.GetDirectoryName(Path.GetFullPath(path))!;
+        Directory.CreateDirectory(folder);
+        using var stream = new FileStream(path, FileMode.CreateNew, FileAccess.Write,
+            FileShare.None, 4096, FileOptions.WriteThrough);
+        var bytes = new UTF8Encoding(false).GetBytes(content);
+        stream.Write(bytes);
+        stream.Flush(true);
+    }
+
+    /// <summary>First creation: never overwrite refined. A TXT failure leaves refined intact
+    /// for recovery on reopen. Caller validates JSON and TXT before invoking this method.</summary>
+    internal static void CreateInitial(Paths paths, string refinedJson, string text)
+    {
+        if (File.Exists(paths.Refined) || Directory.Exists(paths.Refined))
+            throw new IOException("refined 已存在，禁止覆盖。");
+        if (File.Exists(paths.Text) || Directory.Exists(paths.Text))
+            throw new IOException("TXT 路径已存在，禁止覆盖。");
+        CreateNew(paths.Refined, refinedJson);
+        CreateNew(paths.Text, text);
+    }
+}
