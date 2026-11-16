@@ -19,6 +19,9 @@ test('M6.22: no obsolete global project location; v3 originals and separate revi
  assert.doesNotMatch(cs,/"\.script-to-video", "projects"/);
  assert.doesNotMatch(cs,/project\.settings\.json/);
  assert.match(cs,/version\.GetInt32\(\) != 3/);
+ assert.match(cs,/!root\.TryGetProperty\("title", out var title\)/);
+ assert.match(cs,/meta\.TryGetProperty\("displayOverrides", out _\)/);
+ assert.match(ui,/if\(input\.script_to_video\.schemaVersion!==3\)/);
  assert.doesNotMatch(cs,/version\.GetInt32\(\) != 2/);
  assert.match(ui,/planManualSave\(disk\.original,disk\.refined,disk\.text,disk\.project,project,currentWords/);
  assert.match(ui,/kind:'project-bundle-save'/);
