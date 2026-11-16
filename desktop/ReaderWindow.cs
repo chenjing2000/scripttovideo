@@ -1520,10 +1520,13 @@ internal sealed class ReaderWindow : Window
             if (v3Export)
             {
                 arguments[4] = renderRefined; // value following --json
+            }
+            foreach (var argument in arguments) start.ArgumentList.Add(argument);
+            if (v3Export)
+            {
                 start.ArgumentList.Add("--source-json");
                 start.ArgumentList.Add(renderOriginal);
             }
-            foreach (var argument in arguments) start.ArgumentList.Add(argument);
             if (pagePlanSnapshot != null)
             {
                 start.ArgumentList.Add("--page-plan");
