@@ -351,6 +351,17 @@ internal sealed class ReaderWindow : Window
                         string.Equals(request.GetProperty("subtitleName").GetString(), Path.GetFileName(source.Transcript), StringComparison.OrdinalIgnoreCase))
                         projectSaveLocked = false;
                     break;
+                case "refined-repair-text":
+                    try { RepairRefinedText(request); }
+                    catch (Exception error)
+                    {
+                        AppLog.WriteException("Refined.RepairText", error);
+                        Send(new { kind = "refined-repair-failed",
+                            fingerprint = request.GetProperty("fingerprint").GetString(),
+                            subtitleName = request.GetProperty("subtitleName").GetString(),
+                            message = error.Message });
+                    }
+                    break;
                 case "refined-create":
                     try { CreateInitialRefined(request); }
                     catch (Exception error)
@@ -736,6 +747,32 @@ internal sealed class ReaderWindow : Window
     private void UpdateWindowTitle()
     {
         Title = hasUnsavedChanges ? "ScriptToVideo ●" : "ScriptToVideo";
+    }
+
+    private void RepairRefinedText(JsonElement request)
+    {
+        var current = source ?? throw new InvalidOperationException("没有正在打开的字幕。");
+        var fingerprint = request.GetProperty("fingerprint").GetString();
+        var subtitleName = request.GetProperty("subtitleName").GetString();
+        if (!string.Equals(fingerprint, current.Fingerprint, StringComparison.OrdinalIgnoreCase) ||
+            !string.Equals(subtitleName, Path.GetFileName(current.Transcript), StringComparison.OrdinalIgnoreCase) ||
+            Fingerprint(current.Transcript) != current.Fingerprint)
+            throw new InvalidOperationException("字幕来源已经变化，拒绝恢复 TXT。");
+        var paths = RefinedStorage.Resolve(current.Transcript);
+        var storedRefined = RefinedStorage.ReadExisting(paths)
+            ?? throw new FileNotFoundException("refined 文件已丢失，无法恢复 TXT。");
+        // Compare the exact snapshot used to derive the TXT; reject stale or
+        // independently edited refined rather than creating mismatched content.
+        var expectedRefined = request.GetProperty("refined").GetRawText();
+        using var stored = JsonDocument.Parse(storedRefined);
+        using var expected = JsonDocument.Parse(expectedRefined);
+        if (!JsonElement.DeepEquals(stored.RootElement, expected.RootElement))
+            throw new InvalidOperationException("refined 内容已变化，拒绝写入过期 TXT。");
+        var text = request.GetProperty("text").GetString()
+            ?? throw new InvalidDataException("TXT 内容必须是字符串。");
+        var created = RefinedStorage.CreateMissingText(paths, text);
+        Send(new { kind = "refined-text-repaired", fingerprint, subtitleName,
+            message = created ? "缺失的 TXT 已恢复。" : "TXT 已存在，无需恢复。" });
     }
 
     private void CreateInitialRefined(JsonElement request)
