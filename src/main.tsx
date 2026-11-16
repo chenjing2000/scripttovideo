@@ -119,6 +119,7 @@ function App(){
  const nextRefinedOperationIdRef=useRef(0);
  const pendingBundleSaveRef=useRef<(BundleSaveOperation&{refined:ScriptToVideoInput;text:string;project:PresentationProject})|null>(null);
  const nextBundleSaveIdRef=useRef(0);
+ const pendingExportRef=useRef<{operationId:number;revision:number;duration:number;videoHeight:number;pagePlan:ReturnType<typeof paginate>}|null>(null);
  const changedDuringImport=()=>{
   const base=importBaseStateRef.current,now=projectEditStateRef.current;
   return base.currentRevision!==now.currentRevision||base.draftChanged!==now.draftChanged;
@@ -264,27 +265,48 @@ function App(){
   if(mediaState!=='ready'){notify(`媒体尚未就绪：${mediaName||'未选择媒体'}`,true);return}
   if(!desktop){notify('请使用 Windows 桌面版导出 MP4',true);return}
   if(projectLoadBlocked){notify('现有工程未能通过验证，已禁止导出。请检查工程文件并重新打开字幕。',true);return}
-  // The current native renderer still consumes the immutable original
-  // transcript. Even a clean v3 project must not take that legacy path.
-  // Export will be enabled only after the saved refined snapshot is passed
-  // to the renderer by the save-before-export coordinator.
-  notify('refined 工程的导出前保存与渲染衔接尚未完成，已暂时禁止导出。',true);
-  return;
-   if(refinedPreparationPending){notify('refined/TXT 尚未完成磁盘确认，请稍后再导出。',true);return}
-  if(!project||!mediaUrl||!duration||!plan){notify('尚未载入可导出的媒体和字幕，或画布无法排版',true);return}
+  if(refinedPreparationPending||contentSaveUnavailable||!confirmedDiskSnapshotRef.current)
+   return notify('refined/TXT 尚未完成磁盘确认，禁止导出。',true);
+  if(pendingBundleSaveRef.current||pendingExportRef.current||exporting)
+   return notify('已有保存或导出任务正在进行。',true);
+  if(importing||reloading)return notify('正在加载文件，请稍后再导出。',true);
+  if(!project||!mediaUrl||!duration||!plan)
+   return notify('尚未载入可导出的媒体和字幕，或画布无法排版',true);
   let exportWords=words;
   const active=editRef.current;
   if(active){
    try{exportWords=updateWord(words,active.id,active.text)}
-   catch(error){notify(`无法导出视频：请先修正正在编辑的单词。${String(error)}`,true);return}
+   catch(error){return notify(`无法导出视频：请先修正正在编辑的单词。${String(error)}`,true)}
    if(!commitEditing())return;
   }
   let exportPlan;
   try{exportPlan=paginate(exportWords,style,canvasWidth,canvasHeight-mediaHeight,measureWithCanvas(style.fontFamily,style.fontSize,style.fontWeight))}
-  catch(error){notify(`无法生成视频分页：${String(error)}`,true);return}
-  if(!exportPlan.pages.length){notify('没有可导出的视频正文页面。',true);return}
-  setExporting(true);setExportTaskNotice('正在准备导出…');
-  desktop.postMessage({kind:'export',project:saveProjectView(project,exportWords),duration,videoHeight:mediaHeight,pagePlan:exportPlan});
+  catch(error){return notify(`无法生成视频分页：${String(error)}`,true)}
+  if(!exportPlan.pages.length)return notify('没有可导出的视频正文页面。',true);
+  const disk=confirmedDiskSnapshotRef.current,source=activeRefinedSourceRef.current;
+  if(!source||source.fingerprint!==disk.fingerprint||
+     source.subtitleName.toLowerCase()!==disk.subtitleName.toLowerCase())
+   return notify('字幕来源与已确认磁盘快照不匹配，禁止导出。',true);
+  try{
+   const snapshot=planManualSave(disk.original,disk.refined,disk.text,disk.project,project,exportWords,parseScriptToVideo(disk.refined).title);
+   const operationId=++nextBundleSaveIdRef.current;
+   const revision=projectEditStateRef.current.currentRevision;
+   pendingBundleSaveRef.current={operationId,revision,fingerprint:source.fingerprint,subtitleName:source.subtitleName,
+    refined:snapshot.refined,text:snapshot.text,project:snapshot.project};
+   pendingExportRef.current={operationId,revision,duration,videoHeight:mediaHeight,pagePlan:exportPlan};
+   setExporting(true);
+   setExportTaskNotice('正在确认导出前的工程保存…');
+   desktop.postMessage({kind:'project-bundle-save',operationId,revision,
+    fingerprint:source.fingerprint,subtitleName:source.subtitleName,
+    previousRefined:disk.refined,refined:snapshot.refined,
+    previousText:disk.text,text:snapshot.text,
+    previousProject:disk.project,project:snapshot.project});
+  }catch(error){
+   pendingExportRef.current=null;
+   pendingBundleSaveRef.current=null;
+   setExporting(false);
+   notify(`无法准备导出前保存：${String(error)}`,true);
+  }
  };
  const cancelPendingProbe=()=>{
   const active=activeProbeRef.current;if(!active)return;
