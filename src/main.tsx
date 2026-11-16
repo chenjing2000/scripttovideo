@@ -14,7 +14,7 @@ import {DEFAULT_SETTINGS,settingsToStyle,projectStyleToSettings,validateSettings
 import {calculateWordEditorWidth,paragraphActionLabel,hasUnsavedWordDraft} from './core/word-editing';
 import {createProjectEditState,markProjectEdited,setProjectDraftChanged,acknowledgeProjectSave,resetProjectEditState,hasUnsavedProjectChanges} from './core/project-edit-state';
 import {settingsDialogRect,nextSettingsWidth,requiredSettingsOuterWidth} from './core/settings-dialog-geometry';
-import {planManualSave,isMatchingBundleSaveReply,bundleSaveSucceeded} from './core';
+import {planManualSave,isMatchingBundleSaveReply,bundleSaveSucceeded,layoutTitle,DEFAULT_TITLE_STYLE} from './core';
 import type {BundleSaveOperation,PresentationProject,ScriptToVideoInput} from './core';
 import type {AppSettings} from './core/app-settings';
 type DesktopMessage =
@@ -78,6 +78,7 @@ type WordToolSnapshot={id:string;text:string;start:number;end:number;breakParagr
 function App(){
  const [mediaUrl,setMediaUrl]=useState('');const [mediaName,setMediaName]=useState('');const [kind,setKind]=useState<'video'|'audio'>('video');
  const [videoRatio,setVideoRatio]=useState<number|null>(null);const [mediaState,setMediaState]=useState<'idle'|'loading'|'ready'|'error'>('idle');const [words,setWords]=useState<Word[]>([]);const [project,setProject]=useState<Project|null>(null);
+ const [title,setTitle]=useState('');const titleRef=useRef('');
  const [time,setTime]=useState(0);const [duration,setDuration]=useState(0);
  const [edit,setEdit]=useState<{id:string;text:string}|null>(null);
  const editRef=useRef<{id:string;text:string}|null>(null);
@@ -185,7 +186,9 @@ function App(){
  },[]);
  const editorFontSize=appSettings.rightFont.size;
  const style=project?.style??settingsToStyle(appSettings);
- const displayedSettings=useMemo(()=>project?projectStyleToSettings(style,project.canvas,appSettings):appSettings,[project,style,appSettings]);
+ const titleStyle=project?.titleStyle??appSettings.titleStyle??DEFAULT_TITLE_STYLE;
+ const titleLayout=useMemo(()=>layoutTitle(title,titleStyle,canvasWidth-2*style.paddingX,measureWithCanvas(titleStyle.fontFamily,titleStyle.fontSize,400)),[title,titleStyle,canvasWidth,style.paddingX]);
+ const displayedSettings=useMemo(()=>project?projectStyleToSettings(style,project.canvas,{...appSettings,titleStyle:project.titleStyle??appSettings.titleStyle}):appSettings,[project,style,appSettings]);
  const setDependency=(value:DependencyDialog|null)=>{dependencyDialogRef.current=value;setDependencyDialog(value)};
  const cancelDependencyInstall=()=>{const d=dependencyDialogRef.current;if(d?.mode!=='progress')return;setDependency({mode:'cancelling',title:d.title,message:'正在停止安装任务并清理临时文件……'});desktop?.postMessage({kind:'dependency-cancel'})};
  const replyDependency=(accepted:boolean)=>{const d=dependencyDialogRef.current;if(d?.mode!=='confirm')return;desktop?.postMessage({kind:'dependency-decision',id:d.id,accepted});setDependency(accepted?{mode:'progress',title:d.title,message:'正在启动依赖准备操作……'}:null)};
@@ -223,7 +226,7 @@ function App(){
   setNotices(prev=>prev.filter(n=>n.id!==id));
  };
  useEffect(()=>{let frame=0;const tick=()=>{if(mediaRef.current)setTime(mediaRef.current.currentTime);frame=requestAnimationFrame(tick)};frame=requestAnimationFrame(tick);return()=>cancelAnimationFrame(frame)},[]);
- const plan=useMemo(()=>{if(!words.length||canvasHeight-mediaHeight<=0)return undefined;try{return paginate(words,style,canvasWidth,canvasHeight-mediaHeight,measureWithCanvas(style.fontFamily,style.fontSize,style.fontWeight))}catch{return undefined}},[words,style,canvasWidth,canvasHeight,mediaHeight]);
+ const plan=useMemo(()=>{if(!words.length||canvasHeight-mediaHeight<=0)return undefined;try{return paginate(words,style,canvasWidth,canvasHeight-mediaHeight,measureWithCanvas(style.fontFamily,style.fontSize,style.fontWeight),titleLayout.height)}catch{return undefined}},[words,style,canvasWidth,canvasHeight,mediaHeight,titleLayout.height]);
  const seek=(t:number)=>{const v=mediaRef.current;if(!v)return;v.currentTime=Math.max(0,Math.min(Number.isFinite(v.duration)?v.duration:t,t));setTime(v.currentTime)};
  const toggle=()=>{const v=mediaRef.current;if(v){if(v.paused)void v.play().catch(e=>notify(`播放失败：${String(e)}`,true));else v.pause()}};
  const stop=()=>{mediaRef.current?.pause();seek(0)};
@@ -249,7 +252,7 @@ function App(){
        source.subtitleName.toLowerCase()!==disk.subtitleName.toLowerCase())
      return notify('磁盘快照与当前字幕不匹配，禁止保存。',true);
     try{
-     const snapshot=planManualSave(disk.original,disk.refined,disk.text,disk.project,project,currentWords,parseScriptToVideo(disk.refined).title);
+     const snapshot=planManualSave(disk.original,disk.refined,disk.text,disk.project,project,currentWords,titleRef.current);
      const operationId=++nextBundleSaveIdRef.current;
      const revision=projectEditStateRef.current.currentRevision;
      pendingBundleSaveRef.current={operationId,revision,fingerprint:source.fingerprint,subtitleName:source.subtitleName,
@@ -289,7 +292,7 @@ function App(){
    if(!commitEditing())return;
   }
   let exportPlan;
-  try{exportPlan=paginate(exportWords,style,canvasWidth,canvasHeight-mediaHeight,measureWithCanvas(style.fontFamily,style.fontSize,style.fontWeight))}
+  try{exportPlan=paginate(exportWords,style,canvasWidth,canvasHeight-mediaHeight,measureWithCanvas(style.fontFamily,style.fontSize,style.fontWeight),titleLayout.height)}
   catch(error){return notify(`无法生成视频分页：${String(error)}`,true)}
   if(!exportPlan.pages.length)return notify('没有可导出的视频正文页面。',true);
   const disk=confirmedDiskSnapshotRef.current,source=activeRefinedSourceRef.current;
@@ -297,7 +300,7 @@ function App(){
      source.subtitleName.toLowerCase()!==disk.subtitleName.toLowerCase())
    return notify('字幕来源与已确认磁盘快照不匹配，禁止导出。',true);
   try{
-   const snapshot=planManualSave(disk.original,disk.refined,disk.text,disk.project,project,exportWords,parseScriptToVideo(disk.refined).title);
+   const snapshot=planManualSave(disk.original,disk.refined,disk.text,disk.project,project,exportWords,titleRef.current);
    const operationId=++nextBundleSaveIdRef.current;
    const revision=projectEditStateRef.current.currentRevision;
    pendingBundleSaveRef.current={operationId,revision,fingerprint:source.fingerprint,subtitleName:source.subtitleName,
@@ -371,7 +374,7 @@ function App(){
    const existingRefined=data.refined?JSON.parse(data.refined):null;
    const openPlan=planRefinedOpen(input,existingRefined,data.project?JSON.parse(data.project):null);
    const effective=openPlan.kind==='existing'||openPlan.kind==='recover-migration'?parseScriptToVideo(openPlan.refined):parsed;
-   const next=createProject(data.mediaName,data.subtitleName,parsed.words);next.style=settingsToStyle(appSettingsRef.current);next.canvas={...appSettingsRef.current.output};next.source.subtitleSha256=data.fingerprint;next.mediaKind=data.mediaKind;
+   const next=createProject(data.mediaName,data.subtitleName,parsed.words);next.style=settingsToStyle(appSettingsRef.current);next.titleStyle={...appSettingsRef.current.titleStyle};next.canvas={...appSettingsRef.current.output};next.source.subtitleSha256=data.fingerprint;next.mediaKind=data.mediaKind;
    let current=next,currentWords=effective.words,blocked=false;
    if(data.project!==null){try{
     const saved:unknown=JSON.parse(data.project);
@@ -413,7 +416,7 @@ function App(){
    setContentSaveUnavailable(Boolean(desktop));
    setRefinedPreparationPending(Boolean(desktop));
    setProjectLoadBlocked(blocked);
-   setMediaUrl(data.mediaUrl);setMediaName(data.mediaName);setKind(data.mediaKind);setProject(current);setWords(currentWords);setEditing(null);setWordTool(null);setToolLeaving(false);resetProjectDirtyState();setDuration(0);setVideoRatio(null);setMediaState('loading');setTime(0);setPlaying(false);
+   setMediaUrl(data.mediaUrl);setMediaName(data.mediaName);setKind(data.mediaKind);setProject(current);setWords(currentWords);titleRef.current=effective.title;setTitle(effective.title);setEditing(null);setWordTool(null);setToolLeaving(false);resetProjectDirtyState();setDuration(0);setVideoRatio(null);setMediaState('loading');setTime(0);setPlaying(false);
    transcriptRef.current?.scrollTo({top:0});
    clearReload();
    if(data.requestId)committedPairAckRef.current=data.requestId;
@@ -685,7 +688,7 @@ function App(){
    return notify('磁盘快照尚未验证，暂时不能修改展示设置。',true);
   const globalNext=layoutChanged?next:{...appSettings,rightFont:next.rightFont};
   appSettingsRef.current=globalNext;setAppSettings(globalNext);
-  if(project&&layoutChanged){mediaRef.current?.pause();setProject(p=>p?{...p,canvas:{...next.output},style:settingsToStyle(next)}:p);markDirty()}
+  if(project&&layoutChanged){mediaRef.current?.pause();setProject(p=>p?{...p,canvas:{...next.output},style:settingsToStyle(next),titleStyle:{...next.titleStyle}}:p);markDirty()}
   if(desktop&&loadedSettingsRef.current)desktop.postMessage({kind:'settings-save',settings:globalNext});
  };
  shortcutRef.current=(e:KeyboardEvent)=>{if(e.defaultPrevented||e.altKey||e.metaKey||settingsOpen||dependencyDialogRef.current)return;const target=e.target;if(target instanceof HTMLElement&&(target.isContentEditable||['INPUT','TEXTAREA','SELECT','BUTTON'].includes(target.tagName)))return;
@@ -713,7 +716,7 @@ function App(){
    <section className="preview" aria-label="阅读画布预览" style={{width:geometry.frameWidth,height:geometry.frameHeight}}>
     <div className="preview-stage" style={{width:geometry.previewWidth,height:geometry.previewHeight}}>
      <div className="scaled-holder" style={{width:geometry.previewWidth,height:geometry.previewHeight}}><div className="canvas-frame" style={{width:canvasWidth,height:canvasHeight,transform:`scale(${scale})`}}>
-     <ReaderCanvas words={words} style={style} time={time} canvasWidth={canvasWidth} canvasHeight={canvasHeight} videoHeight={mediaHeight} pagePlan={plan} video={kind==='video'&&mediaUrl?<><video key={mediaUrl} ref={el=>{mediaRef.current=el}} src={mediaUrl} preload="metadata" onLoadStart={()=>setMediaState('loading')} onPlay={()=>setPlaying(true)} onPause={()=>setPlaying(false)} onEnded={()=>setPlaying(false)} onError={e=>onMediaFailed(e.currentTarget)} onLoadedMetadata={e=>onMediaReady(e.currentTarget)} style={{width:canvasWidth,height:mediaHeight,objectFit:'fill',display:'block'}}/>{mediaState!=='ready'&&<div className="media-state-overlay" role={mediaState==='error'?'alert':'status'}>{mediaState==='loading'?'正在加载视频：':'视频尚未就绪：'}{mediaName}</div>}</>:null}/>
+     <ReaderCanvas words={words} title={title} titleStyle={titleStyle} style={style} time={time} canvasWidth={canvasWidth} canvasHeight={canvasHeight} videoHeight={mediaHeight} pagePlan={plan} video={kind==='video'&&mediaUrl?<><video key={mediaUrl} ref={el=>{mediaRef.current=el}} src={mediaUrl} preload="metadata" onLoadStart={()=>setMediaState('loading')} onPlay={()=>setPlaying(true)} onPause={()=>setPlaying(false)} onEnded={()=>setPlaying(false)} onError={e=>onMediaFailed(e.currentTarget)} onLoadedMetadata={e=>onMediaReady(e.currentTarget)} style={{width:canvasWidth,height:mediaHeight,objectFit:'fill',display:'block'}}/>{mediaState!=='ready'&&<div className="media-state-overlay" role={mediaState==='error'?'alert':'status'}>{mediaState==='loading'?'正在加载视频：':'视频尚未就绪：'}{mediaName}</div>}</>:null}/>
      </div></div>
     </div>
    {kind==='audio'&&mediaUrl&&<audio key={mediaUrl} ref={el=>{mediaRef.current=el}} src={mediaUrl} preload="metadata" onLoadStart={()=>setMediaState('loading')} onPlay={()=>setPlaying(true)} onPause={()=>setPlaying(false)} onEnded={()=>setPlaying(false)} onLoadedMetadata={e=>onMediaReady(e.currentTarget)} onError={e=>onMediaFailed(e.currentTarget)}/>}
@@ -722,7 +725,9 @@ function App(){
     <div className="transport-row"><input aria-label="进度" type="range" min={0} max={duration||1} step="0.01" value={time} onChange={e=>seek(Number(e.target.value))}/>{iconButton(playing?'pause':'play',playing?'暂停 Space':'播放 Space',toggle)}{iconButton('stop','停止 X',stop)}</div>
    </div></section>
    <aside><div className="toolbar"><span className="app-label">ScriptToVideo {hasUnsavedProjectChanges(projectEditState)?'●':''}</span>{iconButton('settings','设置',openSettings)}{iconButton('reload','重新加载当前文章',requestReload,!desktop||!project||exporting||importing||reloading)}{iconButton('import',mediaName?`导入 JSON Ctrl+O · 当前媒体：${mediaName}`:'导入 JSON Ctrl+O',openPicker,exporting||importing||reloading)}{importing&&!reloading&&iconButton('stop','取消当前媒体导入',cancelPendingProbe)}{iconButton('save','保存工程 Ctrl+S',doSave,!project||exporting||projectLoadBlocked||contentSaveUnavailable||importing||reloading)}{iconButton('export','导出 MP4',doExport,!project||exporting||projectLoadBlocked||refinedPreparationPending||importing||reloading)}</div>
-    <div className="panel"><div ref={transcriptRef} className="transcript" style={{fontFamily:appSettings.rightFont.family,fontSize:editorFontSize,fontWeight:400,lineHeight:1.5,color:appSettings.rightFont.color,backgroundColor:appSettings.rightFont.backgroundColor}}>
+    <div className="panel"><div className="title-editor-wrap"><textarea aria-label="编辑标题" className="title-editor" placeholder="标题（可留空）" value={title} disabled={!project||contentSaveUnavailable||refinedPreparationPending||exporting}
+      onChange={e=>{const next=e.currentTarget.value;if(next===titleRef.current)return;titleRef.current=next;setTitle(next);markDirty()}}
+      style={{fontFamily:titleStyle.fontFamily,color:titleStyle.color,backgroundColor:appSettings.rightFont.backgroundColor}} rows={2}/></div><div ref={transcriptRef} className="transcript" style={{fontFamily:appSettings.rightFont.family,fontSize:editorFontSize,fontWeight:400,lineHeight:1.5,color:appSettings.rightFont.color,backgroundColor:appSettings.rightFont.backgroundColor}}>
      {words.map(w=><React.Fragment key={w.id}>{w.hidden?null:edit?.id===w.id?<InlineWordEditor key={w.id} text={edit.text} fontFamily={appSettings.rightFont.family} fontSize={editorFontSize} color={appSettings.rightFont.color} availableWidth={editorAvailableWidth}
        onText={text=>setEditing({id:w.id,text})} onCommit={commitEditing} onCancel={cancelEditing}/>
        :<span className="transcript-word" title={`${w.start.toFixed(3)}–${w.end.toFixed(3)}`} onDoubleClick={e=>{e.stopPropagation();startEditing(w)}}>{w.display}</span>}{' '}{w.breakParagraph?<div className="paragraph-break"/>:null}</React.Fragment>)}
