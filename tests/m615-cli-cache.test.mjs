@@ -7,7 +7,9 @@ function runExport(extraArgs = []) {
   return spawnSync(process.execPath, [
     'scripts/export.mjs',
     '--media', 'missing-input.mp4',
-    '--json', 'missing-input.script.json',
+    '--source-json', 'missing-input.script.json',
+    '--json', 'missing-input/missing-input.script.revise.json',
+    '--project', 'missing-input/missing-input.project.json',
     '--out', 'out/Lesson.exported.mp4',
     ...extraArgs
   ], {encoding: 'utf8'});
