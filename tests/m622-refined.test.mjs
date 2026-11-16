@@ -7,6 +7,7 @@ const {buildRefinedScript,buildRefinedText}=require('../.tmp-core/refined.js');
 const {prepareLegacyMigration,finalizeLegacyProject}=require('../.tmp-core/migration.js');
 const {createProject}=require('../.tmp-core/project.js');
 const {refinedFileNames}=require('../.tmp-core/refined-paths.js');
+const {planRefinedOpen}=require('../.tmp-core/refined-open.js');
 const {validatePresentationProject}=require('../.tmp-core/project-v3.js');
 
 const source={script_to_video:{format:'script-to-video',schemaVersion:2},language:'en',segments:[{words:[{word:'Hello',start:0,end:0.4},{word:'world.',start:0.4,end:1}]}]};
@@ -78,4 +79,35 @@ test('M6.22: canonical paths stay inside the existing work folder',()=>{
 test('M6.22: refined rejects whitespace within one word',()=>{
  const words=parseScriptToVideo(source).words.map((w,i)=>i===0?{...w,display:'two words'}:w);
  assert.throws(()=>buildRefinedScript(source,'',words),/文字无效/);
+});
+
+test('M6.22: first open creates refined even with no edits',()=>{
+ const plan=planRefinedOpen(source,null,null);
+ assert.equal(plan.kind,'create');
+ assert.equal(plan.refined.script_to_video.schemaVersion,3);
+ assert.equal(plan.txt,'Hello world.');
+});
+test('M6.22: existing refined remains authoritative',()=>{
+ const words=parseScriptToVideo(source).words.map((w,i)=>i===0?{...w,display:'Hi'}:w);
+ const refined=buildRefinedScript(source,'Title',words);
+ const plan=planRefinedOpen(source,refined,null);
+ assert.equal(plan.kind,'existing');
+ assert.equal(plan.refined,refined);
+ assert.equal(plan.txt,'Title\r\n\r\nHi world.');
+});
+test('M6.22: existing invalid refined is never silently replaced',()=>{
+ const refined=buildRefinedScript(source,'',parseScriptToVideo(source).words);
+ assert.throws(()=>planRefinedOpen(source,{...refined,title:null},null),/title/);
+ const mismatched=structuredClone(refined);
+ mismatched.segments[0].words[0].start=0.1;
+ assert.throws(()=>planRefinedOpen(source,mismatched,null),/时间锚点/);
+});
+test('M6.22: legacy overrides conflict with existing refined',()=>{
+ const words=parseScriptToVideo(source).words.map((w,i)=>i===0?{...w,display:'Hi'}:w);
+ const legacy=createProject('demo.mp4','demo.script.json',words);
+ const refined=buildRefinedScript(source,'',words);
+ assert.throws(()=>planRefinedOpen(source,refined,legacy),/禁止自动合并/);
+ const plan=planRefinedOpen(source,null,legacy);
+ assert.equal(plan.kind,'create');
+ assert.equal(plan.refined.segments[0].words[0].word,'Hi');
 });
