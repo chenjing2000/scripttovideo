@@ -16,7 +16,7 @@ import {createProjectEditState,markProjectEdited,setProjectDraftChanged,acknowle
 import {settingsDialogRect,nextSettingsWidth,requiredSettingsOuterWidth} from './core/settings-dialog-geometry';
 import type {AppSettings} from './core/app-settings';
 type DesktopMessage =
- | {kind:'pair';requestId?:string;mediaName:string;mediaKind:'video'|'audio';subtitleName:string;transcript:string;fingerprint:string;project:string|null;mediaUrl:string;refined?:string|null;refinedError?:string}
+ | {kind:'pair';requestId?:string;mediaName:string;mediaKind:'video'|'audio';subtitleName:string;transcript:string;fingerprint:string;project:string|null;mediaUrl:string;refined?:string|null;refinedText?:string|null;refinedError?:string}
  | {kind:'import-candidates';requestId:string;subtitleName:string;transcript:string;candidates:Array<{index:number;mediaName:string;mediaKind:'video'|'audio';mediaUrl:string}>}
  | {kind:'settings';settings:unknown}
  | {kind:'reload-failed';message:string}
@@ -113,6 +113,7 @@ function App(){
  const expectedDesktopImportIdRef=useRef<string|null>(null);
  const committedPairAckRef=useRef<string|null>(null);
  const activeRefinedSourceRef=useRef<{fingerprint:string;subtitleName:string;operationId:number}|null>(null);
+ const confirmedDiskSnapshotRef=useRef<{fingerprint:string;subtitleName:string;original:import('./core').ScriptToVideoInput;refined:import('./core').ScriptToVideoInput;text:string;project:import('./core').PresentationProject|null}|null>(null);
  const nextRefinedOperationIdRef=useRef(0);
  const changedDuringImport=()=>{
   const base=importBaseStateRef.current,now=projectEditStateRef.current;
@@ -326,6 +327,14 @@ function App(){
    if(blocked)throw Error('工程来源或格式校验失败，已拒绝切换到不安全的工作副本');
    const operationId=++nextRefinedOperationIdRef.current;
    activeRefinedSourceRef.current={fingerprint:data.fingerprint,subtitleName:data.subtitleName,operationId};
+   // A disk snapshot is authoritative only when the host supplied all its
+   // existing content. A missing TXT must first be repaired and acknowledged.
+   confirmedDiskSnapshotRef.current=existingRefined!==null&&data.refinedText!==null&&data.refinedText!==undefined
+    ?{fingerprint:data.fingerprint,subtitleName:data.subtitleName,original:input,
+      refined:existingRefined,text:data.refinedText,
+      project:data.project&&validatePresentationProject(JSON.parse(data.project))
+       ?JSON.parse(data.project):null}
+    :null;
    // Until the v3 save transaction exists, the legacy v2 save action is unsafe
    // whenever refined is authoritative or being created.
    setContentSaveUnavailable(Boolean(desktop));
