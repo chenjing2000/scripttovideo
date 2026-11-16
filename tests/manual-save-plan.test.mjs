@@ -7,7 +7,7 @@ import {createProject} from '../.tmp-core/project.js';
 import {toPresentationProject} from '../.tmp-core/project-v3.js';
 
 const source={
- script_to_video:{format:'script-to-video',schemaVersion:2},
+ script_to_video:{format:'script-to-video',schemaVersion:3},
  title:'Original',language:'en',
  segments:[{words:[{word:'Hello',start:0,end:0.5},{word:'world',start:0.5,end:1}]}]
 };
