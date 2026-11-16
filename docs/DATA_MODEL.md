@@ -27,7 +27,9 @@ For `lesson01.script.json`, the current path is:
 ├── lesson01.mp4                 # first decodable candidate: .mp4 / .mkv / .m4a / .mp3 / .wav
 └── lesson01/
     ├── lesson01.project.json
-    ├── lesson01.exported.mp4       # created after successful MP4 export
+    ├── lesson01.exported.mp4       # first successful MP4 export
+    ├── lesson01.exported (1).mp4   # next export if the default name exists
+    ├── lesson01.exported (2).mp4   # subsequent unused suffix
     ├── lesson01.article.txt        # created after plain-text export
     └── cache/                      # temporary task data; failed renders may be retained for recovery
 ```
@@ -42,7 +44,7 @@ The current right-pane visible text is written to `<subtitle-directory>/<stem>/<
 
 ## MP4 export
 
-The WPF host passes an immutable project and page-plan snapshot to Remotion. The renderer uses the selected media once (video audio remains part of `OffthreadVideo`; audio-only sources use one `Audio` component). The default desktop MP4 output is `<subtitle-directory>/<stem>/<stem>.exported.mp4`, in the same directory as `<stem>.project.json`. Temporary render data is isolated under that work directory's `cache/render/job-<guid>/` and `cache/temp/` folders. A failed final commit retains the rendered `<stem>.exported-<guid>.mp4.tmp` for manual recovery. The project and source subtitle are not modified by rendering.
+The WPF host passes an immutable project and page-plan snapshot to Remotion. The renderer uses the selected media once (video audio remains part of `OffthreadVideo`; audio-only sources use one `Audio` component). The default desktop MP4 output is `<subtitle-directory>/<stem>/<stem>.exported.mp4`, in the same directory as `<stem>.project.json`. MP4 exports never overwrite previous files: if the default name is occupied, the application saves to `<stem>.exported (1).mp4`, `<stem>.exported (2).mp4`, etc., taking the lowest available suffix immediately before final commit. If the default name is free, it is used even when numbered copies exist. Project JSON and plain-text article TXT still use atomic replacement without numbering. Temporary render data is isolated under that work directory's `cache/render/job-<guid>/` and `cache/temp/` folders. A failed final commit retains the rendered `<stem>.exported-<guid>.mp4.tmp` for manual recovery. The project and source subtitle are not modified by rendering.
 
 ## Global settings
 

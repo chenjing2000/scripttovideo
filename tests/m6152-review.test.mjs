@@ -32,9 +32,9 @@ test('unused preset picker and its style data are not shipped',()=>{
  assert.equal(existsSync('src/core/style-presets.ts'),false);
  assert.doesNotMatch(read('src/style.css'),/\.preset-(?:control|trigger|menu|option)/);
 });
-test('export commit failure preserves a rendered temporary file for both move and replace paths',()=>{
+test('export commit failure preserves validated temporary MP4 when unique save fails',()=>{
  const commit=host.slice(host.indexOf('task.Status = ExportStatus.Committing'),host.indexOf('committed = true;',host.indexOf('task.Status = ExportStatus.Committing')));
- assert.match(commit,/File\.Move\(task\.TemporaryOutputPath, task\.OutputPath\)/);
+ assert.match(commit,/UniqueOutputCommit\.Commit\(task\.TemporaryOutputPath, task\.OutputPath\)/);
  assert.match(commit,/catch \(Exception error\)/);
  assert.match(commit,/preserveFailedOutput = File\.Exists\(task\.TemporaryOutputPath\)/);
 });

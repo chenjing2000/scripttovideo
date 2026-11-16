@@ -8,11 +8,11 @@ The progress notice offers `取消` while cancellation is possible. During final
 
 ## Safe output transaction
 
-The final output is `<stem>/<stem>.exported.mp4` beside the project JSON. Per-task data is under `<stem>/cache/render/job-<guid>/`; temporary snapshots are under `cache/temp/`.
+The default output is `<stem>/<stem>.exported.mp4` beside the project JSON. Each successful desktop MP4 export creates a distinct file: if occupied, the application selects the lowest available `<stem>.exported (n).mp4` name immediately before committing. Existing MP4 files are never overwritten; a missing base name is reused even if numbered files remain. Per-task data is under `<stem>/cache/render/job-<guid>/`; temporary snapshots are under `cache/temp/`.
 
-Remotion renders an intermediate `.mp4` (for container inference), then renames it to `<stem>.exported-<guid>.mp4.tmp`. The WPF host checks MP4 top-level `ftyp`, `moov`, and `mdat` boxes before replacing the final file. This is a structural check, **not** a full decode/track-quality verification.
+Remotion renders an intermediate `.mp4` (for container inference), then renames it to `<stem>.exported-<guid>.mp4.tmp`. The WPF host checks MP4 top-level `ftyp`, `moov`, and `mdat` boxes before committing a new final file. This is a structural check, **not** a full decode/track-quality verification.
 
-The existing MP4 is replaced only after validation; a failed commit preserves the prior output where possible and retains the temporary result for recovery. Cache cleanup is best-effort and only targets eligible stale task data older than seven days; never delete an active task.
+Following validation, the WPF host moves the temporary file to a free destination without overwrite. If the destination is claimed concurrently, it retries the next available suffix; unrelated I/O errors fail immediately. A failed final commit preserves all existing MP4 files and retains the temporary result for recovery. Project JSON and article TXT retain their existing atomic-overwrite behavior. Cache cleanup is best-effort and only targets eligible stale task data older than seven days; never delete an active task.
 
 ## CLI distinction
 
