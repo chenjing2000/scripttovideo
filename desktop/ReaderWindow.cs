@@ -1084,6 +1084,15 @@ internal sealed class ReaderWindow : Window
         RefinedStorage.ReplaceProjectBundle(paths, current.Project,
             storedRefined, nextRefinedText,
             oldText, nextText, oldProjectText, nextProjectText);
+        // An acknowledgement must describe a verified durable snapshot,
+        // not merely a completed sequence of file-write calls.
+        var confirmedRefined = File.ReadAllText(paths.Refined, Encoding.UTF8);
+        var confirmedText = File.ReadAllText(paths.Text, Encoding.UTF8);
+        var confirmedProject = File.ReadAllText(current.Project, Encoding.UTF8);
+        if (!string.Equals(confirmedRefined, nextRefinedText, StringComparison.Ordinal) ||
+            !string.Equals(confirmedText, nextText, StringComparison.Ordinal) ||
+            !string.Equals(confirmedProject, nextProjectText, StringComparison.Ordinal))
+            throw new IOException("保存后磁盘内容与请求不一致，未确认保存成功。");
         if (Fingerprint(current.Transcript) != current.Fingerprint)
             throw new IOException("保存期间原始字幕发生变化。");
         Send(new { kind = "project-bundle-saved",
