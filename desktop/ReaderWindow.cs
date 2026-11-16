@@ -37,7 +37,6 @@ internal sealed class ReaderWindow : Window
     private readonly ExportTaskManager exportTasks = new();
     private readonly ExportProcessManager exportProcesses = new();
     private bool isShuttingDown;
-    private bool isMinimizingToTray;
     private bool isCloseConfirmationOpen;
     private bool exporting => exportTasks.IsBusy;
     // A discovered project cannot be overwritten until the front end validates it.
@@ -127,23 +126,12 @@ internal sealed class ReaderWindow : Window
         ContentRendered += Initialize;
         trayIcon = new TrayIconManager(this, ActivateFromTray, Close);
         AppLog.Write("Window", "Main reader window constructed.");
+        // Native WPF minimization keeps the main window in the taskbar.
+        // The notification-area icon remains available as an alternative restore path.
         StateChanged += (_, _) =>
         {
-            if (isShuttingDown || isMinimizingToTray || WindowState != WindowState.Minimized)
-                return;
-
-            isMinimizingToTray = true;
-            try
-            {
-                AppLog.Write("Window", "Main window minimized to tray.");
-                WindowState = WindowState.Normal;
-                ShowInTaskbar = false;
-                Hide();
-            }
-            finally
-            {
-                isMinimizingToTray = false;
-            }
+            if (!isShuttingDown && WindowState == WindowState.Minimized)
+                AppLog.Write("Window", "Main window minimized; taskbar icon retained.");
         };
         Closing += OnClosing;
         Closed += (_, _) =>
