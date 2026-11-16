@@ -432,8 +432,15 @@ function App(){
       const expectedText=buildRefinedText(parsed.title,parsed.words);
       if(expectedText!==data.textSnapshot)throw Error('磁盘 TXT 与 refined 不一致');
       const savedProject=data.projectSnapshot?JSON.parse(data.projectSnapshot):null;
-      if(savedProject!==null&&!validatePresentationProject(savedProject))
-       throw Error('磁盘 project v3 无效');
+      if(savedProject!==null){
+       if(!validatePresentationProject(savedProject))
+        throw Error('磁盘 project v3 无效');
+       if(savedProject.source.subtitleSha256!==data.fingerprint||
+          savedProject.source.subtitleName.toLowerCase()!==data.subtitleName.toLowerCase()||
+          savedProject.source.videoName.toLowerCase()!==mediaName.toLowerCase()||
+          (savedProject.mediaKind!==undefined&&savedProject.mediaKind!==kind))
+        throw Error('磁盘 project v3 与当前媒体或字幕来源不匹配');
+      }
       confirmedDiskSnapshotRef.current={
        fingerprint:data.fingerprint,subtitleName:data.subtitleName,
        original:original??originalSource.original,refined,text:data.textSnapshot,project:savedProject
