@@ -644,12 +644,28 @@ internal sealed class ReaderWindow : Window
         lastCommittedImportId = pending.Id;
         source = new Source(selected.Path, pending.Subtitle, pending.Fingerprint, pending.ProjectPath, selected.Kind);
         projectSaveLocked = pending.ProjectContent != null;
+        // Read only: existing refined content is validated by the front end before use.
+        // No work files are created during media probing or before pair acceptance.
+        string? existingRefined;
+        try { existingRefined = RefinedStorage.ReadExisting(RefinedStorage.Resolve(pending.Subtitle)); }
+        catch (Exception error)
+        {
+            AppLog.WriteException("Refined.ReadExisting", error);
+            existingRefined = null;
+            // An unreadable refined is not equivalent to a missing refined.
+            // Send an explicit error so the front end rejects this pair.
+            Send(new { kind = "pair", requestId = pending.Id, mediaName = Path.GetFileName(selected.Path),
+                mediaKind = selected.Kind, subtitleName = Path.GetFileName(pending.Subtitle),
+                mediaUrl = selected.Url, transcript = pending.Transcript, fingerprint = pending.Fingerprint,
+                project = pending.ProjectContent, refinedError = error.Message });
+            return;
+        }
         Send(new
         {
             kind = "pair", requestId = pending.Id, mediaName = Path.GetFileName(selected.Path),
             mediaKind = selected.Kind, subtitleName = Path.GetFileName(pending.Subtitle),
             mediaUrl = selected.Url, transcript = pending.Transcript, fingerprint = pending.Fingerprint,
-            project = pending.ProjectContent
+            project = pending.ProjectContent, refined = existingRefined
         });
     }
 
