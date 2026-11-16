@@ -1,4 +1,4 @@
-import type {Project,ScriptToVideoInput,Word} from './types';
+import type {Project,ScriptToVideoInput} from './types';
 import {parseScriptToVideo,validateScriptToVideo} from './transcript';
 import {buildRefinedScript,buildRefinedText} from './refined';
 import {prepareLegacyMigration} from './migration';
