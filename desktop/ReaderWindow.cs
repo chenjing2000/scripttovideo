@@ -633,6 +633,11 @@ internal sealed class ReaderWindow : Window
             throw new IOException($"工程工作目录被同名文件占用：{workFolder}");
         if (Directory.Exists(projectPath))
             throw new IOException($"工程文件路径被同名文件夹占用：{projectPath}");
+        // Complete guarded recovery before taking the project snapshot. Reading
+        // the project first would expose a stale v3 version after roll-forward.
+        var storagePaths = RefinedStorage.Resolve(subtitle);
+        RefinedStorage.RecoverPendingPair(storagePaths);
+        RefinedStorage.RecoverPendingProjectSave(storagePaths, projectPath);
         // Read the project before switching the active media token/source. If the
         // project is inaccessible, the previously loaded pair remains usable.
         var projectContent = File.Exists(projectPath) ? File.ReadAllText(projectPath) : null;
