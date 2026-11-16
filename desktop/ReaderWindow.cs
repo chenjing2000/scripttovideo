@@ -388,6 +388,17 @@ internal sealed class ReaderWindow : Window
                             message = error.Message });
                     }
                     break;
+                case "project-v3-save":
+                    try { SavePresentationProject(request); }
+                    catch (Exception error)
+                    {
+                        AppLog.WriteException("ProjectV3.Save", error);
+                        Send(new { kind = "project-v3-save-failed",
+                            operationId = request.GetProperty("operationId").GetInt32(),
+                            revision = request.GetProperty("revision").GetInt64(),
+                            message = error.Message });
+                    }
+                    break;
                 case "refined-save":
                     try { SaveRefined(request); }
                     catch (Exception error)
@@ -940,6 +951,61 @@ internal sealed class ReaderWindow : Window
         Send(new { kind = "refined-migrated", fingerprint, subtitleName,
             operationId = request.GetProperty("operationId").GetInt32(),
             message = "旧工程已迁移到 v3，refined 和 TXT 已验证。" });
+    }
+
+    private void SavePresentationProject(JsonElement request)
+    {
+        var current = source ?? throw new InvalidOperationException("没有正在打开的字幕。");
+        if (!string.Equals(request.GetProperty("fingerprint").GetString(),
+                current.Fingerprint, StringComparison.OrdinalIgnoreCase) ||
+            Fingerprint(current.Transcript) != current.Fingerprint)
+            throw new InvalidOperationException("原始字幕已变化，拒绝保存工程。");
+
+        var paths = RefinedStorage.Resolve(current.Transcript);
+        if (RefinedStorage.ReadExisting(paths) == null || !File.Exists(paths.Text))
+            throw new IOException("refined/TXT 不完整，禁止保存 v3 工程。");
+        // A pending content transaction must be reconciled before changing the project.
+        RefinedStorage.EnsureNoPendingPair(paths);
+
+        var next = request.GetProperty("project");
+        if (next.GetProperty("format").GetString() != "script-to-video-project" ||
+            next.GetProperty("schemaVersion").GetInt32() != 3 ||
+            next.TryGetProperty("overrides", out _))
+            throw new InvalidDataException("只能保存不含正文覆盖的 v3 展示工程。");
+        var projectSource = next.GetProperty("source");
+        if (!string.Equals(projectSource.GetProperty("subtitleSha256").GetString(),
+                current.Fingerprint, StringComparison.OrdinalIgnoreCase) ||
+            !string.Equals(projectSource.GetProperty("subtitleName").GetString(),
+                Path.GetFileName(current.Transcript), StringComparison.OrdinalIgnoreCase) ||
+            !string.Equals(projectSource.GetProperty("videoName").GetString(),
+                Path.GetFileName(current.Media), StringComparison.OrdinalIgnoreCase) ||
+            (next.TryGetProperty("mediaKind", out var kind) &&
+                kind.GetString() != current.MediaKind))
+            throw new InvalidDataException("v3 工程来源与当前媒体不匹配。");
+
+        var previous = request.GetProperty("previousProject");
+        if (File.Exists(current.Project))
+        {
+            if (previous.ValueKind != JsonValueKind.Object)
+                throw new IOException("已有工程必须提供旧版本快照，禁止覆盖。");
+            var onDisk = File.ReadAllText(current.Project, Encoding.UTF8);
+            using var parsed = JsonDocument.Parse(onDisk);
+            if (!JsonElement.DeepEquals(parsed.RootElement, previous))
+                throw new IOException("工程已被外部修改，禁止覆盖。");
+            if (previous.GetProperty("schemaVersion").GetInt32() != 3)
+                throw new IOException("不能通过 v3 保存覆盖旧版工程。");
+            RefinedStorage.ReplaceIfUnchanged(current.Project, onDisk, next.GetRawText());
+        }
+        else
+        {
+            if (previous.ValueKind != JsonValueKind.Null)
+                throw new IOException("工程文件已丢失，禁止当作新文件创建。");
+            RefinedStorage.CreateNew(current.Project, next.GetRawText());
+        }
+        Send(new { kind = "project-v3-saved",
+            operationId = request.GetProperty("operationId").GetInt32(),
+            revision = request.GetProperty("revision").GetInt64(),
+            message = "v3 展示工程已保存。" });
     }
 
     private void SaveRefined(JsonElement request)
