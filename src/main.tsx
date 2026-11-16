@@ -186,7 +186,7 @@ function App(){
  },[]);
  const editorFontSize=appSettings.rightFont.size;
  const style=project?.style??settingsToStyle(appSettings);
- const titleStyle=project?.titleStyle??appSettings.titleStyle??DEFAULT_TITLE_STYLE;
+ const titleStyle=useMemo(()=>({...DEFAULT_TITLE_STYLE,...(project?.titleStyle??appSettings.titleStyle)}),[project?.titleStyle,appSettings.titleStyle]);
  const titleLayout=useMemo(()=>layoutTitle(title,titleStyle,canvasWidth-2*style.paddingX,measureWithCanvas(titleStyle.fontFamily,titleStyle.fontSize,titleStyle.bold?700:400)),[title,titleStyle,canvasWidth,style.paddingX]);
  const displayedSettings=useMemo(()=>project?projectStyleToSettings(style,project.canvas,{...appSettings,titleStyle:project.titleStyle??appSettings.titleStyle}):appSettings,[project,style,appSettings]);
  const setDependency=(value:DependencyDialog|null)=>{dependencyDialogRef.current=value;setDependencyDialog(value)};
