@@ -789,6 +789,10 @@ internal sealed class ReaderWindow : Window
         var text = request.GetProperty("text").GetString()
             ?? throw new InvalidDataException("TXT 内容必须是字符串。");
         var created = RefinedStorage.CreateMissingText(paths, text);
+        // A pre-existing TXT is not automatically trustworthy. Refuse to
+        // acknowledge readiness if it differs from the refined snapshot.
+        if (!string.Equals(File.ReadAllText(paths.Text, Encoding.UTF8), text, StringComparison.Ordinal))
+            throw new InvalidDataException("现有 TXT 与 refined 内容不一致，禁止自动覆盖或继续导出。");
         Send(new { kind = "refined-text-repaired", fingerprint, subtitleName,
             operationId = request.GetProperty("operationId").GetInt32(),
             message = created ? "缺失的 TXT 已恢复。" : "TXT 已存在，无需恢复。" });
