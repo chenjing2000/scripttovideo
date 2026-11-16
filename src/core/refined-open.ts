@@ -16,6 +16,8 @@ export type RefinedOpenPlan =
  */
 export function planRefinedOpen(source:unknown,existingRefined:unknown|null,project:unknown|null):RefinedOpenPlan{
  validateScriptToVideo(source);
+ if(source.script_to_video.schemaVersion!==2)
+  throw new Error('原始字幕必须是 ScriptToVideo v2；v3 仅用于 .script.revise.json 工作副本');
  const original=parseScriptToVideo(source);
  let legacy:Project|undefined;
  if(project!==null){
