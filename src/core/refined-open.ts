@@ -7,7 +7,8 @@ import {validatePresentationProject} from './project-v3';
 
 export type RefinedOpenPlan =
  | {kind:'existing';refined:ScriptToVideoInput;txt:string}
- | {kind:'create';refined:ScriptToVideoInput;txt:string;legacyProject?:Project};
+ | {kind:'create';refined:ScriptToVideoInput;txt:string;legacyProject?:Project}
+ | {kind:'recover-migration';refined:ScriptToVideoInput;txt:string;legacyProject:Project};
 
 /** Pure, side-effect-free decision for first-open and recovery.
  * The host must write and verify content files before changing a legacy project.
@@ -41,8 +42,18 @@ export function planRefinedOpen(source:unknown,existingRefined:unknown|null,proj
    if(w.id!==base.id||w.start!==base.start||w.end!==base.end)
     throw new Error(`refined 与原始字幕的时间锚点不匹配：${base.id}`);
   });
-  if(legacy&&Object.keys(legacy.overrides).length)
-   throw new Error('已有 refined 与旧工程覆盖数据同时存在，禁止自动合并');
+  if(legacy){
+   // A crash may leave refined in place while the legacy project is still v2.
+   // Resume only when every migrated word and metadata field matches exactly.
+   const expected=prepareLegacyMigration(source,legacy,false);
+   const canonical=(value:unknown):string=>JSON.stringify(value,(_,v)=>
+    v&&typeof v==='object'&&!Array.isArray(v)
+     ?Object.fromEntries(Object.entries(v).sort(([a],[b])=>a.localeCompare(b)))
+     :v);
+   if(canonical(existingRefined)!==canonical(expected.refined))
+    throw new Error('现有 refined 与旧工程迁移结果不一致，禁止自动合并');
+   return {kind:'recover-migration',refined:existingRefined,txt:expected.txt,legacyProject:legacy};
+  }
   return {kind:'existing',refined:existingRefined,txt:buildRefinedText(actual.title,actual.words)};
  }
  if(legacy){
