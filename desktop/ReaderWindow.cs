@@ -1483,7 +1483,7 @@ internal sealed class ReaderWindow : Window
                 var stagedDerived = Path.Combine(renderInputs, baseName);
                 Directory.CreateDirectory(stagedDerived);
                 renderOriginal = Path.Combine(renderInputs, originalName);
-                renderRefined = Path.Combine(stagedDerived, baseName + ".script.refined.json");
+                renderRefined = Path.Combine(stagedDerived, baseName + ".script.revise.json");
                 await File.WriteAllBytesAsync(renderOriginal, await File.ReadAllBytesAsync(task.TranscriptPath, token), token);
                 await File.WriteAllBytesAsync(renderRefined, await File.ReadAllBytesAsync(refinedPaths.Refined, token), token);
                 using var stagedRefined = JsonDocument.Parse(await File.ReadAllTextAsync(renderRefined, token));
