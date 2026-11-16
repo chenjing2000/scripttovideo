@@ -363,6 +363,17 @@ internal sealed class ReaderWindow : Window
                             message = error.Message });
                     }
                     break;
+                case "refined-migrate":
+                    try { MigrateLegacyRefined(request); }
+                    catch (Exception error)
+                    {
+                        AppLog.WriteException("Refined.Migrate", error);
+                        Send(new { kind = "refined-migrate-failed",
+                            fingerprint = request.GetProperty("fingerprint").GetString(),
+                            subtitleName = request.GetProperty("subtitleName").GetString(),
+                            message = error.Message });
+                    }
+                    break;
                 case "refined-create":
                     try { CreateInitialRefined(request); }
                     catch (Exception error)
@@ -820,6 +831,57 @@ internal sealed class ReaderWindow : Window
         projectSaveLocked = true;
         Send(new { kind = "refined-created", fingerprint = current.Fingerprint,
             subtitleName, message = "refined 和 TXT 已创建。" });
+    }
+
+    private void MigrateLegacyRefined(JsonElement request)
+    {
+        var current = source ?? throw new InvalidOperationException("没有正在打开的字幕。");
+        var fingerprint = request.GetProperty("fingerprint").GetString();
+        var subtitleName = request.GetProperty("subtitleName").GetString();
+        if (!string.Equals(fingerprint, current.Fingerprint, StringComparison.OrdinalIgnoreCase) ||
+            !string.Equals(subtitleName, Path.GetFileName(current.Transcript), StringComparison.OrdinalIgnoreCase) ||
+            Fingerprint(current.Transcript) != current.Fingerprint)
+            throw new InvalidOperationException("字幕来源已变化，拒绝迁移。");
+        var paths = RefinedStorage.Resolve(current.Transcript);
+        if (File.Exists(paths.Refined) || Directory.Exists(paths.Refined) ||
+            File.Exists(paths.Text) || Directory.Exists(paths.Text))
+            throw new IOException("迁移目标文件已存在，拒绝覆盖。");
+        var storedProject = File.ReadAllText(current.Project, Encoding.UTF8);
+        using var stored = JsonDocument.Parse(storedProject);
+        using var expected = JsonDocument.Parse(request.GetProperty("legacyProject").GetRawText());
+        if (!JsonElement.DeepEquals(stored.RootElement, expected.RootElement))
+            throw new InvalidOperationException("旧工程已被外部修改，拒绝迁移。");
+        CheckSource(stored.RootElement);
+        using var replacement = JsonDocument.Parse(request.GetProperty("projectV3").GetRawText());
+        var v3 = replacement.RootElement;
+        if (v3.GetProperty("format").GetString() != "script-to-video-project" ||
+            v3.GetProperty("schemaVersion").GetInt32() != 3 ||
+            v3.TryGetProperty("overrides", out _))
+            throw new InvalidDataException("目标工程不是纯展示设置的 v3 工程。");
+        var originalSource = stored.RootElement.GetProperty("source");
+        if (!JsonElement.DeepEquals(originalSource, v3.GetProperty("source")))
+            throw new InvalidDataException("迁移不能更改工程来源。");
+        using var refined = JsonDocument.Parse(request.GetProperty("refined").GetRawText());
+        var root = refined.RootElement;
+        if (root.GetProperty("script_to_video").GetProperty("schemaVersion").GetInt32() != 3 ||
+            root.GetProperty("title").ValueKind != JsonValueKind.String)
+            throw new InvalidDataException("迁移结果不是 v3 refined。");
+        var txt = request.GetProperty("text").GetString()
+            ?? throw new InvalidDataException("TXT 必须是字符串。");
+        // Keep the old v2 project untouched until both content files are durable.
+        RefinedStorage.CreateInitial(paths, root.GetRawText(), txt);
+        var persisted = RefinedStorage.ReadExisting(paths)
+            ?? throw new IOException("refined 写入后无法读取。");
+        using (var checkedRefined = JsonDocument.Parse(persisted))
+            if (!JsonElement.DeepEquals(checkedRefined.RootElement, root))
+                throw new IOException("refined 持久化校验失败。");
+        if (!string.Equals(File.ReadAllText(paths.Text, Encoding.UTF8), txt, StringComparison.Ordinal))
+            throw new IOException("TXT 持久化校验失败。");
+        // If replacement fails, the original v2 project remains recoverable.
+        AtomicWrite(current.Project, v3.GetRawText());
+        projectSaveLocked = true;
+        Send(new { kind = "refined-migrated", fingerprint, subtitleName,
+            message = "旧工程已迁移到 v3，refined 和 TXT 已验证。" });
     }
 
     private void SaveProject(JsonElement project, long revision)
