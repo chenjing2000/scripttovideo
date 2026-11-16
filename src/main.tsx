@@ -4,7 +4,7 @@ import {ReaderCanvas} from './ui/ReaderCanvas';
 import {StyleSettings} from './ui/StyleSettings';
 import {Dialog} from './ui/Dialog';
 import type {DialogAction} from './ui/Dialog';
-import {parseScriptToVideo,applyOverrides,createProject,updateWord,exportPlainText,saveProjectView,validateProject,paginate,measureWithCanvas,DEFAULT_STYLE,normalizeProjectStyle,WIDTH,HEIGHT,validCanvas,transcriptStem,findMediaCandidates,provisionalVideoHeight,describeMediaError,missingCompanionMessage} from './core';
+import {parseScriptToVideo,applyOverrides,createProject,updateWord,exportPlainText,saveProjectView,validateProject,paginate,measureWithCanvas,DEFAULT_STYLE,normalizeProjectStyle,WIDTH,HEIGHT,validCanvas,transcriptStem,findMediaCandidates,provisionalVideoHeight,describeMediaError,missingCompanionMessage,planRefinedOpen} from './core';
 import type {Word,Project} from './core';
 import {probeInPriority} from './core/media-probe';
 import {resolvePlayerShortcut} from './core/player-shortcuts';
@@ -16,7 +16,7 @@ import {createProjectEditState,markProjectEdited,setProjectDraftChanged,acknowle
 import {settingsDialogRect,nextSettingsWidth,requiredSettingsOuterWidth} from './core/settings-dialog-geometry';
 import type {AppSettings} from './core/app-settings';
 type DesktopMessage =
- | {kind:'pair';requestId?:string;mediaName:string;mediaKind:'video'|'audio';subtitleName:string;transcript:string;fingerprint:string;project:string|null;mediaUrl:string}
+ | {kind:'pair';requestId?:string;mediaName:string;mediaKind:'video'|'audio';subtitleName:string;transcript:string;fingerprint:string;project:string|null;mediaUrl:string;refined?:string|null;refinedError?:string}
  | {kind:'import-candidates';requestId:string;subtitleName:string;transcript:string;candidates:Array<{index:number;mediaName:string;mediaKind:'video'|'audio';mediaUrl:string}>}
  | {kind:'settings';settings:unknown}
  | {kind:'reload-failed';message:string}
@@ -301,9 +301,13 @@ function App(){
    desktop?.postMessage({kind:'pair-rejected',requestId:data.requestId});
    clearReload();notify('导入完成前原工程被修改，已保留原工程。',true);return;
   }
-  try{const input=JSON.parse(data.transcript),parsed=parseScriptToVideo(input);
+  try{if(data.refinedError)throw Error(`现有 refined 无法读取：${data.refinedError}`);
+   const input=JSON.parse(data.transcript),parsed=parseScriptToVideo(input);
+   const existingRefined=data.refined?JSON.parse(data.refined):null;
+   const openPlan=planRefinedOpen(input,existingRefined,data.project?JSON.parse(data.project):null);
+   const effective=openPlan.kind==='existing'?parseScriptToVideo(openPlan.refined):parsed;
    const next=createProject(data.mediaName,data.subtitleName,parsed.words);next.style=settingsToStyle(appSettingsRef.current);next.canvas={...appSettingsRef.current.output};next.source.subtitleSha256=data.fingerprint;next.mediaKind=data.mediaKind;
-   let current=next,currentWords=parsed.words,blocked=false;
+   let current=next,currentWords=effective.words,blocked=false;
    if(data.project!==null){try{
     const saved:unknown=JSON.parse(data.project);
     if(!validateProject(saved,parsed.words)||saved.source.subtitleSha256!==data.fingerprint||
@@ -311,7 +315,7 @@ function App(){
       saved.source.subtitleName.toLowerCase()!==data.subtitleName.toLowerCase()||
       (saved.mediaKind!==undefined&&saved.mediaKind!==data.mediaKind))
       throw Error('工程格式、来源或字幕指纹不匹配');
-    current=normalizeProjectStyle(saved);currentWords=applyOverrides(parsed,current).words;
+    current=normalizeProjectStyle(saved);currentWords=openPlan.kind==='existing'?effective.words:applyOverrides(parsed,current).words;
     desktop?.postMessage({kind:'project-validated',fingerprint:data.fingerprint,subtitleName:data.subtitleName});
    }catch(e){blocked=true;notify(`工程读取失败，已禁止覆盖原工程文件：${String(e)}`,true)}}
    setProjectLoadBlocked(blocked);
