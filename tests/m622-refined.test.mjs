@@ -72,7 +72,7 @@ test('M6.22: v3 presentation projects reject embedded subtitle overrides',()=>{
 test('M6.22: canonical paths stay inside the existing work folder',()=>{
  assert.deepEqual(refinedFileNames('lesson01.script.json'),{
   workFolder:'lesson01',project:'lesson01.project.json',
-  refined:'lesson01.script.refined.json',text:'lesson01.txt'});
+  refined:'lesson01.script.revise.json',text:'lesson01.txt'});
  assert.throws(()=>refinedFileNames('../bad.script.json'),/无效/);
  assert.throws(()=>refinedFileNames('bad.json'),/script.json/);
 });
