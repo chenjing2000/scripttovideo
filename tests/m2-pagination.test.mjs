@@ -77,14 +77,14 @@ test('M2: parses presegmented paragraph metadata without changing source time',(
  assert.equal(trans.words[0].breakParagraph,true);
  assert.deepEqual(trans.words.map(w=>[w.start,w.end]),source.words.map(w=>[w.start,w.end]));
 });
-test('M5: normalize missing optional style fields in a v2 project',()=>{
+test('M5: normalize missing optional style fields in internal project view',()=>{
  const p=core.createProject('test.mp4','test.json',words(['one.']));delete p.style.firstLineIndentCh;delete p.style.fontWeight;
  p.style.fontSize=44;const migrated=core.normalizeProjectStyle(p);
  assert.equal(migrated.style.fontSize,44);assert.equal(migrated.style.firstLineIndentEm,2);assert.equal(migrated.style.fontWeight,400);
 });
 
 test('M2: removing source paragraph break survives project save/reload',()=>{
- const input={language:'en',script_to_video:{format:'script-to-video',schemaVersion:2},segments:[{words:[{word:'One.',start:1,end:1.5,breakParagraph:true}]},{words:[{word:'Two.',start:2,end:2.5}]}]};
+ const input={title:'',language:'en',script_to_video:{format:'script-to-video',schemaVersion:3},segments:[{words:[{word:'One.',start:1,end:1.5,breakParagraph:true}]},{words:[{word:'Two.',start:2,end:2.5}]}]};
  const parsed=core.parseScriptToVideo(input);
  assert.equal(parsed.words[0].breakParagraph,true);
  const changed=parsed.words.map((w,i)=>i===0?{...w,breakParagraph:false}:w);
