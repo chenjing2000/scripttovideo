@@ -22,9 +22,11 @@ test('M6.16: all former subtitle and project formats are rejected',()=>{
   assert.throws(()=>assertScriptToVideo(old),/ScriptToVideo v2/);
   assert.throws(()=>core.parseScriptToVideo(old),/ScriptToVideo v2/);
   const p=core.createProject('Lesson.mp4','Lesson.script.json',core.parseScriptToVideo(fixture).words);
-  assert.equal(core.validateProject(p),true);
-  assert.equal(core.validateProject({...p,format:'transcript-studio-project'}),false);
-  assert.equal(core.validateProject({...p,source:{...p.source,subtitleName:'Lesson.transcript-studio.json'}}),false);
+  const v3=core.toPresentationProject(p);
+  assert.equal(core.validatePresentationProject(v3),true);
+  assert.equal(core.validatePresentationProject({...v3,schemaVersion:2}),false);
+  assert.equal(core.validatePresentationProject({...v3,format:'transcript-studio-project'}),false);
+  assert.equal(core.validatePresentationProject({...v3,source:{...v3.source,subtitleName:'Lesson.transcript-studio.json'}}),false);
 });
 test('M6.16: settings never import old formats and host has no migration',()=>{
   assert.equal(core.SETTINGS_FILENAME,'scripttovideo.settings.json');
