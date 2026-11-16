@@ -4,7 +4,7 @@ import {ReaderCanvas} from './ui/ReaderCanvas';
 import {StyleSettings} from './ui/StyleSettings';
 import {Dialog} from './ui/Dialog';
 import type {DialogAction} from './ui/Dialog';
-import {parseScriptToVideo,applyOverrides,createProject,updateWord,exportPlainText,saveProjectView,validateProject,paginate,measureWithCanvas,DEFAULT_STYLE,normalizeProjectStyle,WIDTH,HEIGHT,validCanvas,transcriptStem,findMediaCandidates,provisionalVideoHeight,describeMediaError,missingCompanionMessage,planRefinedOpen,validatePresentationProject} from './core';
+import {parseScriptToVideo,applyOverrides,createProject,updateWord,exportPlainText,saveProjectView,validateProject,paginate,measureWithCanvas,DEFAULT_STYLE,normalizeProjectStyle,WIDTH,HEIGHT,validCanvas,transcriptStem,findMediaCandidates,provisionalVideoHeight,describeMediaError,missingCompanionMessage,planRefinedOpen,validatePresentationProject,finalizeLegacyProject} from './core';
 import type {Word,Project} from './core';
 import {probeInPriority} from './core/media-probe';
 import {resolvePlayerShortcut} from './core/player-shortcuts';
@@ -25,6 +25,8 @@ type DesktopMessage =
  | {kind:'refined-create-failed';fingerprint:string;subtitleName:string;message:string}
  | {kind:'refined-text-repaired';fingerprint:string;subtitleName:string;message:string}
  | {kind:'refined-repair-failed';fingerprint:string;subtitleName:string;message:string}
+ | {kind:'refined-migrated';fingerprint:string;subtitleName:string;message:string}
+ | {kind:'refined-migrate-failed';fingerprint:string;subtitleName:string;message:string}
  | {kind:'text-exported';message:string}
  | {kind:'text-export-error';message:string}
  | {kind:'status';message:string;busy:boolean;error?:boolean;canCancel?:boolean}
@@ -335,7 +337,8 @@ function App(){
        throw Error('工程格式、来源或字幕指纹不匹配');
      current=normalizeProjectStyle(saved);
      currentWords=openPlan.kind==='existing'?effective.words:applyOverrides(parsed,current).words;
-     desktop?.postMessage({kind:'project-validated',fingerprint:data.fingerprint,subtitleName:data.subtitleName});
+     if(openPlan.kind==='existing'&&openPlan.legacyProject===undefined)
+      desktop?.postMessage({kind:'project-validated',fingerprint:data.fingerprint,subtitleName:data.subtitleName});
     }
    }catch(e){blocked=true;notify(`工程读取失败，已禁止覆盖原工程文件：${String(e)}`,true)}}
    activeRefinedSourceRef.current={fingerprint:data.fingerprint,subtitleName:data.subtitleName};
@@ -358,6 +361,12 @@ function App(){
     desktop.postMessage({kind:'refined-repair-text',fingerprint:data.fingerprint,
      subtitleName:data.subtitleName,refined:openPlan.refined,text:openPlan.txt});
    }
+   if(desktop&&openPlan.kind==='create'&&openPlan.legacyProject){
+    desktop.postMessage({kind:'refined-migrate',fingerprint:data.fingerprint,
+     subtitleName:data.subtitleName,legacyProject:openPlan.legacyProject,
+     projectV3:finalizeLegacyProject(openPlan.legacyProject),
+     refined:openPlan.refined,text:openPlan.txt});
+   }
    notify(`已找到媒体：${data.mediaName}（${data.mediaKind==='audio'?'音频':'视频'}模式），正在读取媒体信息；${parsed.words.length} 个单词`);
   }catch(e){
    // A failed or malformed new pair must never discard the user's current project.
@@ -366,13 +375,13 @@ function App(){
    notify(`字幕读取失败：${String(e)}`,true);
   }
  };
- useEffect(()=>{const receive=({data}:MessageEvent<DesktopMessage>)=>{if(data.kind==='settings'){if(validateSettings(data.settings)){loadedSettingsRef.current=true;appSettingsRef.current=data.settings;setAppSettings(data.settings)}}else if(data.kind==='import-candidates')void runDesktopProbe(data);else if(data.kind==='pair')applyPair(data);else if(data.kind==='reload-failed'){clearReload();notify(`重新加载失败：${data.message}`,true);}else if(data.kind==='refined-created'||data.kind==='refined-text-repaired'||data.kind==='refined-create-failed'||data.kind==='refined-repair-failed'){
+ useEffect(()=>{const receive=({data}:MessageEvent<DesktopMessage>)=>{if(data.kind==='settings'){if(validateSettings(data.settings)){loadedSettingsRef.current=true;appSettingsRef.current=data.settings;setAppSettings(data.settings)}}else if(data.kind==='import-candidates')void runDesktopProbe(data);else if(data.kind==='pair')applyPair(data);else if(data.kind==='reload-failed'){clearReload();notify(`重新加载失败：${data.message}`,true);}else if(data.kind==='refined-created'||data.kind==='refined-text-repaired'||data.kind==='refined-create-failed'||data.kind==='refined-repair-failed'||data.kind==='refined-migrated'||data.kind==='refined-migrate-failed'){
    const active=activeRefinedSourceRef.current;
    if(active&&active.fingerprint===data.fingerprint&&active.subtitleName.toLowerCase()===data.subtitleName.toLowerCase()){
-    if(data.kind==='refined-create-failed'||data.kind==='refined-repair-failed'){
+    if(data.kind==='refined-create-failed'||data.kind==='refined-repair-failed'||data.kind==='refined-migrate-failed'){
      setProjectLoadBlocked(true);
      notify(`refined/TXT 操作失败，已暂停工程保存：${data.message}`,true);
-    }else if(data.kind==='refined-created')notify(`${data.message} 新版工程保存尚未接入，当前禁止使用旧版保存。`);
+    }else if(data.kind==='refined-migrated')notify(data.message);else if(data.kind==='refined-created')notify(`${data.message} 新版工程保存尚未接入，当前禁止使用旧版保存。`);
     else if(data.message!=='TXT 已存在，无需恢复。')notify(data.message);
    }
   }else if(data.kind==='saved'){
