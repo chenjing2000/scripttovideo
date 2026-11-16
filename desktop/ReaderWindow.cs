@@ -1487,7 +1487,7 @@ internal sealed class ReaderWindow : Window
             ];
             if (v3Export)
             {
-                arguments[3] = refinedPaths.Refined;
+                arguments[4] = refinedPaths.Refined; // value following --json
                 start.ArgumentList.Add("--source-json");
                 start.ArgumentList.Add(task.TranscriptPath);
             }
