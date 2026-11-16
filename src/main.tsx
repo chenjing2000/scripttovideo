@@ -445,6 +445,9 @@ function App(){
        fingerprint:data.fingerprint,subtitleName:data.subtitleName,
        original:original??originalSource.original,refined,text:data.textSnapshot,project:savedProject
       };
+      // Never unlock editing merely on a native success flag: the read-back
+      // snapshot and its media identity must have passed all checks above.
+      setContentSaveUnavailable(false);
       notify(data.message);
      }catch(error){setProjectLoadBlocked(true);notify(`无法确认保存快照：${String(error)}`,true)}
     }
