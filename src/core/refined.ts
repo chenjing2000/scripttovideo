@@ -34,10 +34,10 @@ export function buildRefinedScript(source:ScriptToVideoInput,title:string,words:
  });
  const {displayOverrides:oldOverrides,...metadata}=source.script_to_video;
  void oldOverrides;
+ // Do not copy source.word_segments: it may contain stale duplicate word text.
  const refined:ScriptToVideoInput={
   script_to_video:{...metadata,format:'script-to-video',schemaVersion:3},
-  title,language:'en',segments:completed,
-  ...(source.word_segments===undefined?{}:{word_segments:source.word_segments})
+  title,language:'en',segments:completed
  };
  validateScriptToVideo(refined);
  return refined;
