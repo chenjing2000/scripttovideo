@@ -20,6 +20,8 @@ For a framework-dependent single-file release, use:
 dotnet publish desktop/ScriptToVideo.csproj -c Release -r win-x64 --self-contained false -p:PublishSingleFile=true -o dist/wpf
 ```
 
+The desktop project automatically runs `npm run build` before selecting the bundled WebView2 UI files for every .NET build/publish. This prevents `dotnet publish` from embedding stale `dist/` JavaScript. It requires an installed Node/npm toolchain and dependencies (`npm ci` once per checkout); do not disable the `BuildEmbeddedWebUi` target when releasing.
+
 The host requires .NET Desktop Runtime 10 and WebView2 Runtime; Node.js 22+ and npm are required for MP4 export. The app does not install these system prerequisites. Remotion browser/npm dependencies may be prepared with user consent.
 
 ## Automated checks
