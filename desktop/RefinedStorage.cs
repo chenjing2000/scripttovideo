@@ -166,34 +166,6 @@ internal static class RefinedStorage
         File.Delete(journalPath);
     }
 
-    /// <summary>
-    /// Persist the authoritative refined and its derived TXT together as far as
-    /// the filesystem permits. If the second replacement fails, restore refined
-    /// only when its bytes still equal the version written by this operation.
-    /// A process crash between replacements still requires journal recovery.
-    /// </summary>
-    internal static void ReplaceContentPair(Paths paths,
-        string expectedRefined, string nextRefined,
-        string expectedText, string nextText)
-    {
-        EnsureNoPendingPair(paths);
-        if (!File.Exists(paths.Refined) || !File.Exists(paths.Text) ||
-            Directory.Exists(paths.Refined) || Directory.Exists(paths.Text))
-            throw new IOException("refined/TXT 文件不完整，禁止保存。");
-        if (!string.Equals(File.ReadAllText(paths.Refined, Encoding.UTF8), expectedRefined, StringComparison.Ordinal) ||
-            !string.Equals(File.ReadAllText(paths.Text, Encoding.UTF8), expectedText, StringComparison.Ordinal))
-            throw new IOException("refined/TXT 已被外部修改，禁止保存。");
-
-        // The journal is created exclusively before either file is changed.
-        // On failure it remains available for a later guarded recovery.
-        var journalPath = JournalPath(paths);
-        CreateNew(journalPath, JsonSerializer.Serialize(new PendingPair(
-            expectedRefined, nextRefined, expectedText, nextText)));
-        ReplaceIfUnchanged(paths.Refined, expectedRefined, nextRefined);
-        ReplaceIfUnchanged(paths.Text, expectedText, nextText);
-        File.Delete(journalPath);
-    }
-
     // A complete user-triggered save may update refined, TXT and project v3.
     // The journal is durable before the first replacement. Recovery rolls
     // forward only if every file still matches its expected old/new snapshot.
