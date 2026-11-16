@@ -4,7 +4,7 @@ import {readFileSync} from 'node:fs';
 import {createRequire} from 'node:module';
 const require=createRequire(import.meta.url);
 const {DEFAULT_TITLE_STYLE,DEFAULT_STYLE,createProject,toPresentationProject,
- validatePresentationProject,layoutTitle,paginate,parseScriptToVideo,
+ validatePresentationProject,layoutTitle,tryLayoutTitle,paginate,parseScriptToVideo,
  buildRefinedScript,buildRefinedText,planManualSave}=require('../.tmp-core/index.js');
 const measure=text=>text.length*10;
 
@@ -79,4 +79,30 @@ test('M6.22 title: editor, save and export share the current title and title-awa
  assert.match(app,/titleLayout\.height/);
  assert.match(canvas,/index===0&&titleLayout\.lines\.length>0/);
  assert.match(remotion,/title=\{transcript\.title\?\?''\}/);
+});
+
+test('M6.22 title: invalid glyph or available width returns a visible error instead of throwing',()=>{
+ const hugeMeasure=text=>text.length*500;
+ const oversized=tryLayoutTitle('A',DEFAULT_TITLE_STYLE,100,hugeMeasure);
+ assert.match(oversized.error,/超出/);
+ assert.deepEqual(oversized.lines,[]);
+ assert.equal(oversized.height,0);
+ const narrow=tryLayoutTitle('A',DEFAULT_TITLE_STYLE,0,measure);
+ assert.match(narrow.error,/宽度无效/);
+ const valid=tryLayoutTitle('A',DEFAULT_TITLE_STYLE,100,measure);
+ assert.equal(valid.error,null);
+ assert.deepEqual(valid.lines,['A']);
+});
+
+test('M6.22 title: editor guards invalid title and Remotion remains strict',()=>{
+ const app=readFileSync('src/main.tsx','utf8');
+ const canvas=readFileSync('src/ui/ReaderCanvas.tsx','utf8');
+ const render=readFileSync('src/remotion/Composition.tsx','utf8');
+ assert.match(app,/useMemo\(\(\)=>tryLayoutTitle\(/);
+ assert.match(app,/if\(titleLayout\.error\)return notify\(/);
+ assert.match(app,/canvasHeight-mediaHeight<=0\|\|titleLayout\.error/);
+ assert.match(canvas,/tryLayoutTitle\(/);
+ assert.match(canvas,/标题排版失败/);
+ assert.match(canvas,/if\(failOnLayoutError\)throw new Error/);
+ assert.match(render,/failOnLayoutError/);
 });
