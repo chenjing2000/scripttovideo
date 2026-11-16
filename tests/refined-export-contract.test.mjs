@@ -42,3 +42,17 @@ test('v3 project rejects overrides and mismatched immutable source fingerprint',
  assert.throws(()=>assertPresentationProjectForExport({...project,overrides:{}},context));
  assert.throws(()=>assertPresentationProjectForExport({...project,source:{...project.source,subtitleSha256:'0'.repeat(64)}},context));
 });
+
+test('refined export rejects removed original word anchors and unsupported metadata',()=>{
+ const missing=structuredClone(refined);missing.segments[0].words.pop();
+ assert.throws(()=>assertRefinedForExport(missing,original));
+ const displayOverrides=structuredClone(refined);
+ displayOverrides.script_to_video.displayOverrides={s0w0:'Other'};
+ assert.throws(()=>assertRefinedForExport(displayOverrides,original));
+});
+test('v3 project rejects mismatched source names and invalid presentation values',()=>{
+ assert.throws(()=>assertPresentationProjectForExport(
+  {...project,source:{...project.source,subtitleName:'different.script.json'}},context));
+ assert.throws(()=>assertPresentationProjectForExport(
+  {...project,canvas:{width:1201,height:1600}},context));
+});
