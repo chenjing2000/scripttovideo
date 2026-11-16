@@ -17,13 +17,14 @@ test('ReaderCanvas recomputes the plan when viewport width changes and rejects m
  assert.match(reader,/pagePlan\.viewportWidth!==canvasWidth/);
  assert.match(reader,/pagePlan\.viewportHeight!==availableHeight/);
  assert.match(reader,/throw new Error\('Invalid export page-plan snapshot/);
- assert.match(reader,/\[pagePlan,words,visible,style,canvasWidth,availableHeight\]/);
+ assert.match(reader,/\[pagePlan,words,visible,style,canvasWidth,availableHeight,titleLayout\.height\]/);
+ assert.match(reader,/layoutTitle\(title,titleStyle/);
 });
 test('desktop project admission checks override IDs against the parsed source words',()=>{
  assert.match(app,/validateProject\(saved,parsed\.words\)/);
 });
 test('settings projection is stable during playback-only renders',()=>{
- assert.match(app,/const displayedSettings=useMemo\(\(\)=>project\?projectStyleToSettings\(style,project\.canvas,appSettings\):appSettings,\[project,style,appSettings\]\)/);
+ assert.match(app,/const displayedSettings=useMemo\(\(\)=>project\?projectStyleToSettings\(style,project\.canvas,\{\.\.\.appSettings,titleStyle:project\.titleStyle\?\?appSettings\.titleStyle\}\):appSettings,\[project,style,appSettings\]\)/);
 });
 test('export-cancelling message matches the WPF host payload',()=>{
  assert.match(app,/\{kind:'export-cancelling'\}/);
