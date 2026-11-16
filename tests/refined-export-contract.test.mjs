@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {assertScriptToVideo,assertRefinedForExport,assertPresentationProjectForExport} from '../scripts/script-to-video-contract.mjs';
 import {createHash} from 'node:crypto';
+import {assertExportPagePlan} from '../scripts/page-plan-validation.mjs';
 
 const original={script_to_video:{format:'script-to-video',schemaVersion:2},language:'en',
  segments:[{words:[{word:'Hello',start:0,end:0.5},{word:'world',start:0.5,end:1}]}]};
@@ -55,4 +56,14 @@ test('v3 project rejects mismatched source names and invalid presentation values
   {...project,source:{...project.source,subtitleName:'different.script.json'}},context));
  assert.throws(()=>assertPresentationProjectForExport(
   {...project,canvas:{width:1201,height:1600}},context));
+});
+
+test('page-plan preflight excludes hidden refined words without v2 overrides',()=>{
+ const transcript=structuredClone(refined);
+ transcript.segments[0].words[1].hidden=true;
+ const empty={pages:[],switches:[],warnings:[],viewportWidth:1200,viewportHeight:900,
+  availableWidth:1100,availableHeight:800};
+ assert.doesNotThrow(()=>assertExportPagePlan(empty,transcript,project,1200,900));
+ const visible=structuredClone(refined);
+ assert.throws(()=>assertExportPagePlan(empty,visible,project,1200,900));
 });
