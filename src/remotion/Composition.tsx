@@ -11,7 +11,9 @@ export const ReadingComposition:React.FC<RenderProps>=({transcript,project,media
   const parsed=parseScriptToVideo(transcript);
   return project?.schemaVersion===2?applyOverrides(parsed,project).words:parsed.words;
  },[transcript,project]);
- const normalizedProject=useMemo(()=>project?normalizeProjectStyle(project):null,[project]);
+ const normalizedProject=useMemo(()=>project?normalizeProjectStyle(
+  project.schemaVersion===3?{...project,schemaVersion:2,overrides:{}}:project
+ ):null,[project]);
  const style=normalizedProject?.style??DEFAULT_STYLE;
  const canvasWidth=normalizedProject?.canvas.width??WIDTH,canvasHeight=normalizedProject?.canvas.height??HEIGHT;
  const src=staticFile(mediaFile);
