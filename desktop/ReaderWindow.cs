@@ -388,6 +388,17 @@ internal sealed class ReaderWindow : Window
                             message = error.Message });
                     }
                     break;
+                case "refined-save":
+                    try { SaveRefined(request); }
+                    catch (Exception error)
+                    {
+                        AppLog.WriteException("Refined.Save", error);
+                        Send(new { kind = "refined-save-failed",
+                            operationId = request.GetProperty("operationId").GetInt32(),
+                            revision = request.GetProperty("revision").GetInt64(),
+                            message = error.Message });
+                    }
+                    break;
                 case "save":
                     SaveProject(request.GetProperty("project"), request.GetProperty("revision").GetInt64());
                     break;
@@ -924,6 +935,47 @@ internal sealed class ReaderWindow : Window
         Send(new { kind = "refined-migrated", fingerprint, subtitleName,
             operationId = request.GetProperty("operationId").GetInt32(),
             message = "旧工程已迁移到 v3，refined 和 TXT 已验证。" });
+    }
+
+    private void SaveRefined(JsonElement request)
+    {
+        var current = source ?? throw new InvalidOperationException("没有正在打开的字幕。");
+        if (request.GetProperty("fingerprint").GetString() != current.Fingerprint ||
+            !string.Equals(request.GetProperty("subtitleName").GetString(),
+                Path.GetFileName(current.Transcript), StringComparison.OrdinalIgnoreCase) ||
+            Fingerprint(current.Transcript) != current.Fingerprint)
+            throw new InvalidOperationException("字幕来源已经变化，拒绝保存 refined。");
+        var paths = RefinedStorage.Resolve(current.Transcript);
+        var oldRefined = request.GetProperty("previousRefined").GetRawText();
+        var nextRefined = request.GetProperty("refined").GetRawText();
+        var oldText = request.GetProperty("previousText").GetString()
+            ?? throw new InvalidDataException("缺少原 TXT 快照。");
+        var nextText = request.GetProperty("text").GetString()
+            ?? throw new InvalidDataException("缺少新 TXT 内容。");
+        using var oldDocument = JsonDocument.Parse(oldRefined);
+        using var nextDocument = JsonDocument.Parse(nextRefined);
+        var next = nextDocument.RootElement;
+        if (next.GetProperty("script_to_video").GetProperty("schemaVersion").GetInt32() != 3 ||
+            next.GetProperty("title").ValueKind != JsonValueKind.String)
+            throw new InvalidDataException("保存内容必须是 refined v3。");
+        var storedRefined = RefinedStorage.ReadExisting(paths)
+            ?? throw new FileNotFoundException("refined 文件不存在。");
+        using (var stored = JsonDocument.Parse(storedRefined))
+            if (!JsonElement.DeepEquals(stored.RootElement, oldDocument.RootElement))
+                throw new IOException("refined 已被外部修改，禁止覆盖。");
+        if (!File.Exists(paths.Text) ||
+            !string.Equals(File.ReadAllText(paths.Text, Encoding.UTF8), oldText, StringComparison.Ordinal))
+            throw new IOException("TXT 已被外部修改，禁止覆盖。");
+        // Refined is authoritative. If TXT replacement fails, reopening detects
+        // the mismatch and must not silently overwrite either user file.
+        RefinedStorage.ReplaceIfUnchanged(paths.Refined, storedRefined, nextRefined);
+        RefinedStorage.ReplaceIfUnchanged(paths.Text, oldText, nextText);
+        if (Fingerprint(current.Transcript) != current.Fingerprint)
+            throw new IOException("保存期间原始字幕发生变化。");
+        Send(new { kind = "refined-saved",
+            operationId = request.GetProperty("operationId").GetInt32(),
+            revision = request.GetProperty("revision").GetInt64(),
+            message = "refined 和 TXT 已保存。" });
     }
 
     private void SaveProject(JsonElement project, long revision)
