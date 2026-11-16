@@ -334,31 +334,12 @@ internal sealed class ReaderWindow : Window
                         lastCommittedImportId = null;
                     }
                     break;
-                case "project-validated":
-                    if (source != null && projectSaveLocked &&
-                        RefinedStorage.ReadExisting(RefinedStorage.Resolve(source.Transcript)) == null &&
-                        request.GetProperty("fingerprint").GetString() == source.Fingerprint &&
-                        string.Equals(request.GetProperty("subtitleName").GetString(), Path.GetFileName(source.Transcript), StringComparison.OrdinalIgnoreCase))
-                        projectSaveLocked = false;
-                    break;
                 case "refined-repair-text":
                     try { RepairRefinedText(request); }
                     catch (Exception error)
                     {
                         AppLog.WriteException("Refined.RepairText", error);
                         Send(new { kind = "refined-repair-failed",
-                            fingerprint = request.GetProperty("fingerprint").GetString(),
-                            subtitleName = request.GetProperty("subtitleName").GetString(),
-                            operationId = request.GetProperty("operationId").GetInt32(),
-                            message = error.Message });
-                    }
-                    break;
-                case "refined-migrate":
-                    try { MigrateLegacyRefined(request); }
-                    catch (Exception error)
-                    {
-                        AppLog.WriteException("Refined.Migrate", error);
-                        Send(new { kind = "refined-migrate-failed",
                             fingerprint = request.GetProperty("fingerprint").GetString(),
                             subtitleName = request.GetProperty("subtitleName").GetString(),
                             operationId = request.GetProperty("operationId").GetInt32(),
@@ -612,8 +593,6 @@ internal sealed class ReaderWindow : Window
         // Complete guarded recovery before taking the project snapshot. Reading
         // the project first would expose a stale v3 version after roll-forward.
         var storagePaths = RefinedStorage.Resolve(subtitle);
-        RefinedStorage.MigrateLegacyFilename(storagePaths, projectPath);
-        RefinedStorage.RecoverPendingPair(storagePaths);
         RefinedStorage.RecoverPendingProjectSave(storagePaths, projectPath);
         // Read the project before switching the active media token/source. If the
         // project is inaccessible, the previously loaded pair remains usable.
@@ -697,8 +676,6 @@ internal sealed class ReaderWindow : Window
         try
         {
             var refinedPaths = RefinedStorage.Resolve(pending.Subtitle);
-            RefinedStorage.MigrateLegacyFilename(refinedPaths, pending.ProjectPath);
-            RefinedStorage.RecoverPendingPair(refinedPaths);
             RefinedStorage.RecoverPendingProjectSave(refinedPaths, pending.ProjectPath);
             existingRefined = RefinedStorage.ReadExisting(refinedPaths);
             if (existingRefined != null)
@@ -765,8 +742,8 @@ internal sealed class ReaderWindow : Window
     {
         var current = source ?? throw new InvalidOperationException("请先打开素材。");
         if (!project.TryGetProperty("format", out var projectFormat) || projectFormat.GetString() != "script-to-video-project" ||
-            !project.TryGetProperty("schemaVersion", out var schema) || schema.ValueKind != JsonValueKind.Number || schema.GetInt32() != 2)
-            throw new InvalidOperationException("不支持的工程版本：必须为 ScriptToVideo Project v2。");
+            !project.TryGetProperty("schemaVersion", out var schema) || schema.ValueKind != JsonValueKind.Number || schema.GetInt32() != 3 || project.TryGetProperty("overrides", out _))
+            throw new InvalidOperationException("仅支持不含正文覆盖的 Project v3。");
         if (!project.TryGetProperty("source", out var projectSource) ||
             projectSource.ValueKind != JsonValueKind.Object ||
             !projectSource.TryGetProperty("videoName", out var mediaName) ||
@@ -879,98 +856,6 @@ internal sealed class ReaderWindow : Window
             projectSnapshot = snapshot.project, kind = "refined-created", fingerprint = current.Fingerprint,
             operationId = request.GetProperty("operationId").GetInt32(),
             subtitleName, message = "refined 和 TXT 已创建。" });
-    }
-
-    private void MigrateLegacyRefined(JsonElement request)
-    {
-        var current = source ?? throw new InvalidOperationException("没有正在打开的字幕。");
-        var fingerprint = request.GetProperty("fingerprint").GetString();
-        var subtitleName = request.GetProperty("subtitleName").GetString();
-        if (!string.Equals(fingerprint, current.Fingerprint, StringComparison.OrdinalIgnoreCase) ||
-            !string.Equals(subtitleName, Path.GetFileName(current.Transcript), StringComparison.OrdinalIgnoreCase) ||
-            Fingerprint(current.Transcript) != current.Fingerprint)
-            throw new InvalidOperationException("字幕来源已变化，拒绝迁移。");
-        var paths = RefinedStorage.Resolve(current.Transcript);
-        var recovery = request.TryGetProperty("recovery", out var recoveryFlag) &&
-            recoveryFlag.ValueKind == JsonValueKind.True;
-        if (Directory.Exists(paths.Refined) || Directory.Exists(paths.Text))
-            throw new IOException("迁移目标路径被目录占用，拒绝覆盖。");
-        if (!recovery && (File.Exists(paths.Refined) || File.Exists(paths.Text)))
-            throw new IOException("迁移目标文件已存在，拒绝覆盖。");
-        var storedProject = File.ReadAllText(current.Project, Encoding.UTF8);
-        using var stored = JsonDocument.Parse(storedProject);
-        using var expected = JsonDocument.Parse(request.GetProperty("legacyProject").GetRawText());
-        if (!JsonElement.DeepEquals(stored.RootElement, expected.RootElement))
-            throw new InvalidOperationException("旧工程已被外部修改，拒绝迁移。");
-        CheckSource(stored.RootElement);
-        using var replacement = JsonDocument.Parse(request.GetProperty("projectV3").GetRawText());
-        var v3 = replacement.RootElement;
-        if (v3.GetProperty("format").GetString() != "script-to-video-project" ||
-            v3.GetProperty("schemaVersion").GetInt32() != 3 ||
-            v3.TryGetProperty("overrides", out _))
-            throw new InvalidDataException("目标工程不是纯展示设置的 v3 工程。");
-        // The v3 project must be exactly the old presentation project with
-        // schemaVersion upgraded and overrides removed. Checking only source
-        // would allow unreviewed style/export settings to be substituted.
-        var expectedPresentation = JsonNode.Parse(storedProject) as JsonObject
-            ?? throw new InvalidDataException("旧工程必须是 JSON 对象。");
-        expectedPresentation.Remove("overrides");
-        expectedPresentation["schemaVersion"] = 3;
-        var submittedPresentation = JsonNode.Parse(v3.GetRawText());
-        if (!JsonNode.DeepEquals(expectedPresentation, submittedPresentation))
-            throw new InvalidDataException("v3 工程与旧工程展示设置不一致，拒绝迁移。");
-        using var refined = JsonDocument.Parse(request.GetProperty("refined").GetRawText());
-        var root = refined.RootElement;
-        if (root.GetProperty("script_to_video").GetProperty("schemaVersion").GetInt32() != 3 ||
-            root.GetProperty("title").ValueKind != JsonValueKind.String)
-            throw new InvalidDataException("迁移结果不是 v3 refined。");
-        var txt = request.GetProperty("text").GetString()
-            ?? throw new InvalidDataException("TXT 必须是字符串。");
-        // Keep the old v2 project untouched until both content files are durable.
-        if (recovery)
-        {
-            var existing = RefinedStorage.ReadExisting(paths)
-                ?? throw new FileNotFoundException("恢复迁移需要已有 refined。");
-            using var existingDoc = JsonDocument.Parse(existing);
-            if (!JsonElement.DeepEquals(existingDoc.RootElement, root))
-                throw new IOException("现有 refined 与预期迁移结果不同，拒绝恢复。");
-            if (File.Exists(paths.Text))
-            {
-                if (!string.Equals(File.ReadAllText(paths.Text, Encoding.UTF8), txt, StringComparison.Ordinal))
-                    throw new IOException("现有 TXT 与预期内容不同，拒绝恢复。");
-            }
-            else
-                RefinedStorage.CreateMissingText(paths, txt);
-        }
-        else
-            RefinedStorage.CreateInitial(paths, root.GetRawText(), txt);
-        var persisted = RefinedStorage.ReadExisting(paths)
-            ?? throw new IOException("refined 写入后无法读取。");
-        using (var checkedRefined = JsonDocument.Parse(persisted))
-            if (!JsonElement.DeepEquals(checkedRefined.RootElement, root))
-                throw new IOException("refined 持久化校验失败。");
-        if (!string.Equals(File.ReadAllText(paths.Text, Encoding.UTF8), txt, StringComparison.Ordinal))
-            throw new IOException("TXT 持久化校验失败。");
-        // Re-check the old project immediately before replacing it: migration
-        // may have taken time, and an external editor could have changed it.
-        using (var latestProject = JsonDocument.Parse(File.ReadAllText(current.Project, Encoding.UTF8)))
-        {
-            if (!JsonElement.DeepEquals(latestProject.RootElement, expected.RootElement))
-                throw new InvalidOperationException("旧工程在迁移期间被外部修改，拒绝替换。");
-        }
-        if (Fingerprint(current.Transcript) != current.Fingerprint)
-            throw new InvalidOperationException("原始字幕在迁移期间发生变化，拒绝替换工程。");
-        // The final replacement must also be compare-and-swap: an external
-        // editor could change the v2 project after the preceding read check.
-        // On conflict, keep v2 intact; next open can resume migration using
-        // the already verified refined/TXT pair.
-        RefinedStorage.ReplaceIfUnchanged(current.Project, storedProject, v3.GetRawText());
-        projectSaveLocked = true;
-        var snapshot = ReadConfirmedPreparationSnapshot();
-        Send(new { refinedSnapshot = snapshot.refined, textSnapshot = snapshot.text,
-            projectSnapshot = snapshot.project, kind = "refined-migrated", fingerprint, subtitleName,
-            operationId = request.GetProperty("operationId").GetInt32(),
-            message = "旧工程已迁移到 v3，refined 和 TXT 已验证。" });
     }
 
     private void SaveProjectBundle(JsonElement request)
@@ -1366,41 +1251,21 @@ internal sealed class ReaderWindow : Window
     {
         if (isShuttingDown) return;
         var projectElement = request.GetProperty("project");
-        var v3Export = projectElement.GetProperty("schemaVersion").GetInt32() == 3;
-        JsonElement sourceCheck = projectElement;
-        if (v3Export)
-        {
-            // Reuse immutable source identity checks for both project versions.
-            var sourceNode = JsonNode.Parse(projectElement.GetRawText())!.AsObject();
-            sourceNode["schemaVersion"] = 2;
-            sourceNode["overrides"] = new JsonObject();
-            using var sourceDocument = JsonDocument.Parse(sourceNode.ToJsonString());
-            sourceCheck = sourceDocument.RootElement.Clone();
-        }
-        var current = CheckSource(sourceCheck);
+        var current = CheckSource(projectElement);
         var refinedPaths = RefinedStorage.Resolve(current.Transcript);
-        if (v3Export)
-        {
-            if (projectElement.TryGetProperty("overrides", out _))
-                throw new InvalidDataException("v3 导出工程不能包含 overrides。");
-            RefinedStorage.EnsureNoPendingProjectSave(refinedPaths);
-            RefinedStorage.EnsureNoPendingPair(refinedPaths);
-            if (!File.Exists(refinedPaths.Refined) || !File.Exists(refinedPaths.Text) ||
-                !File.Exists(current.Project))
-                throw new IOException("refined、TXT 或 project v3 缺失，禁止导出。");
-            using var storedProject = JsonDocument.Parse(File.ReadAllText(current.Project, Encoding.UTF8));
+        RefinedStorage.EnsureNoPendingProjectSave(refinedPaths);
+        if (!File.Exists(refinedPaths.Refined) || !File.Exists(refinedPaths.Text) ||
+            !File.Exists(current.Project))
+            throw new IOException("revise、TXT 或 project v3 缺失，禁止导出。");
+        using (var storedProject = JsonDocument.Parse(File.ReadAllText(current.Project, Encoding.UTF8)))
             if (!JsonElement.DeepEquals(storedProject.RootElement, projectElement))
                 throw new IOException("导出工程与磁盘已保存版本不一致，禁止导出。");
-            if (!request.TryGetProperty("refined", out var requestedRefined))
-                throw new InvalidDataException("导出请求缺少已确认的 refined 快照。");
-            using var storedRefined = JsonDocument.Parse(File.ReadAllText(refinedPaths.Refined, Encoding.UTF8));
-            if (storedRefined.RootElement.GetProperty("script_to_video")
-                    .GetProperty("schemaVersion").GetInt32() != 3 ||
+        if (!request.TryGetProperty("refined", out var requestedRefined))
+            throw new InvalidDataException("导出请求缺少已确认的 revise 快照。");
+        using (var storedRefined = JsonDocument.Parse(File.ReadAllText(refinedPaths.Refined, Encoding.UTF8)))
+            if (storedRefined.RootElement.GetProperty("script_to_video").GetProperty("schemaVersion").GetInt32() != 3 ||
                 !JsonElement.DeepEquals(storedRefined.RootElement, requestedRefined))
-                throw new InvalidDataException("refined 已被外部修改，或与保存确认版本不一致。");
-        }
-        else if (File.Exists(refinedPaths.Refined) || Directory.Exists(refinedPaths.Refined))
-            throw new InvalidOperationException("refined 已存在，禁止使用旧版导出路径。");
+                throw new InvalidDataException("revise 已被外部修改，或与保存确认版本不一致。");
         if (string.IsNullOrWhiteSpace(current.Project) || !File.Exists(current.Project))
         {
             Send(new { kind = "status", message = "请先保存项目，再导出视频。", busy = false, error = true });
@@ -1460,7 +1325,6 @@ internal sealed class ReaderWindow : Window
             // read mutable workspace files after dependency preparation.
             string renderOriginal = task.TranscriptPath;
             string renderRefined = refinedPaths.Refined;
-            if (v3Export)
             {
                 var renderInputs = Path.Combine(task.CacheDirectory, "input");
                 const string originalSuffix = ".script.json";
@@ -1503,16 +1367,10 @@ internal sealed class ReaderWindow : Window
                 "--duration", request.GetProperty("duration").GetDouble().ToString("R", CultureInfo.InvariantCulture),
                 "--video-height", request.GetProperty("videoHeight").GetInt32().ToString(CultureInfo.InvariantCulture)
             ];
-            if (v3Export)
-            {
-                arguments[4] = renderRefined; // value following --json
-            }
+            arguments[4] = renderRefined; // value following --json
             foreach (var argument in arguments) start.ArgumentList.Add(argument);
-            if (v3Export)
-            {
-                start.ArgumentList.Add("--source-json");
-                start.ArgumentList.Add(renderOriginal);
-            }
+            start.ArgumentList.Add("--source-json");
+            start.ArgumentList.Add(renderOriginal);
             if (pagePlanSnapshot != null)
             {
                 start.ArgumentList.Add("--page-plan");
