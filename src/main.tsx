@@ -22,6 +22,7 @@ type DesktopMessage =
  | {kind:'import-candidates';requestId:string;subtitleName:string;transcript:string;candidates:Array<{index:number;mediaName:string;mediaKind:'video'|'audio';mediaUrl:string}>}
  | {kind:'settings';settings:unknown}
  | {kind:'reload-failed';message:string}
+ | {kind:'project-reset-saved'|'project-reset-failed';operationId:number;subtitleName:string;message?:string}
  | {kind:'project-bundle-saved'|'project-bundle-save-failed';message:string;operationId:number;revision:number;subtitleName:string;revisedSnapshot?:string;textSnapshot?:string;projectSnapshot?:string}
  | {kind:'status';message:string;busy:boolean;error?:boolean;canCancel?:boolean}
  | {kind:'dependency-confirm';id:number;title:string;heading:string;details:string;action:string}
@@ -108,6 +109,7 @@ function App(){
  const activeRevisedSourceRef=useRef<{subtitleName:string}|null>(null);
  const openingOriginalRef=useRef<{subtitleName:string;mediaName:string;mediaKind:'video'|'audio';original:ScriptToVideoInput}|null>(null);
  const pendingBundleSaveRef=useRef<(BundleSaveOperation&{revised:ScriptToVideoInput;text:string;project:Project})|null>(null);
+ const pendingProjectResetRef=useRef<{operationId:number;subtitleName:string;revision:number}|null>(null);
  const nextBundleSaveIdRef=useRef(0);
  const pendingExportRef=useRef<{operationId:number;revision:number;duration:number;videoHeight:number;pagePlan:ReturnType<typeof paginate>}|null>(null);
  const changedDuringImport=()=>{
@@ -362,6 +364,7 @@ function App(){
      else current=normalizeProjectStyle(stored);
     }catch{resetProject=true}
    }
+   pendingProjectResetRef.current=null;
    openingOriginalRef.current={subtitleName:data.subtitleName,
     mediaName:data.mediaName,mediaKind:data.mediaKind,original:input};
    activeRevisedSourceRef.current={subtitleName:data.subtitleName};
@@ -371,14 +374,27 @@ function App(){
    setDuration(0);setVideoRatio(null);setMediaState('loading');setTime(0);setPlaying(false);
    transcriptRef.current?.scrollTo({top:0});clearReload();
    if(data.requestId)committedPairAckRef.current=data.requestId;
-   if(resetProject&&desktop)desktop.postMessage({kind:'project-reset',project:current});
+   if(resetProject&&desktop){
+    markDirty();
+    const operationId=++nextBundleSaveIdRef.current;
+    pendingProjectResetRef.current={operationId,subtitleName:data.subtitleName,revision:projectEditStateRef.current.currentRevision};
+    desktop.postMessage({kind:'project-reset',operationId,subtitleName:data.subtitleName,project:current});
+   }
    notify(`已找到媒体：${data.mediaName}（${data.mediaKind==='audio'?'音频':'视频'}模式），使用${openPlan.kind==='existing'?' revise':'原始 script'}；${original.words.length} 个单词`);
   }catch(e){
    if(data.requestId)desktop?.postMessage({kind:'pair-rejected',requestId:data.requestId});
    clearReload();notify(`字幕读取失败：${String(e)}`,true);
   }
  };
- useEffect(()=>{const receive=({data}:MessageEvent<DesktopMessage>)=>{if(data.kind==='settings'){if(validateSettings(data.settings)){loadedSettingsRef.current=true;appSettingsRef.current=data.settings;setAppSettings(data.settings)}}else if(data.kind==='import-candidates')void runDesktopProbe(data);else if(data.kind==='pair')applyPair(data);else if(data.kind==='reload-failed'){clearReload();notify(`重新加载失败：${data.message}`,true);}else if(data.kind==='project-bundle-saved'||data.kind==='project-bundle-save-failed'){
+ useEffect(()=>{const receive=({data}:MessageEvent<DesktopMessage>)=>{if(data.kind==='settings'){if(validateSettings(data.settings)){loadedSettingsRef.current=true;appSettingsRef.current=data.settings;setAppSettings(data.settings)}}else if(data.kind==='import-candidates')void runDesktopProbe(data);else if(data.kind==='pair')applyPair(data);else if(data.kind==='reload-failed'){clearReload();notify(`重新加载失败：${data.message}`,true);}else if(data.kind==='project-reset-saved'||data.kind==='project-reset-failed'){
+    const pending=pendingProjectResetRef.current;
+    if(pending&&pending.operationId===data.operationId&&pending.subtitleName.toLowerCase()===data.subtitleName.toLowerCase()&&
+       activeRevisedSourceRef.current?.subtitleName.toLowerCase()===pending.subtitleName.toLowerCase()){
+      pendingProjectResetRef.current=null;
+      if(data.kind==='project-reset-saved')updateProjectEditState(acknowledgeProjectSave(projectEditStateRef.current,pending.revision));
+      else notify(`无法保存默认工程设置，请使用 Ctrl+S 重试：${data.message??'写入失败'}`,true);
+    }
+   }else if(data.kind==='project-bundle-saved'||data.kind==='project-bundle-save-failed'){
     const pending=pendingBundleSaveRef.current,exportRequest=pendingExportRef.current;
     if(!pending||!isMatchingBundleSaveReply(pending,data,activeRevisedSourceRef.current)){
      notify('已忽略过期的保存响应。',true);
