@@ -2,7 +2,7 @@
 
 ## Task ownership and cancellation
 
-WPF permits one active export. Before rendering, the desktop confirms a revision-bound three-file save of the revised subtitle, derived TXT and presentation project. Each export task then captures immutable media, revised transcript, project, page-plan, output and cache paths plus its own cancellation source. Dependency preparation and rendering observe cancellation. Cancel terminates only the launched Node process tree and waits for process exit/output drainage; it does not exit the application.
+WPF permits one active export. Before rendering, the desktop confirms a revision-bound write of three generated files (each replaced atomically, without a cross-file transaction) of the revised subtitle, derived TXT and presentation project. Each export task then captures immutable media, revised transcript, project, page-plan, output and cache paths plus its own cancellation source. Dependency preparation and rendering observe cancellation. Cancel terminates only the launched Node process tree and waits for process exit/output drainage; it does not exit the application.
 
 The progress notice offers `取消` while cancellation is possible. During final `Committing`, cancellation is disabled and shutdown waits for commit completion. Closing during a cancellable export offers `继续导出` and `取消导出并退出`. Confirmations must not silently discard unsaved edits.
 

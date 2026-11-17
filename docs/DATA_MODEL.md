@@ -1,50 +1,40 @@
-# ScriptToVideo — current data model (M6.22)
+# ScriptToVideo — v3 data and file lifecycle
 
-## Source subtitle and immutable anchors
+Only ScriptToVideo v3 subtitle JSON and project v3 are supported. No v2 migration.
 
-The normal import entry is `<stem>.script.json`: English (`language: "en"`), `script_to_video.format: "script-to-video"`, and source schema version 3, with mandatory string `title` (empty is allowed). The original JSON and media are never rewritten by title, word, project or MP4 edits.
-
-Words carry the source `word`, `start`, `end` and optional `score` fields. Paragraph boundaries are word-local `segments[].words[].breakParagraph: true`; omission means no boundary. Do not infer breaks from punctuation, segments or timestamps. The parser derives internal IDs such as `s0w1`, rather than writing IDs into the source.
-
-The desktop import boundary, revised-open planner, CLI and paragraph Skill require a v3 **original**. Original `.script.json` and independently stored `.script.revise.json` are both v3 but have different file roles; original is never edited.
-
-## Working files
-
-For `lesson01.script.json`, the active layout is:
+## Storage layout
 
 ```text
-<subtitle-directory>/
-├── lesson01.script.json                # immutable source
-├── lesson01.mp4                        # illustrative same-stem media
-└── lesson01/
-    ├── lesson01.script.revise.json     # v3 effective title and word edits
-    ├── lesson01.txt                    # derived article (UTF-8, no BOM)
-    ├── lesson01.project.json           # v3 presentation-only settings
-    ├── lesson01.exported.mp4           # first MP4 output
-    ├── lesson01.exported (1).mp4       # next non-conflicting output
-    └── cache/                          # isolated render inputs and temporary outputs
+lesson.script.json              # immutable v3 original, required
+lesson.mp4                      # immutable source media (other supported inputs possible)
+lesson/
+  lesson.script.revise.json     # optional v3 edit, preferred on open
+  lesson.txt                    # generated from current title and visible words
+  lesson.project.json           # v3 presentation settings
+  cache/                        # disposable
+  lesson.exported.mp4           # new output; duplicates get (1), (2) ...
 ```
 
-The revised JSON contains the current title and full edited word sequence (including hidden-word flags and paragraph boundaries), preserving the original word IDs' positional/timing anchors. A hidden word remains in the revised JSON but is omitted from TXT and rendered text.
+Original `script.json` and original media are never written. All workspace JSON is v3. The original and revise both carry the title, word timing anchors, optional hidden flags, and semantic paragraph breaks. Revise must preserve the original word count and start/end times.
 
-`<stem>.txt` is regenerated from the same effective words/title as the revised JSON: Windows CRLF separators, one blank line between paragraphs and no timestamps or formatting. The title, when present, precedes body text with one blank line. There is **no separate plain-text export button or `<stem>.article.txt` output** in M6.22.
+## Import
 
-The v3 `<stem>.project.json` stores source/media identity and fingerprint, canvas, reading style, title presentation style and export settings. It does **not** store sparse word overrides. Title presentation style includes font family, font size, color, line height, following gap and bold state. Title/content edits and presentation edits remain separate.
+Require the original `<stem>.script.json` and a decodable same-stem media file. If revise exists, validate its v3 format and time anchors and use it; otherwise read the original directly. TXT is not an input and its absence or stale contents must not block import.
 
-## Current-version creation and saving (breaking change)
+For `<stem>.project.json`, validate `script.filename` against the base filename of the selected original subtitle (case-insensitive on Windows). If matching, load it. If missing, use default presentation settings without writing a project. If invalid, malformed, v2, or belonging to a different script, atomically replace the file with current default project v3; no user confirmation or migration.
 
-When a valid v3 original subtitle is first opened without a project or revised copy, the application creates a new v3 revise working file and derived TXT. An existing v3 revise file is authoritative and must match the source word/time anchors. An existing project must be a valid v3 presentation-only project; a v3 project without its revised working file is blocked, not recreated.
+Project v3 contains `format`, `schemaVersion: 3`, `script: {filename: "<stem>.script.json"}`, `canvas`, `style`, `titleStyle` and `export`. It does not contain SHA, `source`, `overrides`, or word edits.
 
-**No old-format compatibility or migration:** original subtitle v2 files, project v2 files, `<stem>.script.revised.json`, and their old save journals are not recognized as working data, renamed, imported or repaired. The application does not delete them. Any existing project v2 is rejected rather than overwritten. To start a fresh project, manually move old work files out of the companion directory after backing them up.
+## Saving
 
-Only the **current v3 three-file save transaction** retains guarded journal recovery for interrupted Ctrl+S and pre-export saves. A failed or conflicting recovery leaves the journal and user files intact. The original v3 subtitle never changes.
+Every Ctrl+S generates one immutable-in-intent snapshot from the current editor revision and always rewrites the revise v3, derived TXT and project v3. The WPF host writes each generated file via a same-directory temporary file and atomic replacement. No old-file comparison, cross-file journal, implicit migration, conditional content diff or no-op skip. A failed write leaves the unsaved indicator on and reports the error; successful preceding single-file writes are not rolled back. Three-file atomicity is not promised.
 
-## Preview and export
+Browser-only mode requests three downloads but cannot confirm persistence, so it does not clear the unsaved marker.
 
-The title is rendered only on the first page, between the media slot and the body, and the first page must fit at least one complete body row. The right editor's title input follows the right-pane body typography but is bold; its visual styling does not override video title presentation settings.
+## Export
 
-The WPF host renders MP4 from immutable staged inputs through Remotion, preserving the selected source's audio once. Output uses the next available `<stem>.exported.mp4` or numbered variant without overwriting a previous MP4. Temporary task files live under the work directory's `cache/` tree. An unsuccessful commit retains the recoverable temporary MP4 when available.
+Desktop export first performs the identical three-file save, then freezes render inputs. No source media is overwritten. Each new output uses the lowest available suffix, e.g. `lesson.exported.mp4`, `lesson.exported (1).mp4`. This naming rule is extension-independent; current encoder output remains MP4. Existing outputs and original files are never overwritten. Single export at a time, cancellation safety and temporary render output validation remain in force.
 
 ## Global settings
 
-`scripttovideo.settings.json` lives beside `ScriptToVideo.exe`, uses marker `scripttovideo-settings` and schema version 1, and is separate from per-subtitle project JSON. It provides default left/right font settings and default title presentation style. Older title styles lacking `bold` are interpreted using the default bold behavior by the presentation layer.
+`scripttovideo.settings.json` beside the executable is separate from per-script project v3 and is not part of Ctrl+S's three work files.
