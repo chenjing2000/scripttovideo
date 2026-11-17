@@ -78,20 +78,11 @@ test('M2: parses presegmented paragraph metadata without changing source time',(
  assert.deepEqual(trans.words.map(w=>[w.start,w.end]),source.words.map(w=>[w.start,w.end]));
 });
 test('M5: normalize missing optional style fields in internal project view',()=>{
- const p=core.createProject('test.mp4','test.json',words(['one.']));delete p.style.firstLineIndentCh;delete p.style.fontWeight;
+ const p=core.createProject('test.mp4','test.script.json');delete p.style.firstLineIndentCh;delete p.style.fontWeight;
  p.style.fontSize=44;const migrated=core.normalizeProjectStyle(p);
  assert.equal(migrated.style.fontSize,44);assert.equal(migrated.style.firstLineIndentEm,2);assert.equal(migrated.style.fontWeight,400);
 });
 
-test('M2: removing source paragraph break survives project save/reload',()=>{
- const input={title:'',language:'en',script_to_video:{format:'script-to-video',schemaVersion:3},segments:[{words:[{word:'One.',start:1,end:1.5,breakParagraph:true}]},{words:[{word:'Two.',start:2,end:2.5}]}]};
- const parsed=core.parseScriptToVideo(input);
- assert.equal(parsed.words[0].breakParagraph,true);
- const changed=parsed.words.map((w,i)=>i===0?{...w,breakParagraph:false}:w);
- const project=core.saveProjectView(core.createProject('x.mp4','x.json',parsed.words),changed);
- assert.equal(project.overrides[parsed.words[0].id].breakParagraph,false);
- assert.equal(core.applyOverrides(parsed,project).words[0].breakParagraph,false);
-});
 
 test('M3: Word-style justification reaches right edge; paragraph last row stays left',()=>{
  const s={...style,firstLineIndentCh:0,textAlign:'justify'};

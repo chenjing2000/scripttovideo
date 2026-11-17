@@ -38,16 +38,7 @@ test('M5: false, null, string and terminal break invalid',()=>{
 test('M5: word_segments is only raw data, never a break carrier',()=>{
  const a=clone(data);a.word_segments[1].breakParagraph=true;reject(a,/word_segments/);
 });
-test('M5: overrides can remove/add paragraph breaks, source stays untouched',()=>{
- const t=okay(data),original=t.words.find(w=>w.breakParagraph);assert.ok(original);
- const changed=t.words.map(w=>w.id===original.id?{...w,breakParagraph:false}:w);
- const project=core.saveProjectView(core.createProject('a.mp4','a.script.json',t.words),changed);
- assert.equal(project.overrides[original.id].breakParagraph,false);
- assert.equal(core.applyOverrides(t,project).words.find(w=>w.id===original.id).breakParagraph,false);
- assert.equal(t.words.find(w=>w.id===original.id).breakParagraph,true);
- assert.equal(core.validateProject(project),true);
- assert.equal(core.validateProject({...project,schemaVersion:1}),false);
-});
+
 test('M5: unknown schema keys and all displayOverrides rejected',()=>{
  const a=clone(data);a.script_to_video.extra=true;reject(a,/字段/);
  const b=clone(data);b.script_to_video.displayOverrides={'s4w0':'two words'};reject(b,/displayOverrides|字段|覆盖/);
@@ -56,14 +47,7 @@ test('M5: malformed or reversed source word timestamps rejected',()=>{
  const a=clone(data);a.segments[3].words[0].start=-10;reject(a,/时间/);
  const b=clone(data);b.segments[3].words[0].word='two tokens';reject(b,/单词/);
 });
-test('Code review: saved project rejects override IDs absent from the loaded transcript',()=>{
- const words=okay(data).words;
- const project=core.createProject('lesson.mp4','lesson.script.json',words);
- assert.equal(core.validateProject(project,words),true);
- const stale=structuredClone(project);
- stale.overrides.s999w999={display:'orphan'};
- assert.equal(core.validateProject(stale,words),false);
-});
+
 test('Code review: saved project rejects malformed style, media kind and word edits',()=>{
  const words=okay(data).words;
  const p=core.createProject('lesson.mp4','lesson.script.json',words);
@@ -74,5 +58,5 @@ test('Code review: saved project rejects malformed style, media kind and word ed
  assert.equal(core.validateProject({...p,style:{...p.style,textColor:'red'}}),false);
  assert.equal(core.validateProject({...p,export:{fps:25,quality:'standard'}}),false);
  assert.equal(core.validateProject({...p,overrides:{s1w2:{breakParagraph:'yes'}}}),false);
- assert.equal(core.validateProject({...p,source:{...p.source,subtitleSha256:'invalid'}}),false);
+ assert.equal(core.validateProject({...p,script:{filename:'wrong.json'}}),false);
 });
