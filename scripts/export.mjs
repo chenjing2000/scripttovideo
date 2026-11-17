@@ -64,6 +64,8 @@ try{
  await stat(intermediate);
  // Atomically publish with no overwrite, including when --cache-dir is on another volume.
  const committedOutput=await commitCliOutput(intermediate,output);
- await unlink(intermediate);
+ // The final output already exists; failure to remove the cache copy is non-fatal.
+ try{await unlink(intermediate)}
+ catch(error){console.warn('Could not remove cached render:',intermediate,error)}
  console.log('Export succeeded:',committedOutput);
 }catch(e){console.error('Export failed:',e);process.exitCode=1}
