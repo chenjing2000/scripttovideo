@@ -1,4 +1,5 @@
 import test from 'node:test';
+import {readFileSync} from 'node:fs';
 import assert from 'node:assert/strict';
 import {link,mkdir,mkdtemp,readFile,readdir,rm,writeFile} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
@@ -97,3 +98,11 @@ test('non-cross-volume I/O errors fail immediately without creating a fallback',
  assert.deepEqual(await readdir(out),[]);
  assert.equal(await read(source),'render-complete');
 }));
+
+
+test('desktop release embeds the CLI commit helper alongside export script',()=>{
+ const project=readFileSync('desktop/ScriptToVideo.csproj','utf8');
+ assert.match(project, /<EmbeddedResource Include="\.\.\/scripts\/cli-output-commit\.mjs" LogicalName="TSRUNTIME\/scripts\/cli-output-commit\.mjs" \/>/);
+ const exporter=readFileSync('scripts/export.mjs','utf8');
+ assert.match(exporter, /import \{commitCliOutput\} from '\.\/cli-output-commit\.mjs'/);
+});
