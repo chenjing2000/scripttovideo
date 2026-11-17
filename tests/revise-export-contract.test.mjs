@@ -1,12 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {assertScriptToVideo,assertRefinedForExport,assertPresentationProjectForExport} from '../scripts/script-to-video-contract.mjs';
+import {assertScriptToVideo,assertRevisedForExport,assertPresentationProjectForExport} from '../scripts/script-to-video-contract.mjs';
 import {createHash} from 'node:crypto';
 import {assertExportPagePlan} from '../scripts/page-plan-validation.mjs';
 
 const original={script_to_video:{format:'script-to-video',schemaVersion:3},title:'',language:'en',
  segments:[{words:[{word:'Hello',start:0,end:0.5},{word:'world',start:0.5,end:1}]}]};
-const refined={...original,title:'A title',script_to_video:{format:'script-to-video',schemaVersion:3},
+const revised={...original,title:'A title',script_to_video:{format:'script-to-video',schemaVersion:3},
  segments:[{words:[{word:'Hi',start:0,end:0.5,hidden:true},{word:'earth',start:0.5,end:1}]}]};
 const sourceBytes=Buffer.from(JSON.stringify(original));
 const project={format:'script-to-video-project',schemaVersion:3,
@@ -19,37 +19,37 @@ const project={format:'script-to-video-project',schemaVersion:3,
 const context={mediaName:'sample.mp4',subtitleName:'sample.script.json',subtitleBytes:sourceBytes,
  mediaKind:'video',transcript:original};
 
-test('refined export accepts edited words and hidden flags but retains timing',()=>{
+test('revised export accepts edited words and hidden flags but retains timing',()=>{
  assertScriptToVideo(original);
- assert.equal(assertRefinedForExport(refined,original),refined);
+ assert.equal(assertRevisedForExport(revised,original),revised);
  assert.equal(assertPresentationProjectForExport(project,context),project);
 });
-test('refined export rejects timing and segment structure changes',()=>{
- assert.throws(()=>assertRefinedForExport({...refined,segments:[{words:[
- {...refined.segments[0].words[0],start:0.1},refined.segments[0].words[1]]}]},original));
- assert.throws(()=>assertRefinedForExport({...refined,segments:[]},original));
+test('revised export rejects timing and segment structure changes',()=>{
+ assert.throws(()=>assertRevisedForExport({...revised,segments:[{words:[
+ {...revised.segments[0].words[0],start:0.1},revised.segments[0].words[1]]}]},original));
+ assert.throws(()=>assertRevisedForExport({...revised,segments:[]},original));
 });
-test('refined export rejects whitespace, bad flags, and final paragraph break',()=>{
+test('revised export rejects whitespace, bad flags, and final paragraph break',()=>{
  for(const word of ['two words','', '  ']){
-  const bad=structuredClone(refined);bad.segments[0].words[0].word=word;
-  assert.throws(()=>assertRefinedForExport(bad,original));
+  const bad=structuredClone(revised);bad.segments[0].words[0].word=word;
+  assert.throws(()=>assertRevisedForExport(bad,original));
  }
- const hidden=structuredClone(refined);hidden.segments[0].words[0].hidden=false;
- assert.throws(()=>assertRefinedForExport(hidden,original));
- const paragraph=structuredClone(refined);paragraph.segments[0].words[1].breakParagraph=true;
- assert.throws(()=>assertRefinedForExport(paragraph,original));
+ const hidden=structuredClone(revised);hidden.segments[0].words[0].hidden=false;
+ assert.throws(()=>assertRevisedForExport(hidden,original));
+ const paragraph=structuredClone(revised);paragraph.segments[0].words[1].breakParagraph=true;
+ assert.throws(()=>assertRevisedForExport(paragraph,original));
 });
 test('v3 project rejects overrides and mismatched immutable source fingerprint',()=>{
  assert.throws(()=>assertPresentationProjectForExport({...project,overrides:{}},context));
  assert.throws(()=>assertPresentationProjectForExport({...project,source:{...project.source,subtitleSha256:'0'.repeat(64)}},context));
 });
 
-test('refined export rejects removed original word anchors and unsupported metadata',()=>{
- const missing=structuredClone(refined);missing.segments[0].words.pop();
- assert.throws(()=>assertRefinedForExport(missing,original));
- const displayOverrides=structuredClone(refined);
+test('revised export rejects removed original word anchors and unsupported metadata',()=>{
+ const missing=structuredClone(revised);missing.segments[0].words.pop();
+ assert.throws(()=>assertRevisedForExport(missing,original));
+ const displayOverrides=structuredClone(revised);
  displayOverrides.script_to_video.displayOverrides={s0w0:'Other'};
- assert.throws(()=>assertRefinedForExport(displayOverrides,original));
+ assert.throws(()=>assertRevisedForExport(displayOverrides,original));
 });
 test('v3 project rejects mismatched source names and invalid presentation values',()=>{
  assert.throws(()=>assertPresentationProjectForExport(
@@ -58,12 +58,12 @@ test('v3 project rejects mismatched source names and invalid presentation values
   {...project,canvas:{width:1201,height:1600}},context));
 });
 
-test('page-plan preflight excludes hidden refined words without v2 overrides',()=>{
- const transcript=structuredClone(refined);
+test('page-plan preflight excludes hidden revised words without v2 overrides',()=>{
+ const transcript=structuredClone(revised);
  transcript.segments[0].words[1].hidden=true;
  const empty={pages:[],switches:[],warnings:[],viewportWidth:1200,viewportHeight:900,
   availableWidth:1100,availableHeight:800};
  assert.doesNotThrow(()=>assertExportPagePlan(empty,transcript,1200,900));
- const visible=structuredClone(refined);
+ const visible=structuredClone(revised);
  assert.throws(()=>assertExportPagePlan(empty,visible,1200,900));
 });

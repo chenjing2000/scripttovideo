@@ -11,8 +11,8 @@ test('M6.12: exact JSON suffix becomes shared work-folder and both output names'
  assert.throws(()=>transcriptStem('lesson01.json'));
  assert.match(cs,/var workFolder = Path.Combine\(folder, stem\)/);
  assert.match(cs,/var projectPath = Path.Combine\(workFolder, stem \+ "\.project\.json"\)/);
- assert.match(cs,/var storagePaths = RefinedStorage\.Resolve\(subtitle\)/);
- assert.match(cs,/RefinedStorage\.RecoverPendingProjectSave\(storagePaths, projectPath\)/);
+ assert.match(cs,/var storagePaths = ReviseStorage\.Resolve\(subtitle\)/);
+ assert.match(cs,/ReviseStorage\.RecoverPendingProjectSave\(storagePaths, projectPath\)/);
  assert.doesNotMatch(cs,/MigrateLegacyFilename|RecoverPendingPair/);
 });
 test('M6.22: no obsolete global project location; v3 originals and separate revised v3 working copies are supported',()=>{
@@ -23,7 +23,7 @@ test('M6.22: no obsolete global project location; v3 originals and separate revi
  assert.match(cs,/meta\.TryGetProperty\("displayOverrides", out _\)/);
  assert.match(ui,/if\(input\.script_to_video\.schemaVersion!==3\)/);
  assert.doesNotMatch(cs,/version\.GetInt32\(\) != 2/);
- assert.match(ui,/planManualSave\(disk\.original,disk\.refined,disk\.text,disk\.project,project,currentWords/);
+ assert.match(ui,/planManualSave\(disk\.original,disk\.revised,disk\.text,disk\.project,project,currentWords/);
  assert.match(ui,/kind:'project-bundle-save'/);
  assert.match(ui,/stem\+'\.script\.revise\.json'/);
  assert.match(ui,/stem\+'\.project\.json'/);
@@ -33,7 +33,7 @@ test('M6.22: no obsolete global project location; v3 originals and separate revi
 });
 test('M6.12: existing corrupt project cannot be silently overwritten',()=>{
  assert.doesNotMatch(cs,/projectSaveLocked|previousProjectSaveLocked/);
- assert.match(cs,/if \(!JsonElement\.DeepEquals\(stored\.RootElement, oldRefined\)\)/);
+ assert.match(cs,/if \(!JsonElement\.DeepEquals\(stored\.RootElement, oldRevised\)\)/);
  assert.match(cs,/schema\.GetInt32\(\) != 3/);
  assert.match(ui,/setProjectLoadBlocked\(blocked\)/);
  assert.match(ui,/if\(projectLoadBlocked\)return notify/);
@@ -44,8 +44,8 @@ test('M6.12: saves only on demand and does not create empty directory on import'
  assert.doesNotMatch(open,/Directory\.CreateDirectory/);
  assert.match(cs,/private static void AtomicWrite/);
  assert.match(cs,/File\.Move\(temp, file, overwrite: true\)/);
- assert.match(cs,/RefinedStorage\.ReplaceProjectBundle\(paths, current\.Project,/);
- assert.match(cs,/File\.ReadAllText\(paths\.Refined, Encoding\.UTF8\)/);
+ assert.match(cs,/ReviseStorage\.ReplaceProjectBundle\(paths, current\.Project,/);
+ assert.match(cs,/File\.ReadAllText\(paths\.Revised, Encoding\.UTF8\)/);
  assert.match(cs,/File\.ReadAllText\(paths\.Text, Encoding\.UTF8\)/);
  assert.match(cs,/kind = "project-bundle-saved"/);
 });

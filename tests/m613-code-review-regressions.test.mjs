@@ -19,7 +19,7 @@ test('Code review: MP4 export commits the active word and snapshots a matching p
  assert.match(body,/updateWord\(words,active\.id,active\.text\)/);
  assert.match(body,/if\(!commitEditing\(\)\)return/);
  assert.match(body,/paginate\(exportWords,style,canvasWidth,canvasHeight-mediaHeight/);
- assert.match(body,/planManualSave\(disk\.original,disk\.refined,disk\.text,disk\.project,project,exportWords/);
+ assert.match(body,/planManualSave\(disk\.original,disk\.revised,disk\.text,disk\.project,project,exportWords/);
  assert.match(body,/pendingExportRef\.current=\{operationId,revision,duration,videoHeight:mediaHeight,pagePlan:exportPlan\}/);
  assert.match(body,/kind:'project-bundle-save'/);
  assert.doesNotMatch(body,/kind:'export',project:/);
