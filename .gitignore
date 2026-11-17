@@ -11,8 +11,8 @@ exports/
 !3rdparty/README.md
 /video/
 
-/desktop/bin/
-/desktop/obj/
+**/bin/
+**/obj/
 
 __pycache__/
 *.pyc
