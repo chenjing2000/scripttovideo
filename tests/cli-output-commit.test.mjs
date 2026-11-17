@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {copyFile,link,mkdir,mkdtemp,readFile,readdir,rm,writeFile} from 'node:fs/promises';
+import {link,mkdir,mkdtemp,readFile,readdir,rm,writeFile} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import path from 'node:path';
 import {commitCliOutput} from '../scripts/cli-output-commit.mjs';
