@@ -4,7 +4,7 @@ import {createRequire} from 'node:module';
 import {readFileSync} from 'node:fs';
 const require=createRequire(import.meta.url);
 const core=require('../.tmp-core/index.js');
-const style={...core.DEFAULT_STYLE,fontFamily:'Arial',fontSize:10,fontWeight:400,lineHeight:1,paragraphGap:7,paddingX:0,paddingY:2,firstLineIndentEm:4};
+const style={...core.DEFAULT_STYLE,fontFamily:'Arial',fontSize:10,fontWeight:400,lineHeight:1,paragraphGap:7,paddingX:0,paddingY:2,firstLineIndentEm:2};
 const measure=text=>text.length*5;
 const words=(list)=>list.map((text,i)=>({id:`w${i}`,original:text,display:text,start:i*1.3,end:i*1.3+0.8,hidden:false,breakParagraph:false,segmentId:'s0'}));
 const plan=(w,height=25,width=65,s=style)=>core.paginate(w,s,width,height,measure);
