@@ -3,8 +3,8 @@ import {AbsoluteFill,useCurrentFrame,useVideoConfig,staticFile,OffthreadVideo} f
 import {Audio} from '@remotion/media';
 import {ReaderCanvas} from '../ui/ReaderCanvas';
 import {parseScriptToVideo,DEFAULT_STYLE,WIDTH,HEIGHT,DEFAULT_TITLE_STYLE} from '../core';
-import type {ScriptToVideoInput,PresentationProject,PagePlan} from '../core';
-export type RenderProps={transcript:ScriptToVideoInput;project?:PresentationProject;mediaKind:'video'|'audio';videoHeight:number;mediaFile:string;durationSec?:number;pagePlan?:PagePlan};
+import type {ScriptToVideoInput,Project,PagePlan} from '../core';
+export type RenderProps={transcript:ScriptToVideoInput;project?:Project;mediaKind:'video'|'audio';videoHeight:number;mediaFile:string;durationSec?:number;pagePlan?:PagePlan};
 export const ReadingComposition:React.FC<RenderProps>=({transcript,project,mediaKind,videoHeight,mediaFile,pagePlan})=>{
  const frame=useCurrentFrame(),{fps}=useVideoConfig();
  const words=useMemo(()=>parseScriptToVideo(transcript).words,[transcript]);

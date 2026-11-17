@@ -4,7 +4,7 @@ import {readFileSync} from 'node:fs';
 import {createRequire} from 'node:module';
 const require=createRequire(import.meta.url);
 const {DEFAULT_TITLE_STYLE,DEFAULT_STYLE,createProject,
- validatePresentationProject,layoutTitle,tryLayoutTitle,paginate,parseScriptToVideo,
+ validateProject,layoutTitle,tryLayoutTitle,paginate,parseScriptToVideo,
  buildRevisedScript,buildRevisedText,planManualSave}=require('../.tmp-core/index.js');
 const measure=text=>text.length*10;
 
@@ -13,12 +13,12 @@ test('M6.22 title: defaults are persisted in presentation v3, never word overrid
  const presentation=project;
  assert.deepEqual(presentation.titleStyle,DEFAULT_TITLE_STYLE);
  assert.equal(presentation.titleStyle.bold,true);
- assert.equal(validatePresentationProject({...presentation,titleStyle:{...presentation.titleStyle,bold:false}}),true);
- assert.equal(validatePresentationProject({...presentation,titleStyle:{...presentation.titleStyle,bold:'yes'}}),false);
- assert.equal(validatePresentationProject(presentation),true);
+ assert.equal(validateProject({...presentation,titleStyle:{...presentation.titleStyle,bold:false}}),true);
+ assert.equal(validateProject({...presentation,titleStyle:{...presentation.titleStyle,bold:'yes'}}),false);
+ assert.equal(validateProject(presentation),true);
  assert.equal('overrides' in presentation,false);
- assert.equal(validatePresentationProject({...presentation,titleStyle:{...presentation.titleStyle,lineHeight:1}}),false);
- assert.equal(validatePresentationProject({...presentation,titleStyle:{...presentation.titleStyle,color:'red'}}),false);
+ assert.equal(validateProject({...presentation,titleStyle:{...presentation.titleStyle,lineHeight:1}}),false);
+ assert.equal(validateProject({...presentation,titleStyle:{...presentation.titleStyle,color:'red'}}),false);
 });
 
 test('M6.22 title: empty title takes no page height and multiline title reserves rows plus gap',()=>{

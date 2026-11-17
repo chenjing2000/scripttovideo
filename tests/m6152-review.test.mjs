@@ -24,7 +24,7 @@ test('ReaderCanvas recomputes the plan when viewport width changes and rejects m
 test('desktop admits only v3 presentation project and rejects overrides',()=>{
  assert.match(host,/version\.GetInt32\(\)!=3/);
  assert.match(host,/project\.TryGetProperty\("script",out var script\)/);
- assert.match(app,/validatePresentationProject\(stored\)/);
+ assert.match(app,/validateProject\(stored\)/);
  assert.doesNotMatch(app,/validateProject\(saved,parsed\.words\)/);
 });
 test('settings projection is stable during playback-only renders',()=>{

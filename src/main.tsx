@@ -4,7 +4,7 @@ import {ReaderCanvas} from './ui/ReaderCanvas';
 import {StyleSettings} from './ui/StyleSettings';
 import {Dialog} from './ui/Dialog';
 import type {DialogAction} from './ui/Dialog';
-import {parseScriptToVideo,createProject,updateWord,buildRevisedScript,paginate,measureWithCanvas,DEFAULT_STYLE,normalizeProjectStyle,WIDTH,HEIGHT,validCanvas,transcriptStem,findMediaCandidates,provisionalVideoHeight,describeMediaError,missingCompanionMessage,planReviseOpen,validatePresentationProject,buildRevisedText} from './core';
+import {parseScriptToVideo,createProject,updateWord,buildRevisedScript,paginate,measureWithCanvas,DEFAULT_STYLE,normalizeProjectStyle,WIDTH,HEIGHT,validCanvas,transcriptStem,findMediaCandidates,provisionalVideoHeight,describeMediaError,missingCompanionMessage,planReviseOpen,validateProject,buildRevisedText} from './core';
 import type {Word,Project} from './core';
 import {probeInPriority} from './core/media-probe';
 import {resolvePlayerShortcut} from './core/player-shortcuts';
@@ -358,7 +358,7 @@ function App(){
    if(data.project!==null){
     try{
      const stored:unknown=JSON.parse(data.project);
-     if(!validatePresentationProject(stored)||
+     if(!validateProject(stored)||
         stored.script.filename.toLowerCase()!==data.subtitleName.toLowerCase())resetProject=true;
      else current=normalizeProjectStyle(stored);
     }catch{resetProject=true}
@@ -395,7 +395,7 @@ function App(){
           typeof data.projectSnapshot!=='string')throw Error('保存响应缺少必要的文件内容');
        parseScriptToVideo(JSON.parse(data.revisedSnapshot));
        const savedProject=JSON.parse(data.projectSnapshot);
-       if(!validatePresentationProject(savedProject)||savedProject.script.filename.toLowerCase()!==pending.subtitleName.toLowerCase())
+       if(!validateProject(savedProject)||savedProject.script.filename.toLowerCase()!==pending.subtitleName.toLowerCase())
         throw Error('保存的 project 与当前 script 不匹配');
        const next=acknowledgeProjectSave(projectEditStateRef.current,pending.revision);
        updateProjectEditState(next);saved=true;
