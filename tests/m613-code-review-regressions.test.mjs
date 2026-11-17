@@ -68,7 +68,7 @@ test('Code review: direct export CLI rejects bad source, style or overrides',()=
  const bytes=readFileSync('fixtures/6 Minute English 01-seg1.script.json');
  const transcript=JSON.parse(bytes.toString('utf8'));
  const words=core.parseScriptToVideo(transcript).words;
- const project=core.createProject(mediaName,subtitleName);
+ const project=core.createProject(subtitleName);
  const context={mediaName,subtitleName,subtitleBytes:bytes,mediaKind:'video',transcript};
  assert.equal(assertPresentationProjectForExport(project,context),project);
  assert.throws(()=>assertPresentationProjectForExport(null,context),/project v3/i);
