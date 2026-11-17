@@ -1139,12 +1139,7 @@ internal sealed class ReaderWindow : Window
                 start.ArgumentList.Add(pagePlanSnapshot);
             }
 
-            var evidence = Environment.GetEnvironmentVariable("SCRIPT_TO_VIDEO_M1_EVIDENCE");
-            if (!string.IsNullOrEmpty(evidence))
-                await M1Capture.SaveAsync(view.CoreWebView2, evidence, request);
-
             task.Status = ExportStatus.Rendering;
-            var watch = Stopwatch.StartNew();
             var result = await exportProcesses.RunAsync(start, token, line =>
             {
                 if (line.StartsWith("render ", StringComparison.Ordinal))
@@ -1158,9 +1153,6 @@ internal sealed class ReaderWindow : Window
                             taskId = task.Id
                         })));
             });
-            if (!string.IsNullOrEmpty(evidence))
-                File.WriteAllText(Path.Combine(evidence, "render.log"),
-                    $"Task: {task.Id}\nElapsed seconds: {watch.Elapsed.TotalSeconds:F2}\nExit code: {result.ExitCode}\n{result.Stdout}\n{result.Stderr}");
             token.ThrowIfCancellationRequested();
             if (result.ExitCode != 0)
                 throw new InvalidOperationException($"导出失败（{result.ExitCode}）。{result.Stderr}");

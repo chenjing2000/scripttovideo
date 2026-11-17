@@ -8,7 +8,6 @@ const ui=readFileSync('src/main.tsx','utf8');
 const reader=readFileSync('desktop/ReaderWindow.cs','utf8');
 const media=readFileSync('desktop/LocalMediaServer.cs','utf8');
 const exportScript=readFileSync('scripts/export.mjs','utf8');
-const m1Capture=readFileSync('desktop/M1Capture.cs','utf8');
 
 test('Code review: MP4 export commits the active word and snapshots a matching page plan',()=>{
  const start=ui.indexOf(' const doExport=()=>{');
@@ -75,10 +74,6 @@ test('Code review: direct export CLI rejects bad source, style or overrides',()=
  assert.throws(()=>assertPresentationProjectForExport({...project,script:{filename:'other.script.json'}},context),/filename/i);
  assert.throws(()=>assertPresentationProjectForExport({...project,style:{...project.style,fontSize:0}},context),/style/i);
  assert.throws(()=>assertPresentationProjectForExport({...project,overrides:{s999w999:{hidden:true}}},context),/project v3/i);
-});
-
-test('Code review: optional M1 evidence capture supports both video and audio-only preview',()=>{
- assert.match(m1Capture,/document\.querySelector\('video, audio'\)/);
 });
 
 test('Code review: invalid settings backups never overwrite an earlier backup',()=>{
