@@ -4,7 +4,7 @@ export interface ScriptToVideoInput {title:string;language:'en';segments:Array<{
 
 export interface TitleStyle {bold:boolean;fontFamily:string;fontSize:number;lineHeight:number;paragraphGap:number;color:string}
 export const DEFAULT_TITLE_STYLE:TitleStyle={bold:true,fontFamily:'Arial',fontSize:50,lineHeight:70,paragraphGap:20,color:'#C25160'};
-export interface ReadingStyle {textAlign:'justify'|'left';fontFamily:string;fontSize:number;fontWeight:number;firstLineIndentCh?:number;firstLineIndentEm?:number;lineHeight:number;paragraphGap:number;paddingX:number;paddingY:number;textColor:string;highlightColor:string;backgroundColor:string;minScrollDuration:number}
+export interface ReadingStyle {textAlign:'justify'|'left';fontFamily:string;fontSize:number;fontWeight:number;firstLineIndentEm?:number;lineHeight:number;paragraphGap:number;paddingX:number;paddingY:number;textColor:string;highlightColor:string;backgroundColor:string;minScrollDuration:number}
 export interface Row { index:number; startWord:number; endWord:number; top:number; bottom:number; firstStart:number; lastEnd:number }
 export interface Layout {rows:Row[]; wordRows:number[]; totalHeight:number; viewportHeight:number; viewportWidth:number}
 export interface ScrollEvent {start:number; end:number; from:number; to:number; rowIndex:number}
