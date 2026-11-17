@@ -18,7 +18,7 @@ import {planManualSave,isMatchingBundleSaveReply,bundleSaveSucceeded,tryLayoutTi
 import type {BundleSaveOperation,ScriptToVideoInput} from './core';
 import type {AppSettings} from './core/app-settings';
 type DesktopMessage =
- | {kind:'pair';requestId?:string;mediaName:string;mediaKind:'video'|'audio';subtitleName:string;transcript:string;project:string|null;mediaUrl:string;revised?:string|null;revisedText?:string|null;revisedError?:string}
+ | {kind:'pair';requestId?:string;mediaName:string;mediaKind:'video'|'audio';subtitleName:string;transcript:string;project:string|null;mediaUrl:string;revised?:string|null;revisedError?:string}
  | {kind:'import-candidates';requestId:string;subtitleName:string;transcript:string;candidates:Array<{index:number;mediaName:string;mediaKind:'video'|'audio';mediaUrl:string}>}
  | {kind:'settings';settings:unknown}
  | {kind:'reload-failed';message:string}
