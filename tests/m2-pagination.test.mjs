@@ -4,7 +4,7 @@ import {createRequire} from 'node:module';
 import {readFileSync} from 'node:fs';
 const require=createRequire(import.meta.url);
 const core=require('../.tmp-core/index.js');
-const style={...core.DEFAULT_STYLE,fontFamily:'Arial',fontSize:10,fontWeight:400,lineHeight:1,paragraphGap:7,paddingX:0,paddingY:2,firstLineIndentCh:4};
+const style={...core.DEFAULT_STYLE,fontFamily:'Arial',fontSize:10,fontWeight:400,lineHeight:1,paragraphGap:7,paddingX:0,paddingY:2,firstLineIndentEm:4};
 const measure=text=>text.length*5;
 const words=(list)=>list.map((text,i)=>({id:`w${i}`,original:text,display:text,start:i*1.3,end:i*1.3+0.8,hidden:false,breakParagraph:false,segmentId:'s0'}));
 const plan=(w,height=25,width=65,s=style)=>core.paginate(w,s,width,height,measure);
@@ -78,14 +78,14 @@ test('M2: parses presegmented paragraph metadata without changing source time',(
  assert.deepEqual(trans.words.map(w=>[w.start,w.end]),source.words.map(w=>[w.start,w.end]));
 });
 test('M5: normalize missing optional style fields in internal project view',()=>{
- const p=core.createProject('test.mp4','test.script.json');delete p.style.firstLineIndentCh;delete p.style.fontWeight;
+ const p=core.createProject('test.mp4','test.script.json');delete p.style.firstLineIndentEm;delete p.style.fontWeight;
  p.style.fontSize=44;const migrated=core.normalizeProjectStyle(p);
  assert.equal(migrated.style.fontSize,44);assert.equal(migrated.style.firstLineIndentEm,2);assert.equal(migrated.style.fontWeight,400);
 });
 
 
 test('M3: Word-style justification reaches right edge; paragraph last row stays left',()=>{
- const s={...style,firstLineIndentCh:0,textAlign:'justify'};
+ const s={...style,firstLineIndentEm:0,textAlign:'justify'};
  const w=words(['aaaa','bbbb','cccc','dddd','eeee']);
  const p=plan(w,90,100,s);
  const rows=p.pages.flatMap(pg=>pg.rows);
@@ -107,7 +107,7 @@ test('M3: first line justifies inside its indentation, not at left page edge',()
 
 test('M3: left alignment can be selected, and keeps ordinary space widths',()=>{
  const w=words(['aaaa','bbbb','cccc','dddd','eeee']);
- const p=plan(w,90,100,{...style,firstLineIndentCh:0,textAlign:'left'});
+ const p=plan(w,90,100,{...style,firstLineIndentEm:0,textAlign:'left'});
  const first=p.pages[0].rows[0];
  assert.ok(first.words.at(-1).x+first.words.at(-1).width<100);
  assert.equal(first.words[1].x-first.words[0].x-first.words[0].width,5);
@@ -115,7 +115,7 @@ test('M3: left alignment can be selected, and keeps ordinary space widths',()=>{
 
 test('M3: page boundary is NOT paragraph boundary; continuation stays justified',()=>{
  const w=words(Array.from({length:32},()=> 'aaaa'));
- const p=plan(w,24,100,{...style,firstLineIndentCh:0,textAlign:'justify'});
+ const p=plan(w,24,100,{...style,firstLineIndentEm:0,textAlign:'justify'});
  assert.ok(p.pages.length>1);
  const lastOfFirstPage=p.pages[0].rows.at(-1);
  assert.equal(lastOfFirstPage.paragraphEnd,false);
@@ -130,7 +130,7 @@ test('M3: cross-paragraph page filling avoids large empty region and never loses
  // Each 4 words occupy one 100px line: 4*20+3*5=95.
  // Three 2-row paragraphs; first page fits 4 rows and should not stop at 2.
  [7,15,23].forEach(i=>w[i].breakParagraph=true);
- const s={...style,firstLineIndentCh:0,paragraphGap:0,textAlign:'justify'};
+ const s={...style,firstLineIndentEm:0,paragraphGap:0,textAlign:'justify'};
  const p=plan(w,45,100,s);
  assert.equal(p.pages.length,2);
  assert.ok(p.pages[0].rows.length>=3,`first page only ${p.pages[0].rows.length} rows`);
@@ -140,7 +140,7 @@ test('M3: cross-paragraph page filling avoids large empty region and never loses
 
 test('M5: greedy pages retain next full line instead of sentence score',()=>{
  const w=words(Array.from({length:30},(_,i)=>i===5?'period.':'word'));
- const s={...style,firstLineIndentCh:0,paragraphGap:0,textAlign:'left'};
+ const s={...style,firstLineIndentEm:0,paragraphGap:0,textAlign:'left'};
  const p=plan(w,34,100,s);
  assert.equal(p.pages[0].rows.length,3);
  assert.equal(p.pages[0].usedHeight,30);
@@ -149,7 +149,7 @@ test('M5: greedy pages retain next full line instead of sentence score',()=>{
 test('M5: new paragraph gap is not charged at page top',()=>{
  const w=words(['aaaa','bbbb','cccc','dddd','eeee','ffff']);
  w[2].breakParagraph=true;
- const s={...style,firstLineIndentCh:0,paragraphGap:9,textAlign:'left'};
+ const s={...style,firstLineIndentEm:0,paragraphGap:9,textAlign:'left'};
  const p=plan(w,22,50,s);
  assert.ok(p.pages.length>1);
  for(const page of p.pages)assert.equal(page.rows[0].top,s.paddingY);
