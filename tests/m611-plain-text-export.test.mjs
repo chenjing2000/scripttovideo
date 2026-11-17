@@ -38,6 +38,8 @@ test('M6.22: native bundle saves derived TXT rather than using the removed expor
  const source=readFileSync('desktop/ReaderWindow.cs','utf8');
  assert.match(source,/case "project-bundle-save":\s*try \{ SaveProjectBundle\(request\)/);
  assert.doesNotMatch(source,/case "export-text":/);
- assert.match(source,/new UTF8Encoding\(false\)/);
+ const storage=readFileSync('desktop/ReviseStorage.cs','utf8');
+ assert.match(storage,/new UTF8Encoding\(false\)/);
+ assert.match(storage,/AtomicWrite\(paths\.Text,text\)/);
  assert.doesNotMatch(source,/new SaveFileDialog/);
 });
