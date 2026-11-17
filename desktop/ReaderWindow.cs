@@ -28,7 +28,7 @@ internal sealed class ReaderWindow : Window
     private Source? source;
     private sealed record MediaCandidate(string Path, string Kind, string Url);
     private sealed record PendingMediaImport(string Id, string Subtitle, string Transcript,
-        string Fingerprint, string ProjectPath, string? ProjectContent, List<MediaCandidate> Candidates);
+        string ProjectPath, string? ProjectContent, List<MediaCandidate> Candidates);
     private PendingMediaImport? pendingMediaImport;
     private string? previousMediaUrl;
     private string? lastCommittedImportId;
@@ -61,7 +61,7 @@ internal sealed class ReaderWindow : Window
     };
 
 
-    private sealed record Source(string Media, string Transcript, string Fingerprint, string Project, string MediaKind);
+    private sealed record Source(string Media, string Transcript, string Project, string MediaKind);
 
     [STAThread]
     private static void Main()
@@ -342,7 +342,6 @@ internal sealed class ReaderWindow : Window
                         Send(new { kind = "project-bundle-save-failed",
                             operationId = request.GetProperty("operationId").GetInt32(),
                             revision = request.GetProperty("revision").GetInt64(),
-                            fingerprint = request.GetProperty("fingerprint").GetString(),
                             subtitleName = request.GetProperty("subtitleName").GetString(),
                             message = error.Message });
                     }
@@ -560,7 +559,6 @@ internal sealed class ReaderWindow : Window
                 root.TryGetProperty("video_transcript", out _) || root.TryGetProperty("enscript", out _))
                 throw new InvalidOperationException("原始字幕必须是包含 title 的 ScriptToVideo v3 格式。");
         }
-        var fingerprint = Convert.ToHexString(SHA256.HashData(bytes));
         // M6.12 is a breaking storage-layout change: do not search or migrate legacy projects.
         var workFolder = Path.Combine(folder, stem);
         var projectPath = Path.Combine(workFolder, stem + ".project.json");
@@ -597,7 +595,7 @@ internal sealed class ReaderWindow : Window
             if (candidates.Count == 0)
                 throw new FileNotFoundException($"找不到同名媒体：{string.Join("、", new[] { ".mp4", ".mkv", ".m4a", ".mp3", ".wav" }.Select(ext => stem + ext))}");
             var id = Guid.NewGuid().ToString("N");
-            pendingMediaImport = new PendingMediaImport(id, subtitle, transcript, fingerprint, projectPath, projectContent, candidates);
+            pendingMediaImport = new PendingMediaImport(id, subtitle, transcript, projectPath, projectContent, candidates);
             Send(new
             {
                 kind = "import-candidates", requestId = id, subtitleName = filename, transcript,
@@ -643,7 +641,7 @@ internal sealed class ReaderWindow : Window
             if (candidate.Url != selected.Url) server.ReleaseCandidate(candidate.Url);
         pendingMediaImport = null;
         lastCommittedImportId = pending.Id;
-        source = new Source(selected.Path, pending.Subtitle, pending.Fingerprint, pending.ProjectPath, selected.Kind);
+        source = new Source(selected.Path, pending.Subtitle, pending.ProjectPath, selected.Kind);
         // Read only: existing revised content is validated by the front end before use.
         // No work files are created during media probing or before pair acceptance.
         string? existingRevised;
@@ -668,7 +666,7 @@ internal sealed class ReaderWindow : Window
             // Send an explicit error so the front end rejects this pair.
             Send(new { kind = "pair", requestId = pending.Id, mediaName = Path.GetFileName(selected.Path),
                 mediaKind = selected.Kind, subtitleName = Path.GetFileName(pending.Subtitle),
-                mediaUrl = selected.Url, transcript = pending.Transcript, fingerprint = pending.Fingerprint,
+                mediaUrl = selected.Url, transcript = pending.Transcript,
                 project = pending.ProjectContent, revisedError = error.Message });
             return;
         }
@@ -676,7 +674,7 @@ internal sealed class ReaderWindow : Window
         {
             kind = "pair", requestId = pending.Id, mediaName = Path.GetFileName(selected.Path),
             mediaKind = selected.Kind, subtitleName = Path.GetFileName(pending.Subtitle),
-            mediaUrl = selected.Url, transcript = pending.Transcript, fingerprint = pending.Fingerprint,
+            mediaUrl = selected.Url, transcript = pending.Transcript,
             project = File.Exists(pending.ProjectPath) ? File.ReadAllText(pending.ProjectPath, Encoding.UTF8) : null,
             revised = existingRevised, revisedText = existingText
         });
@@ -1353,8 +1351,6 @@ internal sealed class ReaderWindow : Window
     {
         try { if (Directory.Exists(path)) Directory.Delete(path, recursive: true); } catch { }
     }
-
-    private static string Fingerprint(string file) => Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(file)));
 
     private void Send(object message) => view.CoreWebView2.PostWebMessageAsJson(JsonSerializer.Serialize(message));
 }

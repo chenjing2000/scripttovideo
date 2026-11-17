@@ -18,7 +18,7 @@ import {planManualSave,isMatchingBundleSaveReply,bundleSaveSucceeded,tryLayoutTi
 import type {BundleSaveOperation,ScriptToVideoInput} from './core';
 import type {AppSettings} from './core/app-settings';
 type DesktopMessage =
- | {kind:'pair';requestId?:string;mediaName:string;mediaKind:'video'|'audio';subtitleName:string;transcript:string;fingerprint:string;project:string|null;mediaUrl:string;revised?:string|null;revisedText?:string|null;revisedError?:string}
+ | {kind:'pair';requestId?:string;mediaName:string;mediaKind:'video'|'audio';subtitleName:string;transcript:string;project:string|null;mediaUrl:string;revised?:string|null;revisedText?:string|null;revisedError?:string}
  | {kind:'import-candidates';requestId:string;subtitleName:string;transcript:string;candidates:Array<{index:number;mediaName:string;mediaKind:'video'|'audio';mediaUrl:string}>}
  | {kind:'settings';settings:unknown}
  | {kind:'reload-failed';message:string}
@@ -106,8 +106,8 @@ function App(){
  const clearReload=()=>{reloadingRef.current=false;setReloading(false)};
  const expectedDesktopImportIdRef=useRef<string|null>(null);
  const committedPairAckRef=useRef<string|null>(null);
- const activeRevisedSourceRef=useRef<{fingerprint:string;subtitleName:string;operationId:number}|null>(null);
- const openingOriginalRef=useRef<{fingerprint:string;subtitleName:string;mediaName:string;mediaKind:'video'|'audio';original:ScriptToVideoInput}|null>(null);
+ const activeRevisedSourceRef=useRef<{subtitleName:string}|null>(null);
+ const openingOriginalRef=useRef<{subtitleName:string;mediaName:string;mediaKind:'video'|'audio';original:ScriptToVideoInput}|null>(null);
  const pendingBundleSaveRef=useRef<(BundleSaveOperation&{revised:ScriptToVideoInput;text:string;project:Project})|null>(null);
  const nextBundleSaveIdRef=useRef(0);
  const pendingExportRef=useRef<{operationId:number;revision:number;duration:number;videoHeight:number;pagePlan:ReturnType<typeof paginate>}|null>(null);
@@ -363,9 +363,9 @@ function App(){
      else current=normalizeProjectStyle(stored);
     }catch{resetProject=true}
    }
-   openingOriginalRef.current={fingerprint:data.fingerprint,subtitleName:data.subtitleName,
+   openingOriginalRef.current={subtitleName:data.subtitleName,
     mediaName:data.mediaName,mediaKind:data.mediaKind,original:input};
-   activeRevisedSourceRef.current={fingerprint:data.fingerprint,subtitleName:data.subtitleName,operationId:0};
+   activeRevisedSourceRef.current={subtitleName:data.subtitleName};
    setMediaUrl(data.mediaUrl);setMediaName(data.mediaName);setKind(data.mediaKind);
    setProject(current);setWords(effective.words);titleRef.current=effective.title;setTitle(effective.title);
    setEditing(null);setWordTool(null);setToolLeaving(false);resetProjectDirtyState();
@@ -439,13 +439,11 @@ function App(){
    if(changedDuringImport())throw Error('导入期间原工程发生新的修改，已取消导入。');
    const match=probe.selected.item,url=urls.get(match.name)!;
    if(input.script_to_video.schemaVersion!==3)throw Error('浏览器只接受原始 ScriptToVideo v3 字幕');
-   const hash=new Uint8Array(await crypto.subtle.digest('SHA-256',await file.arrayBuffer()));
-   const fingerprint=Array.from(hash,b=>b.toString(16).padStart(2,'0')).join('').toUpperCase();
    if(controller.signal.aborted||changedDuringImport())throw Error('字幕导入已取消或原工程发生修改');
    const next=createProject(match.name,file.name);
    
    next.style=settingsToStyle(appSettingsRef.current);next.canvas={...appSettingsRef.current.output};next.mediaKind=match.kind;
-   openingOriginalRef.current={fingerprint,subtitleName:file.name,mediaName:match.name,mediaKind:match.kind,original:input};
+   openingOriginalRef.current={subtitleName:file.name,mediaName:match.name,mediaKind:match.kind,original:input};
    keepUrl=url;
 
    setMediaUrl(url);setMediaName(match.name);setKind(match.kind);setProject(next);
