@@ -644,15 +644,15 @@ internal sealed class ReaderWindow : Window
         pendingMediaImport = null;
         lastCommittedImportId = pending.Id;
         source = new Source(selected.Path, pending.Subtitle, pending.Fingerprint, pending.ProjectPath, selected.Kind);
-        // Read only: existing refined content is validated by the front end before use.
+        // Read only: existing revised content is validated by the front end before use.
         // No work files are created during media probing or before pair acceptance.
-        string? existingRefined;
+        string? existingRevised;
         string? existingText = null;
         try
         {
             var revisePaths = ReviseStorage.Resolve(pending.Subtitle);
-            existingRefined = ReviseStorage.ReadExisting(revisePaths);
-            if (existingRefined != null)
+            existingRevised = ReviseStorage.ReadExisting(revisePaths);
+            if (existingRevised != null)
             {
                 if (Directory.Exists(revisePaths.Text))
                     throw new IOException("TXT 文件路径被目录占用。");
@@ -663,13 +663,13 @@ internal sealed class ReaderWindow : Window
         catch (Exception error)
         {
             AppLog.WriteException("Revise.ReadExisting", error);
-            existingRefined = null;
-            // An unreadable refined is not equivalent to a missing refined.
+            existingRevised = null;
+            // An unreadable revised is not equivalent to a missing revised.
             // Send an explicit error so the front end rejects this pair.
             Send(new { kind = "pair", requestId = pending.Id, mediaName = Path.GetFileName(selected.Path),
                 mediaKind = selected.Kind, subtitleName = Path.GetFileName(pending.Subtitle),
                 mediaUrl = selected.Url, transcript = pending.Transcript, fingerprint = pending.Fingerprint,
-                project = pending.ProjectContent, refinedError = error.Message });
+                project = pending.ProjectContent, revisedError = error.Message });
             return;
         }
         Send(new
@@ -678,7 +678,7 @@ internal sealed class ReaderWindow : Window
             mediaKind = selected.Kind, subtitleName = Path.GetFileName(pending.Subtitle),
             mediaUrl = selected.Url, transcript = pending.Transcript, fingerprint = pending.Fingerprint,
             project = File.Exists(pending.ProjectPath) ? File.ReadAllText(pending.ProjectPath, Encoding.UTF8) : null,
-            refined = existingRefined, refinedText = existingText
+            revised = existingRevised, revisedText = existingText
         });
     }
 

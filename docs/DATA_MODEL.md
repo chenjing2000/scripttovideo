@@ -35,7 +35,7 @@ The v3 `<stem>.project.json` stores source/media identity and fingerprint, canva
 
 When a valid v3 original subtitle is first opened without a project or revised copy, the application creates a new v3 revise working file and derived TXT. An existing v3 revise file is authoritative and must match the source word/time anchors. An existing project must be a valid v3 presentation-only project; a v3 project without its revised working file is blocked, not recreated.
 
-**No old-format compatibility or migration:** original subtitle v2 files, project v2 files, `<stem>.script.refined.json`, and their old save journals are not recognized as working data, renamed, imported or repaired. The application does not delete them. Any existing project v2 is rejected rather than overwritten. To start a fresh project, manually move old work files out of the companion directory after backing them up.
+**No old-format compatibility or migration:** original subtitle v2 files, project v2 files, `<stem>.script.revised.json`, and their old save journals are not recognized as working data, renamed, imported or repaired. The application does not delete them. Any existing project v2 is rejected rather than overwritten. To start a fresh project, manually move old work files out of the companion directory after backing them up.
 
 Only the **current v3 three-file save transaction** retains guarded journal recovery for interrupted Ctrl+S and pre-export saves. A failed or conflicting recovery leaves the journal and user files intact. The original v3 subtitle never changes.
 
