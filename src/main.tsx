@@ -4,7 +4,7 @@ import {ReaderCanvas} from './ui/ReaderCanvas';
 import {StyleSettings} from './ui/StyleSettings';
 import {Dialog} from './ui/Dialog';
 import type {DialogAction} from './ui/Dialog';
-import {parseScriptToVideo,createProject,updateWord,buildRefinedScript,paginate,measureWithCanvas,DEFAULT_STYLE,normalizeProjectStyle,WIDTH,HEIGHT,validCanvas,transcriptStem,findMediaCandidates,provisionalVideoHeight,describeMediaError,missingCompanionMessage,planRefinedOpen,validatePresentationProject,buildRefinedText} from './core';
+import {parseScriptToVideo,createProject,updateWord,buildRevisedScript,paginate,measureWithCanvas,DEFAULT_STYLE,normalizeProjectStyle,WIDTH,HEIGHT,validCanvas,transcriptStem,findMediaCandidates,provisionalVideoHeight,describeMediaError,missingCompanionMessage,planReviseOpen,validatePresentationProject,buildRevisedText} from './core';
 import type {Word,Project} from './core';
 import {probeInPriority} from './core/media-probe';
 import {resolvePlayerShortcut} from './core/player-shortcuts';
@@ -18,7 +18,7 @@ import {planManualSave,isMatchingBundleSaveReply,bundleSaveSucceeded,tryLayoutTi
 import type {BundleSaveOperation,ScriptToVideoInput} from './core';
 import type {AppSettings} from './core/app-settings';
 type DesktopMessage =
- | {kind:'pair';requestId?:string;mediaName:string;mediaKind:'video'|'audio';subtitleName:string;transcript:string;fingerprint:string;project:string|null;mediaUrl:string;refined?:string|null;refinedText?:string|null;refinedError?:string}
+ | {kind:'pair';requestId?:string;mediaName:string;mediaKind:'video'|'audio';subtitleName:string;transcript:string;fingerprint:string;project:string|null;mediaUrl:string;revised?:string|null;revisedText?:string|null;revisedError?:string}
  | {kind:'import-candidates';requestId:string;subtitleName:string;transcript:string;candidates:Array<{index:number;mediaName:string;mediaKind:'video'|'audio';mediaUrl:string}>}
  | {kind:'settings';settings:unknown}
  | {kind:'reload-failed';message:string}
@@ -106,9 +106,9 @@ function App(){
  const clearReload=()=>{reloadingRef.current=false;setReloading(false)};
  const expectedDesktopImportIdRef=useRef<string|null>(null);
  const committedPairAckRef=useRef<string|null>(null);
- const activeRefinedSourceRef=useRef<{fingerprint:string;subtitleName:string;operationId:number}|null>(null);
+ const activeRevisedSourceRef=useRef<{fingerprint:string;subtitleName:string;operationId:number}|null>(null);
  const openingOriginalRef=useRef<{fingerprint:string;subtitleName:string;mediaName:string;mediaKind:'video'|'audio';original:ScriptToVideoInput}|null>(null);
- const pendingBundleSaveRef=useRef<(BundleSaveOperation&{refined:ScriptToVideoInput;text:string;project:Project})|null>(null);
+ const pendingBundleSaveRef=useRef<(BundleSaveOperation&{revised:ScriptToVideoInput;text:string;project:Project})|null>(null);
  const nextBundleSaveIdRef=useRef(0);
  const pendingExportRef=useRef<{operationId:number;revision:number;duration:number;videoHeight:number;pagePlan:ReturnType<typeof paginate>}|null>(null);
  const changedDuringImport=()=>{
@@ -248,11 +248,11 @@ function App(){
     const operationId=++nextBundleSaveIdRef.current,revision=projectEditStateRef.current.currentRevision;
     pendingBundleSaveRef.current={operationId,revision,subtitleName:source.subtitleName,...snapshot};
     desktop.postMessage({kind:'project-bundle-save',operationId,revision,subtitleName:source.subtitleName,
-     revised:snapshot.refined,text:snapshot.text,project:snapshot.project});
+     revised:snapshot.revised,text:snapshot.text,project:snapshot.project});
    }else{
     const stem=transcriptStem(project.script.filename);
     for(const [name,content,mime] of [
-     [stem+'.script.revise.json',JSON.stringify(snapshot.refined,null,2),'application/json'],
+     [stem+'.script.revise.json',JSON.stringify(snapshot.revised,null,2),'application/json'],
      [stem+'.txt',snapshot.text,'text/plain'],
      [stem+'.project.json',JSON.stringify(snapshot.project,null,2),'application/json']
     ]){
@@ -289,7 +289,7 @@ function App(){
    pendingExportRef.current={operationId,revision,duration,videoHeight:mediaHeight,pagePlan:exportPlan};
    setExporting(true);setExportTaskNotice('正在保存导出所需的工作文件…');
    desktop.postMessage({kind:'project-bundle-save',operationId,revision,subtitleName:source.subtitleName,
-    revised:snapshot.refined,text:snapshot.text,project:snapshot.project});
+    revised:snapshot.revised,text:snapshot.text,project:snapshot.project});
   }catch(error){
    pendingExportRef.current=null;pendingBundleSaveRef.current=null;setExporting(false);
    notify(`无法准备导出：${String(error)}`,true);
@@ -345,10 +345,10 @@ function App(){
    clearReload();notify('导入期间原工程被修改，已保留原工程。',true);return;
   }
   try{
-   if(data.refinedError)throw Error(`revise 无法读取：${data.refinedError}`);
+   if(data.revisedError)throw Error(`revise 无法读取：${data.revisedError}`);
    const input=JSON.parse(data.transcript),original=parseScriptToVideo(input);
-   const revised=data.refined?JSON.parse(data.refined):null;
-   const openPlan=planRefinedOpen(input,revised);
+   const revised=data.revised?JSON.parse(data.revised):null;
+   const openPlan=planReviseOpen(input,revised);
    const effective=parseScriptToVideo(openPlan.script);
    const next=createProject(data.mediaName,data.subtitleName);
    next.style=settingsToStyle(appSettingsRef.current);
@@ -365,7 +365,7 @@ function App(){
    }
    openingOriginalRef.current={fingerprint:data.fingerprint,subtitleName:data.subtitleName,
     mediaName:data.mediaName,mediaKind:data.mediaKind,original:input};
-   activeRefinedSourceRef.current={fingerprint:data.fingerprint,subtitleName:data.subtitleName,operationId:0};
+   activeRevisedSourceRef.current={fingerprint:data.fingerprint,subtitleName:data.subtitleName,operationId:0};
    setMediaUrl(data.mediaUrl);setMediaName(data.mediaName);setKind(data.mediaKind);
    setProject(current);setWords(effective.words);titleRef.current=effective.title;setTitle(effective.title);
    setEditing(null);setWordTool(null);setToolLeaving(false);resetProjectDirtyState();
@@ -383,7 +383,7 @@ function App(){
     notify('旧 project 不属于当前 script，已重建为默认设置。');
    }else if(data.kind==='project-bundle-saved'||data.kind==='project-bundle-save-failed'){
     const pending=pendingBundleSaveRef.current,exportRequest=pendingExportRef.current;
-    if(!pending||!isMatchingBundleSaveReply(pending,data,activeRefinedSourceRef.current)){
+    if(!pending||!isMatchingBundleSaveReply(pending,data,activeRevisedSourceRef.current)){
      notify('已忽略过期的保存响应。',true);
     }else{
      pendingBundleSaveRef.current=null;
@@ -406,7 +406,7 @@ function App(){
       if(saved&&projectEditStateRef.current.currentRevision===exportRequest.revision&&
          !hasUnsavedProjectChanges(projectEditStateRef.current)){
        setExportTaskNotice('工程已保存，正在启动视频导出…');
-       desktop?.postMessage({kind:'export',project:pending.project, revised:pending.refined,
+       desktop?.postMessage({kind:'export',project:pending.project, revised:pending.revised,
         duration:exportRequest.duration,videoHeight:exportRequest.videoHeight,pagePlan:exportRequest.pagePlan});
       }else{
        setExporting(false);clearExportTaskNotice();

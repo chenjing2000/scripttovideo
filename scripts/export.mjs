@@ -1,6 +1,6 @@
 import {readFile,copyFile,mkdir,stat} from 'node:fs/promises';
 import path from 'node:path';import {execFileSync} from 'node:child_process';import{fileURLToPath}from'node:url';
-import {assertScriptToVideo,assertRefinedForExport,assertPresentationProjectForExport} from './script-to-video-contract.mjs';
+import {assertScriptToVideo,assertRevisedForExport,assertPresentationProjectForExport} from './script-to-video-contract.mjs';
 import {createCliTaskCacheDir} from './cli-cache.mjs';
 import {assertExportPagePlan} from './page-plan-validation.mjs';
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
@@ -24,7 +24,7 @@ try{
  // Derived files live under <original-folder>/<stem>/, not beside the original.
  if(path.resolve(json)!==path.resolve(path.join(path.dirname(sourceJson),stem,stem+'.script.revise.json')))
   throw Error('Revised subtitle must be in the companion derived-data folder');
- const input=assertRefinedForExport(
+ const input=assertRevisedForExport(
   JSON.parse((await readFile(json,'utf8')).replace(/^\uFEFF/,'')),original);
  const ext=path.extname(media).toLowerCase();if(!['.mp4','.mkv','.m4a','.mp3','.wav'].includes(ext))throw Error('Unsupported media extension');
  const mediaKind=['.m4a','.mp3','.wav'].includes(ext)?'audio':'video';

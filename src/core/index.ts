@@ -10,10 +10,10 @@ export * from './app-settings';
 
 export * from './plain-text';
 
-export * from './refined';
-export * from './refined-paths';
+export * from './revise';
+export * from './revise-paths';
 export * from './project-v3';
-export * from './refined-open';
+export * from './revise-open';
 export * from './manual-save-plan';
 export * from './bundle-save-protocol';
 

@@ -32,34 +32,34 @@ export function assertScriptToVideo(input){
 }
 
 
-/** Validate a refined v3 subtitle against its immutable v3 source.
+/** Validate a revised v3 subtitle against its immutable v3 source.
  * The project identifies its original subtitle only by script.filename.
  */
-export function assertRefinedForExport(refined,original){
+export function assertRevisedForExport(revised,original){
  const object=x=>!!x&&typeof x==='object'&&!Array.isArray(x);
- if(!object(refined)||!object(refined.script_to_video)||
-    refined.script_to_video.format!=='script-to-video'||
-    refined.script_to_video.schemaVersion!==3||
-    'displayOverrides' in refined.script_to_video||
-    typeof refined.title!=='string'||refined.language!=='en'||
-    !Array.isArray(refined.segments)||refined.segments.length!==original.segments.length)
-  throw new Error('Invalid refined v3 subtitle');
+ if(!object(revised)||!object(revised.script_to_video)||
+    revised.script_to_video.format!=='script-to-video'||
+    revised.script_to_video.schemaVersion!==3||
+    'displayOverrides' in revised.script_to_video||
+    typeof revised.title!=='string'||revised.language!=='en'||
+    !Array.isArray(revised.segments)||revised.segments.length!==original.segments.length)
+  throw new Error('Invalid revised v3 subtitle');
  for(let si=0;si<original.segments.length;si++){
-  const before=original.segments[si],after=refined.segments[si];
+  const before=original.segments[si],after=revised.segments[si];
   if(!object(after)||!Array.isArray(after.words)||after.words.length!==before.words.length)
-   throw new Error('Refined segment structure mismatch');
+   throw new Error('Revised segment structure mismatch');
   for(let wi=0;wi<before.words.length;wi++){
    const oldWord=before.words[wi],word=after.words[wi];
    if(!object(word)||word.start!==oldWord.start||word.end!==oldWord.end||
       typeof word.word!=='string'||!word.word.trim()||/\s/u.test(word.word.trim())||
       (word.hidden!==undefined&&word.hidden!==true)||
       (word.breakParagraph!==undefined&&word.breakParagraph!==true))
-    throw new Error(`Refined word or timing anchor mismatch: s${si}w${wi}`);
+    throw new Error(`Revised word or timing anchor mismatch: s${si}w${wi}`);
   }
  }
- if(refined.segments.at(-1).words.at(-1).breakParagraph===true)
-  throw new Error('Refined final word cannot end a paragraph');
- return refined;
+ if(revised.segments.at(-1).words.at(-1).breakParagraph===true)
+  throw new Error('Revised final word cannot end a paragraph');
+ return revised;
 }
 
 /** Strict admission check for a saved project supplied directly to the export CLI. */
