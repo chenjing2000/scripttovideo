@@ -11,7 +11,7 @@ export function normalizeProjectStyle(project:Project):Project{
  const {mediaKind:_obsoleteMediaKind,...settings}=project as Project&{mediaKind?:unknown};
  return {...settings,canvas:project.canvas??{width:WIDTH,height:HEIGHT},
  titleStyle:{...DEFAULT_TITLE_STYLE,...project.titleStyle},
- style:{...DEFAULT_STYLE,...project.style,...(project.style.firstLineIndentCh===undefined&&project.style.firstLineIndentEm===undefined?{firstLineIndentEm:2}:{})}};
+ style:{...DEFAULT_STYLE,...project.style}};
 }
 export function validateProject(value:unknown):value is Project{
  if(!value||typeof value!=='object'||Array.isArray(value))return false;
@@ -32,12 +32,11 @@ export function validateProject(value:unknown):value is Project{
   if(typeof s[key]!=='number'||!Number.isFinite(s[key]))return false;
  }
  if(s.fontSize<=0||s.fontWeight<=0||s.lineHeight<=0||s.paragraphGap<0||
-    (s.firstLineIndentEm??s.firstLineIndentCh??0)<0||s.paddingX<0||s.paddingY<0)return false;
+    (s.firstLineIndentEm??0)<0||s.paddingX<0||s.paddingY<0)return false;
  for(const key of ['textColor','highlightColor','backgroundColor'] as const){
   if(typeof s[key]!=='string'||!/^#[0-9a-f]{6}$/i.test(s[key]))return false;
  }
  if(s.firstLineIndentEm!==undefined&&(!Number.isInteger(s.firstLineIndentEm)||s.firstLineIndentEm<0||s.firstLineIndentEm>9))return false;
- if(s.firstLineIndentCh!==undefined&&(!Number.isFinite(s.firstLineIndentCh)||s.firstLineIndentCh<0))return false;
  if(s.minScrollDuration!==undefined&&(!Number.isFinite(s.minScrollDuration)||s.minScrollDuration<0))return false;
  if(p.titleStyle!==undefined){const t=p.titleStyle;
   if(!t||typeof t!=='object'||Array.isArray(t))return false;
