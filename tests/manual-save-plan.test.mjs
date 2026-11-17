@@ -7,7 +7,7 @@ const source={script_to_video:{format:'script-to-video',schemaVersion:3},title:'
 const words=parseScriptToVideo(source).words,project=createProject('x.mp4','x.script.json');
 test('Ctrl+S snapshot always includes complete revise, TXT and project',()=>{
  const saved=planManualSave(source,project,words,'');
- assert.equal(saved.refined.script_to_video.schemaVersion,3);
+ assert.equal(saved.revised.script_to_video.schemaVersion,3);
  assert.equal(saved.text,'Hello world');
  assert.equal(saved.project.script.filename,'x.script.json');
  assert.deepEqual(saved.project,project);
@@ -15,8 +15,8 @@ test('Ctrl+S snapshot always includes complete revise, TXT and project',()=>{
 test('snapshot contains word edits while original v3 remains untouched',()=>{
  const changed=words.map((w,i)=>i===0?{...w,display:'Hi'}:w);
  const saved=planManualSave(source,project,changed,'Headline');
- assert.equal(saved.refined.title,'Headline');
- assert.equal(saved.refined.segments[0].words[0].word,'Hi');
+ assert.equal(saved.revised.title,'Headline');
+ assert.equal(saved.revised.segments[0].words[0].word,'Hi');
  assert.match(saved.text,/Hi world/);
  assert.equal(source.segments[0].words[0].word,'Hello');
 });
