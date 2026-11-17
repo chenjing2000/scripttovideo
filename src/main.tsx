@@ -22,6 +22,7 @@ type DesktopMessage =
  | {kind:'import-candidates';requestId:string;subtitleName:string;transcript:string;candidates:Array<{index:number;mediaName:string;mediaKind:'video'|'audio';mediaUrl:string}>}
  | {kind:'settings';settings:unknown}
  | {kind:'reload-failed';message:string}
+ | {kind:'project-reset-complete';subtitleName:string}
  | {kind:'project-bundle-saved'|'project-bundle-save-failed';message:string;operationId:number;revision:number;subtitleName:string;revisedSnapshot?:string;textSnapshot?:string;projectSnapshot?:string}
  | {kind:'status';message:string;busy:boolean;error?:boolean;canCancel?:boolean}
  | {kind:'dependency-confirm';id:number;title:string;heading:string;details:string;action:string}
