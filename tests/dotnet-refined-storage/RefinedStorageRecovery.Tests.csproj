@@ -6,6 +6,6 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="../../desktop/RefinedStorage.cs" Link="RefinedStorage.cs" />
+    <Compile Include="../../desktop/ReviseStorage.cs" Link="ReviseStorage.cs" />
   </ItemGroup>
 </Project>
