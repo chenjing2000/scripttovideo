@@ -1140,7 +1140,6 @@ internal sealed class ReaderWindow : Window
             }
 
             task.Status = ExportStatus.Rendering;
-            var watch = Stopwatch.StartNew();
             var result = await exportProcesses.RunAsync(start, token, line =>
             {
                 if (line.StartsWith("render ", StringComparison.Ordinal))
