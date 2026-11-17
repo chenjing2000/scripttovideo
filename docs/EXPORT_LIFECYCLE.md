@@ -20,6 +20,6 @@ While exporting, the Settings button is disabled. Native minimization retains a 
 
 ## CLI distinction
 
-`npm run export -- --media ... --json <stem>.script.revise.json --source-json <stem>.script.json --project <stem>.project.json --out ...` accepts one explicit media file and does not do desktop candidate discovery/fallback. It uses a separate `job-*` under the supplied `--cache-dir` or default `.script-to-video-cache/` beside output; CLI caches are retained for diagnostics.
+`npm run export -- --media ... --json <stem>.script.revise.json --source-json <stem>.script.json --project <stem>.project.json --out ...` accepts one explicit media file and does not do desktop candidate discovery/fallback. It uses a separate `job-*` under the supplied `--cache-dir` or default `.script-to-video-cache/` beside output; CLI caches are retained for diagnostics. After rendering completes, the CLI first attempts an exclusive hard link to the lowest available output filename. When the cache is on another filesystem (`EXDEV`), it copies the completed MP4 into a private temporary directory on the output volume, then atomically links that complete copy into the final name. This ensures no existing output is replaced and no partially copied MP4 appears at a final filename. The output-volume staging directory is removed on success or failure; a failed commit leaves the original rendered file in its task cache for recovery.
 
 Test actual playback and audio after rendering. Automated tests alone cannot establish codec compatibility or final media quality.
