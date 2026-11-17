@@ -36,29 +36,20 @@ export function assertScriptToVideo(input){
  * The project identifies its original subtitle only by script.filename.
  */
 export function assertRevisedForExport(revised,original){
- const object=x=>!!x&&typeof x==='object'&&!Array.isArray(x);
- if(!object(revised)||!object(revised.script_to_video)||
-    revised.script_to_video.format!=='script-to-video'||
-    revised.script_to_video.schemaVersion!==3||
-    'displayOverrides' in revised.script_to_video||
-    typeof revised.title!=='string'||revised.language!=='en'||
-    !Array.isArray(revised.segments)||revised.segments.length!==original.segments.length)
-  throw new Error('Invalid revised v3 subtitle');
+ assertScriptToVideo(original);
+ assertScriptToVideo(revised);
+ if(revised.segments.length!==original.segments.length)
+  throw new Error('Revised segment structure mismatch');
  for(let si=0;si<original.segments.length;si++){
   const before=original.segments[si],after=revised.segments[si];
-  if(!object(after)||!Array.isArray(after.words)||after.words.length!==before.words.length)
+  if(after.words.length!==before.words.length)
    throw new Error('Revised segment structure mismatch');
   for(let wi=0;wi<before.words.length;wi++){
    const oldWord=before.words[wi],word=after.words[wi];
-   if(!object(word)||word.start!==oldWord.start||word.end!==oldWord.end||
-      typeof word.word!=='string'||!word.word.trim()||/\s/u.test(word.word.trim())||
-      (word.hidden!==undefined&&word.hidden!==true)||
-      (word.breakParagraph!==undefined&&word.breakParagraph!==true))
+   if(word.start!==oldWord.start||word.end!==oldWord.end)
     throw new Error(`Revised word or timing anchor mismatch: s${si}w${wi}`);
   }
  }
- if(revised.segments.at(-1).words.at(-1).breakParagraph===true)
-  throw new Error('Revised final word cannot end a paragraph');
  return revised;
 }
 
@@ -67,10 +58,10 @@ function assertSharedProjectForExport(project,{subtitleName}){
  const object=x=>!!x&&typeof x==='object'&&!Array.isArray(x);
  const finite=n=>typeof n==='number'&&Number.isFinite(n);
  const color=s=>typeof s==='string'&&/^#[0-9a-f]{6}$/i.test(s);
- if(!object(project)||project.format!=='script-to-video-project'||project.schemaVersion!==3||'source' in project||'overrides' in project)
+ if(!object(project)||project.format!=='script-to-video-project'||project.schemaVersion!==3||'source' in project||'overrides' in project||'savedAt' in project)
   throw new Error('Expected presentation-only project v3');
  const script=project.script;
- if(!object(script)||typeof script.filename!=='string'||script.filename.toLowerCase()!==subtitleName.toLowerCase()||
+ if(!object(script)||typeof script.filename!=='string'||!script.filename.toLowerCase().endsWith('.script.json')||script.filename.toLowerCase()!==subtitleName.toLowerCase()||
     script.filename.includes('/')||script.filename.includes('\\'))
   throw new Error('Project script.filename mismatch');
  const canvas=project.canvas;
@@ -87,9 +78,8 @@ function assertSharedProjectForExport(project,{subtitleName}){
   if(!finite(style[key]))throw new Error(`Invalid project style value: ${key}`);
  if(style.fontSize<=0||style.fontWeight<=0||style.lineHeight<=0||style.paragraphGap<0||style.paddingX<0||style.paddingY<0)
   throw new Error('Project reading style contains out-of-range values');
- const indent=style.firstLineIndentEm??style.firstLineIndentCh??0;
- if(!finite(indent)||indent<0)throw new Error('Invalid project first-line indentation');
- if(style.firstLineIndentEm!==undefined&&(!Number.isInteger(style.firstLineIndentEm)||style.firstLineIndentEm>9))
+ if('firstLineIndentCh' in style)throw new Error('Legacy firstLineIndentCh is not supported');
+ if(style.firstLineIndentEm!==undefined&&(!Number.isInteger(style.firstLineIndentEm)||style.firstLineIndentEm<0||style.firstLineIndentEm>9))
   throw new Error('Invalid project firstLineIndentEm');
  if(style.minScrollDuration!==undefined&&(!finite(style.minScrollDuration)||style.minScrollDuration<0))
   throw new Error('Invalid project minScrollDuration');
@@ -105,7 +95,7 @@ export function assertPresentationProjectForExport(project,context){
   throw new Error('Expected presentation-only project v3');
  if(project.titleStyle!==undefined){
   const t=project.titleStyle;
-  if(!t||typeof t!=='object'||(t.bold!==undefined&&typeof t.bold!=='boolean')||typeof t.fontFamily!=='string'||!t.fontFamily.trim()||
+  if(!t||typeof t!=='object'||Array.isArray(t)||(t.bold!==undefined&&typeof t.bold!=='boolean')||typeof t.fontFamily!=='string'||!t.fontFamily.trim()||
      !Number.isInteger(t.fontSize)||t.fontSize<1||t.fontSize>200||
      !Number.isInteger(t.lineHeight)||t.lineHeight<t.fontSize||t.lineHeight>300||
      !Number.isInteger(t.paragraphGap)||t.paragraphGap<0||t.paragraphGap>200||

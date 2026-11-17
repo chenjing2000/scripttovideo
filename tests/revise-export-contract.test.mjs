@@ -2,6 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {assertScriptToVideo,assertRevisedForExport,assertPresentationProjectForExport} from '../scripts/script-to-video-contract.mjs';
 import {assertExportPagePlan} from '../scripts/page-plan-validation.mjs';
+import {createRequire} from 'node:module';
+const require=createRequire(import.meta.url);
 
 const original={script_to_video:{format:'script-to-video',schemaVersion:3},title:'',language:'en',
  segments:[{words:[{word:'Hello',start:0,end:0.5},{word:'world',start:0.5,end:1}]}]};
@@ -64,4 +66,65 @@ test('page-plan preflight excludes hidden revised words without v2 overrides',()
  assert.doesNotThrow(()=>assertExportPagePlan(empty,transcript,1200,900));
  const visible=structuredClone(revised);
  assert.throws(()=>assertExportPagePlan(empty,visible,1200,900));
+});
+
+const core=require('../.tmp-core/index.js');
+const clone=value=>structuredClone(value);
+
+test('CLI and Core accept the same valid Project v3 presentation options',()=>{
+ const valid=[
+  project,
+  {...project,style:{...project.style,firstLineIndentEm:0}},
+  {...project,style:{...project.style,firstLineIndentEm:9,minScrollDuration:0}},
+  {...project,titleStyle:{bold:false,fontFamily:'Arial',fontSize:50,lineHeight:60,paragraphGap:0,color:'#123abc'}},
+  {...project,mediaKind:'audio'} // Existing v3 compatibility: ignored when normalized.
+ ];
+ for(const item of valid){
+  assert.equal(core.validateProject(item),true);
+  assert.doesNotThrow(()=>assertPresentationProjectForExport(item,context));
+ }
+});
+
+test('CLI and Core consistently reject obsolete or malformed Project v3 values',()=>{
+ const invalid=[
+  {...project,savedAt:'2026-01-01'},
+  {...project,style:{...project.style,firstLineIndentCh:2}},
+  {...project,style:{...project.style,firstLineIndentEm:10}},
+  {...project,style:{...project.style,firstLineIndentEm:1.5}},
+  {...project,style:{...project.style,firstLineIndentEm:null}},
+  {...project,style:{...project.style,firstLineIndentEm:-1}},
+  {...project,titleStyle:[]},
+  {...project,script:{filename:'sample.json'}}
+ ];
+ for(const item of invalid){
+  assert.equal(core.validateProject(item),false);
+  assert.throws(()=>assertPresentationProjectForExport(item,context));
+ }
+});
+
+test('CLI and Core reject identical malformed v3 revise metadata and word fields',()=>{
+ const invalid=[
+  r=>{r.script_to_video.extra=true;},
+  r=>{r.segments[0].words[0].paragraphAfter=true;},
+  r=>{r.segments[0].paragraph_start=true;},
+  r=>{r.word_segments=[{word:'Hello',breakParagraph:true}];},
+  r=>{r.segments[0].words[0].start=-1;},
+  r=>{r.segments[0].words[1].breakParagraph=true;},
+  r=>{r.segments[0].words[0].word='two words';}
+ ];
+ for(const mutate of invalid){
+  const item=clone(revised);mutate(item);
+  assert.throws(()=>core.planReviseOpen(original,item));
+  assert.throws(()=>assertRevisedForExport(item,original));
+ }
+});
+
+test('CLI and Core preserve valid revise edits and reject timing changes',()=>{
+ const accepted=clone(revised);
+ accepted.segments[0].words[0].breakParagraph=true;
+ assert.equal(core.planReviseOpen(original,accepted).kind,'existing');
+ assert.equal(assertRevisedForExport(accepted,original),accepted);
+ const moved=clone(accepted);moved.segments[0].words[0].end=0.4;
+ assert.throws(()=>core.planReviseOpen(original,moved));
+ assert.throws(()=>assertRevisedForExport(moved,original));
 });
