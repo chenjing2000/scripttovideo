@@ -454,7 +454,7 @@ internal sealed class ReaderWindow : Window
                     using var mergedDoc = JsonDocument.Parse(merged);
                     if (ValidSettings(mergedDoc.RootElement))
                     {
-                        AtomicWrite(settingsFile, merged);
+                        ReviseStorage.AtomicWrite(settingsFile, merged);
                         return merged;
                     }
                 }
@@ -478,7 +478,7 @@ internal sealed class ReaderWindow : Window
     private string CreateDefaultSettings()
     {
         var defaults = JsonSerializer.Serialize(DefaultSettings, JsonOptions);
-        AtomicWrite(settingsFile, defaults);
+        ReviseStorage.AtomicWrite(settingsFile, defaults);
         return defaults;
     }
 
@@ -516,22 +516,10 @@ internal sealed class ReaderWindow : Window
         }
         catch (Exception e) when (e is KeyNotFoundException or InvalidOperationException or FormatException) { return false; }
     }
-    private static void AtomicWrite(string file, string content)
-    {
-        Directory.CreateDirectory(Path.GetDirectoryName(file)!);
-        var temp = file + "." + Guid.NewGuid().ToString("N") + ".tmp";
-        try
-        {
-            File.WriteAllText(temp, content, new UTF8Encoding(false));
-            if (File.Exists(file)) File.Move(temp, file, overwrite: true);
-            else File.Move(temp, file);
-        }
-        finally { if (File.Exists(temp)) File.Delete(temp); }
-    }
     private void SaveSettings(JsonElement settings)
     {
         if (!ValidSettings(settings)) throw new InvalidDataException("全局设置验证失败，未保存。");
-        AtomicWrite(settingsFile, JsonSerializer.Serialize(settings, JsonOptions));
+        ReviseStorage.AtomicWrite(settingsFile, JsonSerializer.Serialize(settings, JsonOptions));
     }
 
     private void OpenPair(string subtitle)
@@ -566,8 +554,6 @@ internal sealed class ReaderWindow : Window
             throw new IOException($"工程工作目录被同名文件占用：{workFolder}");
         if (Directory.Exists(projectPath))
             throw new IOException($"工程文件路径被同名文件夹占用：{projectPath}");
-        // Complete guarded recovery before taking the project snapshot. Reading
-        // the project first would expose a stale v3 version after roll-forward.
         var revisePaths = ReviseStorage.Resolve(subtitle);
         // Read the project before switching the active media token/source. If the
         // project is inaccessible, the previously loaded pair remains usable.
@@ -717,8 +703,6 @@ internal sealed class ReaderWindow : Window
         Title = hasUnsavedChanges ? "ScriptToVideo ●" : "ScriptToVideo";
     }
 
-    // Return the actual persisted bytes only after the native operation
-    // succeeds. The frontend must never infer a disk snapshot from its request.
     private void ResetProject(JsonElement request)
     {
         var current=source??throw new InvalidOperationException("没有正在打开的字幕。");
@@ -822,7 +806,7 @@ internal sealed class ReaderWindow : Window
                         Directory.Move(backupModules,activeModules);
                     throw;
                 }
-                AtomicWrite(marker,checksum);
+                ReviseStorage.AtomicWrite(marker,checksum);
                 File.Delete(Path.Combine(runtime,".browser-ready"));
                 if(Directory.Exists(backupModules))Directory.Delete(backupModules,recursive:true);
             }
@@ -845,7 +829,7 @@ internal sealed class ReaderWindow : Window
             var browser = await RunDependencyCommandAsync("node.exe",runtime,["scripts/ensure-browser.mjs"],timeoutMs:900000,cancellationToken:cancellationToken);
             cancellationToken.ThrowIfCancellationRequested();
             if(browser.ExitCode!=0) throw new InvalidOperationException("Remotion 浏览器准备失败：" + browser.Output[^Math.Min(2000,browser.Output.Length)..]);
-            AtomicWrite(browserMarker,checksum);
+            ReviseStorage.AtomicWrite(browserMarker,checksum);
         }
         return runtime;
     }
