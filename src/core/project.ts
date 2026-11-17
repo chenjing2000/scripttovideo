@@ -26,6 +26,7 @@ export function validateProject(value:unknown):value is Project{
     (p.export.quality!=='standard'&&p.export.quality!=='high'))return false;
  if(!p.style||typeof p.style!=='object')return false;
  const s=p.style;
+ if('firstLineIndentCh' in s)return false;
  if(s.textAlign!=='left'&&s.textAlign!=='justify')return false;
  if(typeof s.fontFamily!=='string'||!s.fontFamily.trim())return false;
  for(const key of ['fontSize','fontWeight','lineHeight','paragraphGap','paddingX','paddingY'] as const){
