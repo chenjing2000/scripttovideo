@@ -45,6 +45,6 @@ npm.cmd run export -- --media "video/lesson01.m4a" --source-json "video/lesson01
 - [Code-review Skill](docs/skills/script-to-video-code-review/SKILL.md)
 - [M6.17 historical release and acceptance](M6.17_RELEASE_NOTES.md)
 
-The current working branch implements M6.22; historical milestone notes may describe superseded behavior.
+Historical milestone notes may describe superseded behavior; current functionality is defined by the main branch and the maintained documentation.
 
 Commit messages must be in English and describe the actual change.
