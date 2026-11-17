@@ -60,9 +60,9 @@ test('M6.15.5: an old save acknowledgement cannot clear dirty state after newer 
  assert.equal(state.hasUnsavedProjectChanges(current),true);
  assert.match(app,/revision=projectEditStateRef\.current\.currentRevision/);
  assert.match(app,/acknowledgeProjectSave\(projectEditStateRef\.current,pending\.revision\)/);
- assert.match(app,/isMatchingBundleSaveReply\(pending,data,activeRefinedSourceRef\.current\)/);
+ assert.match(app,/isMatchingBundleSaveReply\(pending,data,activeRevisedSourceRef\.current\)/);
  assert.match(app,/if\(bundleSaveSucceeded\(data\)\)/);
- assert.match(app,/confirmedDiskSnapshotRef\.current=\{\.\.\.disk,refined:persistedRefined,text:data\.textSnapshot,project:persistedProject\}/);
+ assert.match(app,/confirmedDiskSnapshotRef\.current=\{\.\.\.disk,revised:persistedRevised,text:data\.textSnapshot,project:persistedProject\}/);
  assert.match(app,/markProjectEdited\(projectEditStateRef\.current\)/);
  assert.match(app,/resetProjectEditState\(projectEditStateRef\.current\)/);
  assert.match(host,/case "project-bundle-save":\s*try \{ SaveProjectBundle\(request\)/);
