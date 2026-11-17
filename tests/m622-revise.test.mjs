@@ -35,6 +35,7 @@ test('project v3 is the only in-memory and persisted model',()=>{
  assert.equal(core.validateProject({...p,schemaVersion:2}),false);
  assert.equal(core.validateProject({...p,overrides:{}}),false);
  assert.equal(core.validateProject({...p,source:{}}),false);
+ assert.equal(core.validateProject({...p,style:{...p.style,firstLineIndentCh:4}}),false);
  assert.equal(core.validateProject({...p,script:{filename:'other.json'}}),false);
 });
 test('revise paths are confined to the source stem folder',()=>{
