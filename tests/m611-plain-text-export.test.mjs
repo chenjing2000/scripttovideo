@@ -26,21 +26,20 @@ test('M6.11: handles Unicode as plaintext without markup or timestamps',()=>{
  assert.equal(exportPlainText([word('café'),word('中文'),word('00:01',{hidden:true})]),'café 中文');
 });
 
-test('M6.12: toolbar order is settings, import, save, text, MP4',()=>{
+test('M6.22: toolbar keeps save and MP4 while TXT is derived from the bundle',()=>{
  const source=readFileSync('src/main.tsx','utf8');
- assert.match(source,/iconButton\('settings','设置',openSettings\).*iconButton\('import',.*iconButton\('save','保存工程 Ctrl\+S'.*iconButton\('text-export','导出正文 TXT',doExportText.*iconButton\('export','导出 MP4'/s);
- assert.match(source,/desktop\.postMessage\(\{kind:'export-text',text\}\)/);
+ assert.match(source,/iconButton\('settings','设置',openSettings,exporting\).*iconButton\('reload',.*iconButton\('import',.*iconButton\('save','保存工程 Ctrl\+S'.*iconButton\('export','导出 MP4'/s);
+ assert.doesNotMatch(source,/iconButton\('text-export'/);
+ assert.match(source,/kind:'project-bundle-save'/);
  assert.match(source,/currentWords=updateWord\(words,active\.id,active\.text\)/);
- assert.match(source,/kind==='text-exported'\)notify\(data\.message\)/);
 });
 
-test('M6.12: Windows text export uses fixed, atomic UTF-8 without BOM CRLF path',()=>{
+test('M6.22: native bundle saves derived TXT rather than using the removed export-text command',()=>{
  const source=readFileSync('desktop/ReaderWindow.cs','utf8');
- assert.match(source,/case "export-text":\s*ExportPlainText/);
- assert.match(source,/stem \+ "\.article\.txt"/);
- assert.match(source,/Replace\("\\r\\n", "\\n"\)\.Replace\('\\r', '\\n'\)\.Replace\("\\n", "\\r\\n"\)/);
- assert.match(source,/AtomicWrite\(articlePath, windowsText\)/);
- assert.match(source,/new UTF8Encoding\(false\)/);
+ assert.match(source,/case "project-bundle-save":\s*try \{ SaveProjectBundle\(request\)/);
+ assert.doesNotMatch(source,/case "export-text":/);
+ const storage=readFileSync('desktop/ReviseStorage.cs','utf8');
+ assert.match(storage,/new UTF8Encoding\(false\)/);
+ assert.match(storage,/AtomicWrite\(paths\.Text,text\)/);
  assert.doesNotMatch(source,/new SaveFileDialog/);
- assert.doesNotMatch(source,/case "export-text":\s*SaveProject/);
 });

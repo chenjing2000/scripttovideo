@@ -1,25 +1,32 @@
 import React,{useMemo} from 'react';
-import {paginate,pageAtTime,measureWithCanvas,wordGradient,wordProgress,isPagePlan} from '../core';
-import type {Word,ReadingStyle,PagePlan} from '../core';
+import {paginate,pageAtTime,measureWithCanvas,wordGradient,wordProgress,isPagePlan,tryLayoutTitle,DEFAULT_TITLE_STYLE} from '../core';
+import type {Word,ReadingStyle,PagePlan,TitleStyle} from '../core';
 /** Same component is used by WebView2 and Remotion. Text is positioned explicitly from the shared page plan. */
-export function ReaderCanvas({words,style,time,videoHeight,video,canvasWidth,canvasHeight,pagePlan}:{words:Word[];style:ReadingStyle;time:number;videoHeight:number;video:React.ReactNode;canvasWidth:number;canvasHeight:number;pagePlan?:PagePlan}){
+export function ReaderCanvas({words,style,time,videoHeight,video,canvasWidth,canvasHeight,pagePlan,title='',titleStyle=DEFAULT_TITLE_STYLE,failOnLayoutError=false}:{words:Word[];style:ReadingStyle;time:number;videoHeight:number;video:React.ReactNode;canvasWidth:number;canvasHeight:number;pagePlan?:PagePlan;title?:string;titleStyle?:TitleStyle;failOnLayoutError?:boolean}){
  const availableHeight=canvasHeight-videoHeight;
  const visible=useMemo(()=>words.filter(w=>!w.hidden),[words]);
+ const titleLayout=useMemo(()=>tryLayoutTitle(title,titleStyle,canvasWidth-2*style.paddingX,measureWithCanvas(titleStyle.fontFamily,titleStyle.fontSize,titleStyle.bold?700:400)),[title,titleStyle,canvasWidth,style.paddingX]);
  const plan=useMemo(()=>{
+  if(titleLayout.error){
+   if(failOnLayoutError)throw new Error('Title cannot be laid out: '+titleLayout.error);
+   return null;
+  }
   if(pagePlan!==undefined){
    if(pagePlan.viewportWidth!==canvasWidth||pagePlan.viewportHeight!==availableHeight||!isPagePlan(pagePlan,visible))
     throw new Error('Invalid export page-plan snapshot: viewport or visible word coverage does not match');
    return pagePlan;
   }
   if(availableHeight<=0)return null;
-  return paginate(words,style,canvasWidth,availableHeight,measureWithCanvas(style.fontFamily,style.fontSize,style.fontWeight));
- },[pagePlan,words,visible,style,canvasWidth,availableHeight]);
+  try{return paginate(words,style,canvasWidth,availableHeight,measureWithCanvas(style.fontFamily,style.fontSize,style.fontWeight),titleLayout.height)}
+  catch{return null} // Do not crash the editor when the title leaves no space for text.
+ },[pagePlan,words,visible,style,canvasWidth,availableHeight,titleLayout.height,titleLayout.error,failOnLayoutError]);
  const index=plan?pageAtTime(plan,time):-1;
  const page=index>=0?plan?.pages[index]:null;
  return <div data-reader-time={time} data-page-index={index} data-page-count={plan?.pages.length??0} style={{width:canvasWidth,height:canvasHeight,overflow:'hidden',background:style.backgroundColor,position:'relative'}}>
   <div style={{width:canvasWidth,height:videoHeight,overflow:'hidden',position:'relative',background:'#172536'}}>{video}</div>
   <div style={{height:Math.max(0,availableHeight),position:'relative',overflow:'hidden',background:style.backgroundColor}}>
-   {!plan?<div style={{padding:20,color:'#b81a35'}}>视频高度已占满画布，无法显示字幕区域</div>:page?.rows.map((row,i)=><div key={`${index}:${i}`} data-reader-row={i} style={{position:'absolute',top:row.top,left:style.paddingX,width:plan.availableWidth,height:row.height,fontFamily:style.fontFamily,fontSize:style.fontSize,lineHeight:style.lineHeight,fontWeight:style.fontWeight,color:style.textColor,whiteSpace:'nowrap'}}>
+   {index===0&&titleLayout.lines.length>0&&<div data-reader-title style={{position:"absolute",top:style.paddingY,left:style.paddingX,width:canvasWidth-2*style.paddingX,textAlign:"center",fontFamily:titleStyle.fontFamily,fontSize:titleStyle.fontSize,fontWeight:titleStyle.bold?700:400,color:titleStyle.color}}>{titleLayout.lines.map((line,i)=><div key={i} style={{height:titleStyle.lineHeight,lineHeight:`${titleStyle.lineHeight}px`,whiteSpace:"pre"}}>{line}</div>)}</div>}
+   {!plan?<div style={{padding:20,color:'#b81a35'}}>{titleLayout.error?`标题排版失败：${titleLayout.error}`:'当前标题和正文无法在画布中排版，请调整标题字号、间距或页面尺寸'}</div>:page?.rows.map((row,i)=><div key={`${index}:${i}`} data-reader-row={i} style={{position:'absolute',top:row.top,left:style.paddingX,width:plan.availableWidth,height:row.height,fontFamily:style.fontFamily,fontSize:style.fontSize,lineHeight:style.lineHeight,fontWeight:style.fontWeight,color:style.textColor,whiteSpace:'nowrap'}}>
     {row.words.map(item=>{
      const w=visible[item.index];if(!w||w.id!==item.id)return null;
      const progress=wordProgress(time,w.start,w.end);

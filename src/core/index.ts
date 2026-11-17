@@ -9,3 +9,11 @@ export * from './media-diagnostics';
 export * from './app-settings';
 
 export * from './plain-text';
+
+export * from './revise';
+export * from './revise-paths';
+export * from './revise-open';
+export * from './manual-save-plan';
+export * from './bundle-save-protocol';
+
+export * from './title-layout';

@@ -19,12 +19,17 @@ test('M6.16: all former subtitle and project formats are rejected',()=>{
   const old=structuredClone(fixture);
   old.transcript_studio=old.script_to_video;
   delete old.script_to_video;
-  assert.throws(()=>assertScriptToVideo(old),/ScriptToVideo v2/);
-  assert.throws(()=>core.parseScriptToVideo(old),/ScriptToVideo v2/);
+  assert.throws(()=>assertScriptToVideo(old),/ScriptToVideo v3/);
+  assert.throws(()=>core.parseScriptToVideo(old),/ScriptToVideo v3/);
+  const v2={...fixture,script_to_video:{...fixture.script_to_video,schemaVersion:2}};
+  assert.throws(()=>assertScriptToVideo(v2),/v3/);
+  assert.throws(()=>core.parseScriptToVideo(v2),/v3/);
   const p=core.createProject('Lesson.mp4','Lesson.script.json',core.parseScriptToVideo(fixture).words);
-  assert.equal(core.validateProject(p),true);
-  assert.equal(core.validateProject({...p,format:'transcript-studio-project'}),false);
-  assert.equal(core.validateProject({...p,source:{...p.source,subtitleName:'Lesson.transcript-studio.json'}}),false);
+  const v3=p;
+  assert.equal(core.validateProject(v3),true);
+  assert.equal(core.validateProject({...v3,schemaVersion:2}),false);
+  assert.equal(core.validateProject({...v3,format:'transcript-studio-project'}),false);
+  assert.equal(core.validateProject({...v3,script:{filename:'Lesson.transcript-studio.json'}}),false);
 });
 test('M6.16: settings never import old formats and host has no migration',()=>{
   assert.equal(core.SETTINGS_FILENAME,'scripttovideo.settings.json');

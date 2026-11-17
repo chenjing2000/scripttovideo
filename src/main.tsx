@@ -4,7 +4,7 @@ import {ReaderCanvas} from './ui/ReaderCanvas';
 import {StyleSettings} from './ui/StyleSettings';
 import {Dialog} from './ui/Dialog';
 import type {DialogAction} from './ui/Dialog';
-import {parseScriptToVideo,applyOverrides,createProject,updateWord,exportPlainText,saveProjectView,validateProject,paginate,measureWithCanvas,DEFAULT_STYLE,normalizeProjectStyle,WIDTH,HEIGHT,validCanvas,transcriptStem,findMediaCandidates,provisionalVideoHeight,describeMediaError,missingCompanionMessage} from './core';
+import {parseScriptToVideo,createProject,updateWord,buildRevisedScript,paginate,measureWithCanvas,DEFAULT_STYLE,normalizeProjectStyle,WIDTH,HEIGHT,validCanvas,transcriptStem,findMediaCandidates,provisionalVideoHeight,describeMediaError,missingCompanionMessage,planReviseOpen,validateProject,buildRevisedText} from './core';
 import type {Word,Project} from './core';
 import {probeInPriority} from './core/media-probe';
 import {resolvePlayerShortcut} from './core/player-shortcuts';
@@ -14,15 +14,16 @@ import {DEFAULT_SETTINGS,settingsToStyle,projectStyleToSettings,validateSettings
 import {calculateWordEditorWidth,paragraphActionLabel,hasUnsavedWordDraft} from './core/word-editing';
 import {createProjectEditState,markProjectEdited,setProjectDraftChanged,acknowledgeProjectSave,resetProjectEditState,hasUnsavedProjectChanges} from './core/project-edit-state';
 import {settingsDialogRect,nextSettingsWidth,requiredSettingsOuterWidth} from './core/settings-dialog-geometry';
+import {planManualSave,isMatchingBundleSaveReply,bundleSaveSucceeded,tryLayoutTitle,DEFAULT_TITLE_STYLE} from './core';
+import type {BundleSaveOperation,ScriptToVideoInput} from './core';
 import type {AppSettings} from './core/app-settings';
 type DesktopMessage =
- | {kind:'pair';requestId?:string;mediaName:string;mediaKind:'video'|'audio';subtitleName:string;transcript:string;fingerprint:string;project:string|null;mediaUrl:string}
+ | {kind:'pair';requestId?:string;mediaName:string;mediaKind:'video'|'audio';subtitleName:string;transcript:string;project:string|null;mediaUrl:string;revised?:string|null;revisedError?:string}
  | {kind:'import-candidates';requestId:string;subtitleName:string;transcript:string;candidates:Array<{index:number;mediaName:string;mediaKind:'video'|'audio';mediaUrl:string}>}
  | {kind:'settings';settings:unknown}
  | {kind:'reload-failed';message:string}
- | {kind:'saved';message:string;revision:number}
- | {kind:'text-exported';message:string}
- | {kind:'text-export-error';message:string}
+ | {kind:'project-reset-saved'|'project-reset-failed';operationId:number;subtitleName:string;message?:string}
+ | {kind:'project-bundle-saved'|'project-bundle-save-failed';message:string;operationId:number;revision:number;subtitleName:string;revisedSnapshot?:string;textSnapshot?:string;projectSnapshot?:string}
  | {kind:'status';message:string;busy:boolean;error?:boolean;canCancel?:boolean}
  | {kind:'dependency-confirm';id:number;title:string;heading:string;details:string;action:string}
  | {kind:'dependency-progress';title:string;message:string}
@@ -72,6 +73,7 @@ type WordToolSnapshot={id:string;text:string;start:number;end:number;breakParagr
 function App(){
  const [mediaUrl,setMediaUrl]=useState('');const [mediaName,setMediaName]=useState('');const [kind,setKind]=useState<'video'|'audio'>('video');
  const [videoRatio,setVideoRatio]=useState<number|null>(null);const [mediaState,setMediaState]=useState<'idle'|'loading'|'ready'|'error'>('idle');const [words,setWords]=useState<Word[]>([]);const [project,setProject]=useState<Project|null>(null);
+ const [title,setTitle]=useState('');const titleRef=useRef('');const titleEditorRef=useRef<HTMLTextAreaElement|null>(null);
  const [time,setTime]=useState(0);const [duration,setDuration]=useState(0);
  const [edit,setEdit]=useState<{id:string;text:string}|null>(null);
  const editRef=useRef<{id:string;text:string}|null>(null);
@@ -79,7 +81,6 @@ function App(){
  const [toolLeaving,setToolLeaving]=useState(false);
  const transcriptRef=useRef<HTMLDivElement|null>(null);
  const [editorAvailableWidth,setEditorAvailableWidth]=useState(240);
- const [projectLoadBlocked,setProjectLoadBlocked]=useState(false);
  const [projectEditState,setProjectEditState]=useState(createProjectEditState());
  const projectEditStateRef=useRef(projectEditState);
  const wordsRef=useRef<Word[]>([]);wordsRef.current=words;
@@ -105,6 +106,12 @@ function App(){
  const clearReload=()=>{reloadingRef.current=false;setReloading(false)};
  const expectedDesktopImportIdRef=useRef<string|null>(null);
  const committedPairAckRef=useRef<string|null>(null);
+ const activeRevisedSourceRef=useRef<{subtitleName:string}|null>(null);
+ const openingOriginalRef=useRef<{subtitleName:string;mediaName:string;mediaKind:'video'|'audio';original:ScriptToVideoInput}|null>(null);
+ const pendingBundleSaveRef=useRef<(BundleSaveOperation&{revised:ScriptToVideoInput;text:string;project:Project})|null>(null);
+ const pendingProjectResetRef=useRef<{operationId:number;subtitleName:string;revision:number}|null>(null);
+ const nextBundleSaveIdRef=useRef(0);
+ const pendingExportRef=useRef<{operationId:number;revision:number;duration:number;videoHeight:number;pagePlan:ReturnType<typeof paginate>}|null>(null);
  const changedDuringImport=()=>{
   const base=importBaseStateRef.current,now=projectEditStateRef.current;
   return base.currentRevision!==now.currentRevision||base.draftChanged!==now.draftChanged;
@@ -170,7 +177,18 @@ function App(){
  },[]);
  const editorFontSize=appSettings.rightFont.size;
  const style=project?.style??settingsToStyle(appSettings);
- const displayedSettings=useMemo(()=>project?projectStyleToSettings(style,project.canvas,appSettings):appSettings,[project,style,appSettings]);
+ const titleStyle=useMemo(()=>({...DEFAULT_TITLE_STYLE,...(project?.titleStyle??appSettings.titleStyle)}),[project?.titleStyle,appSettings.titleStyle]);
+ const titleLayout=useMemo(()=>tryLayoutTitle(title,titleStyle,canvasWidth-2*style.paddingX,measureWithCanvas(titleStyle.fontFamily,titleStyle.fontSize,titleStyle.bold?700:400)),[title,titleStyle,canvasWidth,style.paddingX]);
+ const displayedSettings=useMemo(()=>project?projectStyleToSettings(style,project.canvas,{...appSettings,titleStyle:{...DEFAULT_TITLE_STYLE,...(project.titleStyle??appSettings.titleStyle)}}):appSettings,[project,style,appSettings]);
+ // A multiline title grows and shrinks with its content and available editor width.
+ useLayoutEffect(()=>{
+  const textarea=titleEditorRef.current;if(!textarea)return;
+  const resize=()=>{textarea.style.height='0px';textarea.style.height=textarea.scrollHeight+'px'};
+  resize();
+  const observer=new ResizeObserver(resize);
+  if(textarea.parentElement)observer.observe(textarea.parentElement);
+  return ()=>observer.disconnect();
+ },[title,titleStyle]);
  const setDependency=(value:DependencyDialog|null)=>{dependencyDialogRef.current=value;setDependencyDialog(value)};
  const cancelDependencyInstall=()=>{const d=dependencyDialogRef.current;if(d?.mode!=='progress')return;setDependency({mode:'cancelling',title:d.title,message:'正在停止安装任务并清理临时文件……'});desktop?.postMessage({kind:'dependency-cancel'})};
  const replyDependency=(accepted:boolean)=>{const d=dependencyDialogRef.current;if(d?.mode!=='confirm')return;desktop?.postMessage({kind:'dependency-decision',id:d.id,accepted});setDependency(accepted?{mode:'progress',title:d.title,message:'正在启动依赖准备操作……'}:null)};
@@ -189,6 +207,15 @@ function App(){
  };
  const cancelExport=()=>{
   if(exportNoticeId.current===null)return;
+  // The save transaction cannot be interrupted safely. Cancel only the
+  // subsequent export, then let the save acknowledgement settle normally.
+  if(pendingExportRef.current){
+   pendingExportRef.current=null;
+   setExporting(false);
+   clearExportTaskNotice();
+   notify('已取消导出；正在进行的工程保存仍会正常完成。');
+   return;
+  }
   setExportTaskNotice('正在取消导出，等待渲染进程退出并清理缓存…',false);
   desktop?.postMessage({kind:'export-cancel'});
  };
@@ -199,62 +226,75 @@ function App(){
   setNotices(prev=>prev.filter(n=>n.id!==id));
  };
  useEffect(()=>{let frame=0;const tick=()=>{if(mediaRef.current)setTime(mediaRef.current.currentTime);frame=requestAnimationFrame(tick)};frame=requestAnimationFrame(tick);return()=>cancelAnimationFrame(frame)},[]);
- const plan=useMemo(()=>{if(!words.length||canvasHeight-mediaHeight<=0)return undefined;try{return paginate(words,style,canvasWidth,canvasHeight-mediaHeight,measureWithCanvas(style.fontFamily,style.fontSize,style.fontWeight))}catch{return undefined}},[words,style,canvasWidth,canvasHeight,mediaHeight]);
+ const plan=useMemo(()=>{if(!words.length||canvasHeight-mediaHeight<=0||titleLayout.error)return undefined;try{return paginate(words,style,canvasWidth,canvasHeight-mediaHeight,measureWithCanvas(style.fontFamily,style.fontSize,style.fontWeight),titleLayout.height)}catch{return undefined}},[words,style,canvasWidth,canvasHeight,mediaHeight,titleLayout.height,titleLayout.error]);
  const seek=(t:number)=>{const v=mediaRef.current;if(!v)return;v.currentTime=Math.max(0,Math.min(Number.isFinite(v.duration)?v.duration:t,t));setTime(v.currentTime)};
  const toggle=()=>{const v=mediaRef.current;if(v){if(v.paused)void v.play().catch(e=>notify(`播放失败：${String(e)}`,true));else v.pause()}};
  const stop=()=>{mediaRef.current?.pause();seek(0)};
  const openPicker=()=>{if(!exporting&&!importing&&!reloading)inputRef.current?.click()};
- const doSave=()=>{if(exporting)return notify('视频导出期间暂不支持保存工程，请在导出完成后保存。',true);
+ const doSave=()=>{
+  if(exporting||pendingBundleSaveRef.current)return notify('正在保存或导出，请完成后重试。',true);
   if(importing||reloading)return notify('正在加载文件，请完成后再保存。',true);
   if(!project)return notify('尚未打开标准字幕',true);
-  if(projectLoadBlocked)return notify('现有工程未能通过验证，已禁止覆盖。请检查工程文件并重新打开字幕。',true);
   let currentWords=words;const active=editRef.current;
-  if(active){try{currentWords=updateWord(words,active.id,active.text)}catch(error){notify(`无法保存工程：请先修正正在编辑的单词。${String(error)}`,true);return}if(!commitEditing())return}
-  const p=saveProjectView(project,currentWords),revision=projectEditStateRef.current.currentRevision;
-  if(desktop){desktop.postMessage({kind:'save',project:p,revision});return}
-  const blob=new Blob([JSON.stringify(p,null,2)],{type:'application/json'}),u=URL.createObjectURL(blob),a=document.createElement('a');a.href=u;a.download=transcriptStem(project.source.subtitleName)+'.project.json';a.click();setTimeout(()=>URL.revokeObjectURL(u),1000);
-  updateProjectEditState(acknowledgeProjectSave(projectEditStateRef.current,revision));
-  notify('工程 JSON 已保存')};
- const doExportText=()=>{
-  if(!project||!words.length)return notify('尚未打开可导出的字幕',true);
-  if(exporting||dependencyDialogRef.current)return;
-  let currentWords=words;
-  const active=editRef.current;
   if(active){
    try{currentWords=updateWord(words,active.id,active.text)}
-   catch(error){notify(`无法导出正文：请先修正正在编辑的单词。${String(error)}`,true);return}
-   // Commit the active edit before taking the export snapshot. Use currentWords
-   // rather than React state, which does not update synchronously.
+   catch(error){return notify(`单词编辑无效：${String(error)}`,true)}
    if(!commitEditing())return;
   }
-  const text=exportPlainText(currentWords);
-  if(!text)return notify('右栏没有可导出的正文',true);
-  if(desktop){desktop.postMessage({kind:'export-text',text});return}
-  const name=transcriptStem(project.source.subtitleName)+'.article.txt';
-  const blob=new Blob([text],{type:'text/plain;charset=utf-8'});
-  const url=URL.createObjectURL(blob),link=document.createElement('a');
-  link.href=url;link.download=name;link.click();window.setTimeout(()=>URL.revokeObjectURL(url),1000);
-  notify(`已下载正文文本：${name}`);
+  const source=openingOriginalRef.current;
+  if(!source)return notify('缺少原始 v3 字幕。',true);
+  try{
+   const snapshot=planManualSave(source.original,project,currentWords,titleRef.current);
+   if(desktop){
+    const operationId=++nextBundleSaveIdRef.current,revision=projectEditStateRef.current.currentRevision;
+    pendingBundleSaveRef.current={operationId,revision,subtitleName:source.subtitleName,...snapshot};
+    desktop.postMessage({kind:'project-bundle-save',operationId,revision,subtitleName:source.subtitleName,
+     revised:snapshot.revised,text:snapshot.text,project:snapshot.project});
+   }else{
+    const stem=transcriptStem(project.script.filename);
+    for(const [name,content,mime] of [
+     [stem+'.script.revise.json',JSON.stringify(snapshot.revised,null,2),'application/json'],
+     [stem+'.txt',snapshot.text,'text/plain'],
+     [stem+'.project.json',JSON.stringify(snapshot.project,null,2),'application/json']
+    ]){
+     const blob=new Blob([content],{type:mime}),u=URL.createObjectURL(blob),a=document.createElement('a');
+     a.href=u;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(u),1000);
+    }
+    notify('已发起三个工作文件下载；无法确认浏览器已保存，未清除未保存标记。');
+   }
+  }catch(error){notify(`无法准备保存：${String(error)}`,true)}
  };
  const doExport=()=>{
   if(dependencyDialogRef.current)return;
-  if(mediaState!=='ready'){notify(`媒体尚未就绪：${mediaName||'未选择媒体'}`,true);return}
-  if(!desktop){notify('请使用 Windows 桌面版导出 MP4',true);return}
-  if(projectLoadBlocked){notify('现有工程未能通过验证，已禁止导出。请检查工程文件并重新打开字幕。',true);return}
-  if(!project||!mediaUrl||!duration||!plan){notify('尚未载入可导出的媒体和字幕，或画布无法排版',true);return}
-  let exportWords=words;
-  const active=editRef.current;
+  if(mediaState!=='ready'||!desktop||!project||!mediaUrl||!duration||!plan)
+   return notify('请使用 Windows 桌面版，并确认媒体和字幕已就绪。',true);
+  if(pendingBundleSaveRef.current||pendingExportRef.current||exporting||importing||reloading)
+   return notify('已有保存、导出或导入任务正在进行。',true);
+  if(titleLayout.error)return notify(`标题无法排版：${titleLayout.error}`,true);
+  let exportWords=words;const active=editRef.current;
   if(active){
    try{exportWords=updateWord(words,active.id,active.text)}
-   catch(error){notify(`无法导出视频：请先修正正在编辑的单词。${String(error)}`,true);return}
+   catch(error){return notify(`无法导出：${String(error)}`,true)}
    if(!commitEditing())return;
   }
   let exportPlan;
-  try{exportPlan=paginate(exportWords,style,canvasWidth,canvasHeight-mediaHeight,measureWithCanvas(style.fontFamily,style.fontSize,style.fontWeight))}
-  catch(error){notify(`无法生成视频分页：${String(error)}`,true);return}
-  if(!exportPlan.pages.length){notify('没有可导出的视频正文页面。',true);return}
-  setExporting(true);setExportTaskNotice('正在准备导出…');
-  desktop.postMessage({kind:'export',project:saveProjectView(project,exportWords),duration,videoHeight:mediaHeight,pagePlan:exportPlan});
+  try{exportPlan=paginate(exportWords,style,canvasWidth,canvasHeight-mediaHeight,measureWithCanvas(style.fontFamily,style.fontSize,style.fontWeight),titleLayout.height)}
+  catch(error){return notify(`无法生成视频分页：${String(error)}`,true)}
+  if(!exportPlan.pages.length)return notify('没有可导出的视频正文页面。',true);
+  const source=openingOriginalRef.current;
+  if(!source)return notify('缺少原始字幕，无法导出。',true);
+  try{
+   const snapshot=planManualSave(source.original,project,exportWords,titleRef.current);
+   const operationId=++nextBundleSaveIdRef.current,revision=projectEditStateRef.current.currentRevision;
+   pendingBundleSaveRef.current={operationId,revision,subtitleName:source.subtitleName,...snapshot};
+   pendingExportRef.current={operationId,revision,duration,videoHeight:mediaHeight,pagePlan:exportPlan};
+   setExporting(true);setExportTaskNotice('正在保存导出所需的工作文件…');
+   desktop.postMessage({kind:'project-bundle-save',operationId,revision,subtitleName:source.subtitleName,
+    revised:snapshot.revised,text:snapshot.text,project:snapshot.project});
+  }catch(error){
+   pendingExportRef.current=null;pendingBundleSaveRef.current=null;setExporting(false);
+   notify(`无法准备导出：${String(error)}`,true);
+  }
  };
  const cancelPendingProbe=()=>{
   const active=activeProbeRef.current;if(!active)return;
@@ -294,44 +334,100 @@ function App(){
   }
  };
  const applyPair=(data:Extract<DesktopMessage,{kind:'pair'}>)=>{
+  if(pendingBundleSaveRef.current){
+   if(data.requestId)desktop?.postMessage({kind:'pair-rejected',requestId:data.requestId});
+   clearReload();notify('保存尚未完成，已拒绝切换素材。',true);return;
+  }
   if(data.requestId&&data.requestId!==expectedDesktopImportIdRef.current){
    desktop?.postMessage({kind:'pair-rejected',requestId:data.requestId});clearReload();return;
   }
   if(data.requestId&&changedDuringImport()){
    desktop?.postMessage({kind:'pair-rejected',requestId:data.requestId});
-   clearReload();notify('导入完成前原工程被修改，已保留原工程。',true);return;
+   clearReload();notify('导入期间原工程被修改，已保留原工程。',true);return;
   }
-  try{const input=JSON.parse(data.transcript),parsed=parseScriptToVideo(input);
-   const next=createProject(data.mediaName,data.subtitleName,parsed.words);next.style=settingsToStyle(appSettingsRef.current);next.canvas={...appSettingsRef.current.output};next.source.subtitleSha256=data.fingerprint;next.mediaKind=data.mediaKind;
-   let current=next,currentWords=parsed.words,blocked=false;
-   if(data.project!==null){try{
-    const saved:unknown=JSON.parse(data.project);
-    if(!validateProject(saved,parsed.words)||saved.source.subtitleSha256!==data.fingerprint||
-      saved.source.videoName.toLowerCase()!==data.mediaName.toLowerCase()||
-      saved.source.subtitleName.toLowerCase()!==data.subtitleName.toLowerCase()||
-      (saved.mediaKind!==undefined&&saved.mediaKind!==data.mediaKind))
-      throw Error('工程格式、来源或字幕指纹不匹配');
-    current=normalizeProjectStyle(saved);currentWords=applyOverrides(parsed,current).words;
-    desktop?.postMessage({kind:'project-validated',fingerprint:data.fingerprint,subtitleName:data.subtitleName});
-   }catch(e){blocked=true;notify(`工程读取失败，已禁止覆盖原工程文件：${String(e)}`,true)}}
-   setProjectLoadBlocked(blocked);
-   setMediaUrl(data.mediaUrl);setMediaName(data.mediaName);setKind(data.mediaKind);setProject(current);setWords(currentWords);setEditing(null);setWordTool(null);setToolLeaving(false);resetProjectDirtyState();setDuration(0);setVideoRatio(null);setMediaState('loading');setTime(0);setPlaying(false);
-   transcriptRef.current?.scrollTo({top:0});
-   clearReload();
+  try{
+   if(data.revisedError)throw Error(`revise 无法读取：${data.revisedError}`);
+   const input=JSON.parse(data.transcript),original=parseScriptToVideo(input);
+   const revised=data.revised?JSON.parse(data.revised):null;
+   const openPlan=planReviseOpen(input,revised);
+   const effective=parseScriptToVideo(openPlan.script);
+   const next=createProject(data.mediaName,data.subtitleName);
+   next.style=settingsToStyle(appSettingsRef.current);
+   next.titleStyle={...appSettingsRef.current.titleStyle};
+   next.canvas={...appSettingsRef.current.output};
+   let current=next,resetProject=false;
+   if(data.project!==null){
+    try{
+     const stored:unknown=JSON.parse(data.project);
+     if(!validateProject(stored)||
+        stored.script.filename.toLowerCase()!==data.subtitleName.toLowerCase())resetProject=true;
+     else current=normalizeProjectStyle(stored);
+    }catch{resetProject=true}
+   }
+   pendingProjectResetRef.current=null;
+   openingOriginalRef.current={subtitleName:data.subtitleName,
+    mediaName:data.mediaName,mediaKind:data.mediaKind,original:input};
+   activeRevisedSourceRef.current={subtitleName:data.subtitleName};
+   setMediaUrl(data.mediaUrl);setMediaName(data.mediaName);setKind(data.mediaKind);
+   setProject(current);setWords(effective.words);titleRef.current=effective.title;setTitle(effective.title);
+   setEditing(null);setWordTool(null);setToolLeaving(false);resetProjectDirtyState();
+   setDuration(0);setVideoRatio(null);setMediaState('loading');setTime(0);setPlaying(false);
+   transcriptRef.current?.scrollTo({top:0});clearReload();
    if(data.requestId)committedPairAckRef.current=data.requestId;
-   notify(`已找到媒体：${data.mediaName}（${data.mediaKind==='audio'?'音频':'视频'}模式），正在读取媒体信息；${parsed.words.length} 个单词`);
+   if(resetProject&&desktop){
+    markDirty();
+    const operationId=++nextBundleSaveIdRef.current;
+    pendingProjectResetRef.current={operationId,subtitleName:data.subtitleName,revision:projectEditStateRef.current.currentRevision};
+    desktop.postMessage({kind:'project-reset',operationId,subtitleName:data.subtitleName,project:current});
+   }
+   notify(`已找到媒体：${data.mediaName}（${data.mediaKind==='audio'?'音频':'视频'}模式），使用${openPlan.kind==='existing'?' revise':'原始 script'}；${original.words.length} 个单词`);
   }catch(e){
-   // A failed or malformed new pair must never discard the user's current project.
    if(data.requestId)desktop?.postMessage({kind:'pair-rejected',requestId:data.requestId});
-   clearReload();
-   notify(`字幕读取失败：${String(e)}`,true);
+   clearReload();notify(`字幕读取失败：${String(e)}`,true);
   }
  };
- useEffect(()=>{const receive=({data}:MessageEvent<DesktopMessage>)=>{if(data.kind==='settings'){if(validateSettings(data.settings)){loadedSettingsRef.current=true;appSettingsRef.current=data.settings;setAppSettings(data.settings)}}else if(data.kind==='import-candidates')void runDesktopProbe(data);else if(data.kind==='pair')applyPair(data);else if(data.kind==='reload-failed'){clearReload();notify(`重新加载失败：${data.message}`,true);}else if(data.kind==='saved'){
-   const nextState=acknowledgeProjectSave(projectEditStateRef.current,data.revision);
-   updateProjectEditState(nextState);
-   notify(hasUnsavedProjectChanges(nextState)?`${data.message}；当前工程仍有未保存修改`:data.message);
-  }else if(data.kind==='text-exported')notify(data.message);else if(data.kind==='text-export-error')notify(data.message,true);else if(data.kind==='dependency-confirm')setDependency({mode:'confirm',...data});else if(data.kind==='dependency-progress')setDependency({mode:'progress',title:data.title,message:data.message});else if(data.kind==='dependency-cancelling'){const d=dependencyDialogRef.current;if(d?.mode==='progress')setDependency({mode:'cancelling',title:d.title,message:'正在停止安装任务并清理临时文件……'})}else if(data.kind==='dependency-end')setDependency(null);else if(data.kind==='export-cancelling')setExportTaskNotice('正在取消导出，等待渲染进程退出并清理缓存…',false);else if(data.kind==='dependency-failed')setDependency({mode:'error',message:data.message});else if(data.kind==='status'){if(data.error&&!data.busy&&reloadingRef.current)clearReload();setExporting(data.busy);if(data.busy){if(data.error)notify(data.message,true);else setExportTaskNotice(data.message,data.canCancel!==false)}else{clearExportTaskNotice();if(!data.error&&dependencyDialogRef.current?.mode==='progress')setDependency(null);if(!dependencyDialogRef.current||dependencyDialogRef.current.mode!=='error')notify(data.message,!!data.error)}}};desktop?.addEventListener('message',receive);return()=>desktop?.removeEventListener('message',receive)},[]);
+ useEffect(()=>{const receive=({data}:MessageEvent<DesktopMessage>)=>{if(data.kind==='settings'){if(validateSettings(data.settings)){loadedSettingsRef.current=true;appSettingsRef.current=data.settings;setAppSettings(data.settings)}}else if(data.kind==='import-candidates')void runDesktopProbe(data);else if(data.kind==='pair')applyPair(data);else if(data.kind==='reload-failed'){clearReload();notify(`重新加载失败：${data.message}`,true);}else if(data.kind==='project-reset-saved'||data.kind==='project-reset-failed'){
+    const pending=pendingProjectResetRef.current;
+    if(pending&&pending.operationId===data.operationId&&pending.subtitleName.toLowerCase()===data.subtitleName.toLowerCase()&&
+       activeRevisedSourceRef.current?.subtitleName.toLowerCase()===pending.subtitleName.toLowerCase()){
+      pendingProjectResetRef.current=null;
+      if(data.kind==='project-reset-saved')updateProjectEditState(acknowledgeProjectSave(projectEditStateRef.current,pending.revision));
+      else notify(`无法保存默认工程设置，请使用 Ctrl+S 重试：${data.message??'写入失败'}`,true);
+    }
+   }else if(data.kind==='project-bundle-saved'||data.kind==='project-bundle-save-failed'){
+    const pending=pendingBundleSaveRef.current,exportRequest=pendingExportRef.current;
+    if(!pending||!isMatchingBundleSaveReply(pending,data,activeRevisedSourceRef.current)){
+     notify('已忽略过期的保存响应。',true);
+    }else{
+     pendingBundleSaveRef.current=null;
+     if(exportRequest?.operationId===pending.operationId)pendingExportRef.current=null;
+     let saved=false;
+     if(bundleSaveSucceeded(data)){
+      try{
+       if(typeof data.revisedSnapshot!=='string'||data.textSnapshot!==pending.text||
+          typeof data.projectSnapshot!=='string')throw Error('保存响应缺少必要的文件内容');
+       parseScriptToVideo(JSON.parse(data.revisedSnapshot));
+       const savedProject=JSON.parse(data.projectSnapshot);
+       if(!validateProject(savedProject)||savedProject.script.filename.toLowerCase()!==pending.subtitleName.toLowerCase())
+        throw Error('保存的 project 与当前 script 不匹配');
+       const next=acknowledgeProjectSave(projectEditStateRef.current,pending.revision);
+       updateProjectEditState(next);saved=true;
+       if(!exportRequest)notify(hasUnsavedProjectChanges(next)?'已保存当前操作的版本，后续修改仍未保存。':data.message);
+      }catch(error){notify(`保存反馈无效：${String(error)}`,true)}
+     }else notify(`保存失败：${data.message}`,true);
+     if(exportRequest?.operationId===pending.operationId){
+      if(saved&&projectEditStateRef.current.currentRevision===exportRequest.revision&&
+         !hasUnsavedProjectChanges(projectEditStateRef.current)){
+       setExportTaskNotice('工程已保存，正在启动视频导出…');
+       desktop?.postMessage({kind:'export',project:pending.project, revised:pending.revised,
+        duration:exportRequest.duration,videoHeight:exportRequest.videoHeight,pagePlan:exportRequest.pagePlan});
+      }else{
+       setExporting(false);clearExportTaskNotice();
+       notify('导出已取消：保存失败或保存期间发生新的修改。',true);
+      }
+     }
+    }
+   }else if(data.kind==='dependency-confirm')setDependency({mode:'confirm',...data});else if(data.kind==='dependency-progress')setDependency({mode:'progress',title:data.title,message:data.message});else if(data.kind==='dependency-cancelling'){const d=dependencyDialogRef.current;if(d?.mode==='progress')setDependency({mode:'cancelling',title:d.title,message:'正在停止安装任务并清理临时文件……'})}else if(data.kind==='dependency-end')setDependency(null);else if(data.kind==='export-cancelling')setExportTaskNotice('正在取消导出，等待渲染进程退出并清理缓存…',false);else if(data.kind==='dependency-failed')setDependency({mode:'error',message:data.message});else if(data.kind==='status'){if(data.error&&!data.busy&&reloadingRef.current)clearReload();setExporting(data.busy);if(data.busy){if(data.error)notify(data.message,true);else setExportTaskNotice(data.message,data.canCancel!==false)}else{clearExportTaskNotice();if(!data.error&&dependencyDialogRef.current?.mode==='progress')setDependency(null);if(!dependencyDialogRef.current||dependencyDialogRef.current.mode!=='error')notify(data.message,!!data.error)}}};desktop?.addEventListener('message',receive);return()=>desktop?.removeEventListener('message',receive)},[]);
  useEffect(()=>{desktop?.postMessage({kind:'ready'})},[]);
  async function openBrowserJson(file:File){
   const controller=new AbortController(),id='browser-'+String(Date.now())+'-'+String(Math.random());
@@ -355,12 +451,16 @@ function App(){
    if(controller.signal.aborted)return;
    if(changedDuringImport())throw Error('导入期间原工程发生新的修改，已取消导入。');
    const match=probe.selected.item,url=urls.get(match.name)!;
-   const next=createProject(match.name,file.name,parsed.words);
-   next.style=settingsToStyle(appSettingsRef.current);next.canvas={...appSettingsRef.current.output};next.mediaKind=match.kind;
+   if(input.script_to_video.schemaVersion!==3)throw Error('浏览器只接受原始 ScriptToVideo v3 字幕');
+   if(controller.signal.aborted||changedDuringImport())throw Error('字幕导入已取消或原工程发生修改');
+   const next=createProject(match.name,file.name);
+   
+   next.style=settingsToStyle(appSettingsRef.current);next.canvas={...appSettingsRef.current.output};
+   openingOriginalRef.current={subtitleName:file.name,mediaName:match.name,mediaKind:match.kind,original:input};
    keepUrl=url;
-   setProjectLoadBlocked(false);
+
    setMediaUrl(url);setMediaName(match.name);setKind(match.kind);setProject(next);
-   setWords(parsed.words);setEditing(null);setWordTool(null);resetProjectDirtyState();
+   setWords(parsed.words);titleRef.current=parsed.title;setTitle(parsed.title);setEditing(null);setWordTool(null);resetProjectDirtyState();
    setVideoRatio(null);setMediaState('loading');setDuration(0);
    notify(`已找到可播放媒体：${match.name}（${match.kind==='audio'?'音频':'视频'}模式）`);
   }catch(e){if(!controller.signal.aborted)notify(`导入失败：${String(e)}`,true)}
@@ -436,6 +536,7 @@ function App(){
   setEditing(null);
  };
  const startEditing=(w:Word)=>{
+   
   if(editRef.current?.id===w.id)return;
   if(!commitEditing())return;
   mediaRef.current?.pause();
@@ -471,9 +572,12 @@ function App(){
  const settingsChange=(next:AppSettings)=>{
   if(!validateSettings(next))return notify('设置参数无效，未保存',true);
   const layoutChanged=JSON.stringify({...next,rightFont:undefined})!==JSON.stringify({...displayedSettings,rightFont:undefined});
-  const globalNext=layoutChanged?next:{...appSettings,rightFont:next.rightFont};
+  // Reject before touching either the global settings or the open project.
+  // Previously the UI mutated appSettings and then returned, leaving an
+  // unacknowledged settings change even though the project edit was blocked.
+    const globalNext=layoutChanged?next:{...appSettings,rightFont:next.rightFont};
   appSettingsRef.current=globalNext;setAppSettings(globalNext);
-  if(project&&layoutChanged){mediaRef.current?.pause();setProject(p=>p?{...p,canvas:{...next.output},style:settingsToStyle(next)}:p);markDirty()}
+  if(project&&layoutChanged){mediaRef.current?.pause();setProject(p=>p?{...p,canvas:{...next.output},style:settingsToStyle(next),titleStyle:{...next.titleStyle}}:p);markDirty()}
   if(desktop&&loadedSettingsRef.current)desktop.postMessage({kind:'settings-save',settings:globalNext});
  };
  shortcutRef.current=(e:KeyboardEvent)=>{if(e.defaultPrevented||e.altKey||e.metaKey||settingsOpen||dependencyDialogRef.current)return;const target=e.target;if(target instanceof HTMLElement&&(target.isContentEditable||['INPUT','TEXTAREA','SELECT','BUTTON'].includes(target.tagName)))return;
@@ -501,7 +605,7 @@ function App(){
    <section className="preview" aria-label="阅读画布预览" style={{width:geometry.frameWidth,height:geometry.frameHeight}}>
     <div className="preview-stage" style={{width:geometry.previewWidth,height:geometry.previewHeight}}>
      <div className="scaled-holder" style={{width:geometry.previewWidth,height:geometry.previewHeight}}><div className="canvas-frame" style={{width:canvasWidth,height:canvasHeight,transform:`scale(${scale})`}}>
-     <ReaderCanvas words={words} style={style} time={time} canvasWidth={canvasWidth} canvasHeight={canvasHeight} videoHeight={mediaHeight} pagePlan={plan} video={kind==='video'&&mediaUrl?<><video key={mediaUrl} ref={el=>{mediaRef.current=el}} src={mediaUrl} preload="metadata" onLoadStart={()=>setMediaState('loading')} onPlay={()=>setPlaying(true)} onPause={()=>setPlaying(false)} onEnded={()=>setPlaying(false)} onError={e=>onMediaFailed(e.currentTarget)} onLoadedMetadata={e=>onMediaReady(e.currentTarget)} style={{width:canvasWidth,height:mediaHeight,objectFit:'fill',display:'block'}}/>{mediaState!=='ready'&&<div className="media-state-overlay" role={mediaState==='error'?'alert':'status'}>{mediaState==='loading'?'正在加载视频：':'视频尚未就绪：'}{mediaName}</div>}</>:null}/>
+     <ReaderCanvas words={words} title={title} titleStyle={titleStyle} style={style} time={time} canvasWidth={canvasWidth} canvasHeight={canvasHeight} videoHeight={mediaHeight} pagePlan={plan} video={kind==='video'&&mediaUrl?<><video key={mediaUrl} ref={el=>{mediaRef.current=el}} src={mediaUrl} preload="metadata" onLoadStart={()=>setMediaState('loading')} onPlay={()=>setPlaying(true)} onPause={()=>setPlaying(false)} onEnded={()=>setPlaying(false)} onError={e=>onMediaFailed(e.currentTarget)} onLoadedMetadata={e=>onMediaReady(e.currentTarget)} style={{width:canvasWidth,height:mediaHeight,objectFit:'fill',display:'block'}}/>{mediaState!=='ready'&&<div className="media-state-overlay" role={mediaState==='error'?'alert':'status'}>{mediaState==='loading'?'正在加载视频：':'视频尚未就绪：'}{mediaName}</div>}</>:null}/>
      </div></div>
     </div>
    {kind==='audio'&&mediaUrl&&<audio key={mediaUrl} ref={el=>{mediaRef.current=el}} src={mediaUrl} preload="metadata" onLoadStart={()=>setMediaState('loading')} onPlay={()=>setPlaying(true)} onPause={()=>setPlaying(false)} onEnded={()=>setPlaying(false)} onLoadedMetadata={e=>onMediaReady(e.currentTarget)} onError={e=>onMediaFailed(e.currentTarget)}/>}
@@ -509,8 +613,10 @@ function App(){
     <span className="transport-time">{timeLabel(time)} / {timeLabel(duration)}</span>
     <div className="transport-row"><input aria-label="进度" type="range" min={0} max={duration||1} step="0.01" value={time} onChange={e=>seek(Number(e.target.value))}/>{iconButton(playing?'pause':'play',playing?'暂停 Space':'播放 Space',toggle)}{iconButton('stop','停止 X',stop)}</div>
    </div></section>
-   <aside><div className="toolbar"><span className="app-label">ScriptToVideo {hasUnsavedProjectChanges(projectEditState)?'●':''}</span>{iconButton('settings','设置',openSettings)}{iconButton('reload','重新加载当前文章',requestReload,!desktop||!project||exporting||importing||reloading)}{iconButton('import',mediaName?`导入 JSON Ctrl+O · 当前媒体：${mediaName}`:'导入 JSON Ctrl+O',openPicker,exporting||importing||reloading)}{importing&&!reloading&&iconButton('stop','取消当前媒体导入',cancelPendingProbe)}{iconButton('save','保存工程 Ctrl+S',doSave,!project||exporting||projectLoadBlocked||importing||reloading)}{iconButton('text-export','导出正文 TXT',doExportText,!project||exporting||importing||reloading)}{iconButton('export','导出 MP4',doExport,!project||exporting||projectLoadBlocked||importing||reloading)}</div>
-    <div className="panel"><div ref={transcriptRef} className="transcript" style={{fontFamily:appSettings.rightFont.family,fontSize:editorFontSize,fontWeight:400,lineHeight:1.5,color:appSettings.rightFont.color,backgroundColor:appSettings.rightFont.backgroundColor}}>
+   <aside><div className="toolbar"><span className="app-label">ScriptToVideo {hasUnsavedProjectChanges(projectEditState)?'●':''}</span>{iconButton('settings','设置',openSettings,exporting)}{iconButton('reload','重新加载当前文章',requestReload,!desktop||!project||exporting||importing||reloading)}{iconButton('import',mediaName?`导入 JSON Ctrl+O · 当前媒体：${mediaName}`:'导入 JSON Ctrl+O',openPicker,exporting||importing||reloading)}{importing&&!reloading&&iconButton('stop','取消当前媒体导入',cancelPendingProbe)}{iconButton('save','保存工程 Ctrl+S',doSave,!project||exporting||importing||reloading)}{iconButton('export','导出 MP4',doExport,!project||exporting||importing||reloading)}</div>
+    <div className="panel"><div className="title-editor-wrap"><textarea ref={titleEditorRef} aria-label="编辑标题" className="title-editor" placeholder="title" value={title} disabled={!project||exporting}
+      onChange={e=>{const next=e.currentTarget.value;if(next===titleRef.current)return;titleRef.current=next;setTitle(next);markDirty()}}
+      style={{fontFamily:appSettings.rightFont.family,fontSize:editorFontSize,fontWeight:700,lineHeight:1.5,color:appSettings.rightFont.color,backgroundColor:appSettings.rightFont.backgroundColor}} rows={1}/></div><div ref={transcriptRef} className="transcript" style={{fontFamily:appSettings.rightFont.family,fontSize:editorFontSize,fontWeight:400,lineHeight:1.5,color:appSettings.rightFont.color,backgroundColor:appSettings.rightFont.backgroundColor}}>
      {words.map(w=><React.Fragment key={w.id}>{w.hidden?null:edit?.id===w.id?<InlineWordEditor key={w.id} text={edit.text} fontFamily={appSettings.rightFont.family} fontSize={editorFontSize} color={appSettings.rightFont.color} availableWidth={editorAvailableWidth}
        onText={text=>setEditing({id:w.id,text})} onCommit={commitEditing} onCancel={cancelEditing}/>
        :<span className="transcript-word" title={`${w.start.toFixed(3)}–${w.end.toFixed(3)}`} onDoubleClick={e=>{e.stopPropagation();startEditing(w)}}>{w.display}</span>}{' '}{w.breakParagraph?<div className="paragraph-break"/>:null}</React.Fragment>)}

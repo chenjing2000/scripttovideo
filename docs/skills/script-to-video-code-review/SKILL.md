@@ -17,17 +17,17 @@ Use this Skill for end-to-end code inspection and targeted fixes. **Never interp
 
 ## 2. Data contract and correctness (non-negotiable)
 
-- Only `*.script.json` ScriptToVideo v2 is accepted: `script_to_video.format === "script-to-video"`, `schemaVersion === 2`, `language === "en"`.
+- Only `*.script.json` ScriptToVideo v3 is accepted: `script_to_video.format === "script-to-video"`, `schemaVersion === 3`, mandatory string `title` (empty allowed), `language === "en"`.
 - Paragraphs are marked **only** by `segments[].words[].breakParagraph: true`; omitted means no break. Never infer paragraph breaks from punctuation, WhisperX segments, timestamps or page boundaries. Reject `false`/invalid types and legacy `enscript`/`paragraphBreaksAfter` input.
-- Keep original WhisperX `word`, `start`, `end`, `score`, `segments[].text`, and `word_segments` unchanged. The latter must not receive break markers.
-- Internal word IDs (e.g. `s11w2`) exist for editing and project overrides, not for defining paragraph boundaries in subtitle JSON. User edits are stored in a separate project and merged into an effective transcript.
+- Preserve original WhisperX `word`, `start`, `end`, `score`, `segments[].text`, and `word_segments` in the imported v3 original; revision files may change displayed words while keeping time anchors. The latter must not receive break markers.
+- Internal word IDs (e.g. `s11w2`) exist for editing, not for defining paragraph boundaries in subtitle JSON. Both original `.script.json` and edited `.script.revise.json` are v3; edits are stored in the latter. Project v3 holds presentation settings only and must not contain word overrides.
 - Compare generated subtitles with raw input using `docs/skills/script-to-video-paragraphs/scripts/transcript_tool.py validate ... --source ...` when sources are available.
-- Enforce file/source fingerprint and project version checks in desktop, UI and export paths. No implicit migration of old formats.
+- Require project v3 and exact script.filename ownership, not SHA, source or legacy overrides. Revise may be absent on import. Never migrate old formats.
 
 ## 3. Layout, playback, export
 
 - Default 1200×1600 logical canvas, with per-project configurable even dimensions (320–3840); Remotion MP4 width/height must match. Video mode fills canvas width proportionally and uses remaining height for reading; audio-only mode gives the entire canvas to reading. Scaling the preview must not alter line/page plan.
-- Word-style justification: measure actual glyph widths; assign explicit **word x coordinates**, not flex wrapping or independently computed CSS gaps. True paragraph last line stays left aligned; paragraph continuation at a page break is not paragraph end. First-line indent defaults to 4ch, exactly once per paragraph.
+- Word-style justification: measure actual glyph widths; assign explicit **word x coordinates**, not flex wrapping or independently computed CSS gaps. True paragraph last line stays left aligned; paragraph continuation at a page break is not paragraph end. First-line indent defaults to 2em, exactly once per paragraph.
 - Fill each page with the maximum number of complete measured lines. No widow/orphan or sentence-boundary scores; paragraph gap is counted only when actually displayed. Keep text inside bounds.
 - Page switching is deterministic from timestamps, preview seeking and export frame times. Ensure no replay-dependent state and no premature reveal of the next page.
 - Validate play/pause/stop, frame steps, seek ±10/±30s, volume, mute, normal speed and the open-file keyboard command. JSON is the only import entry: search exact-stem same-directory MP4 → MKV → M4A → MP3 → WAV, skipping initially undecodable candidates. Ctrl+F remains unbound. Ignore shortcuts while typing/editing; do not override operating-system shortcuts unnecessarily.
@@ -38,7 +38,7 @@ Use this Skill for end-to-end code inspection and targeted fixes. **Never interp
 - Evaluate cohesion, dependencies, naming, error handling, complex duplication, dead code, temporary files and `.gitignore`.
 - Favor small, clear functions, direct control flow and tested behavior over abstractions, clever syntax or fewer lines. Do not change already-correct behavior for style alone.
 - Classify findings as (a) correctness/security issues, (b) maintainability opportunities, (c) optional style. Implement necessary low-risk corrections; discuss functionality-changing or major architecture proposals before applying.
-- Never delete user media, project data, source subtitles, assets or unrelated uncommitted changes. Update docs when behavior changes.
+- Never alter source subtitles, source media, assets or unrelated uncommitted changes. Work files (revise, TXT and project v3) may be atomically replaced as specified: an existing project with a different `script.filename` is automatically replaced by current defaults, without a warning. Update docs when behavior changes.
 
 ## 5. Verification gates
 
@@ -56,7 +56,7 @@ dotnet publish desktop/ScriptToVideo.csproj -c Release -o dist/wpf
 - `npm test` alone is **not** full TSX/Vite validation. Do not report the application as tested when only core tests passed.
 - In Windows UI verify icon, button order, seeking, frame stepping, JSON picker, media priority, audio-only rendering, configurable canvas dimensions, and key conflicts; test actual MP4 output (video/audio duration, quality, page boundaries and sync).
 - If a command cannot run in the environment, explicitly state it as **not verified** rather than implying success.
-- Include negative tests for malformed v2, bad word timestamps, duplicated marks, mismatched project fingerprints and paths outside selected folders.
+- Include negative tests for rejected v2, malformed v3, bad word timestamps, duplicated marks, mismatched project script filenames and paths outside selected folders.
 
 ## 6. GitHub commit discipline — English only
 

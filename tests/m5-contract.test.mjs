@@ -9,7 +9,7 @@ const raw=JSON.parse(readFileSync('fixtures/6 Minute English 01-seg1.json','utf8
 const clone=structuredClone;
 function okay(d){const cli=assertScriptToVideo(d),parsed=core.parseScriptToVideo(d);assert.equal(cli.wordCount,parsed.words.length);return parsed;}
 function reject(d,pattern){assert.throws(()=>assertScriptToVideo(d),pattern);assert.throws(()=>core.parseScriptToVideo(d),pattern);}
-test('M5: v2 200 source anchor words/times preserved',()=>{
+test('M5: v3 200 source anchor words/times preserved',()=>{
  const t=okay(data);assert.equal(t.words.length,200);
  assert.deepEqual(t.words.map(w=>[w.original,w.start,w.end]),raw.segments.flatMap(s=>s.words.map(w=>[w.word.trim(),w.start,w.end])));
 });
@@ -17,9 +17,12 @@ test('M5: no break after animal lovers; In the UK shares paragraph',()=>{
  const t=okay(data);const a=t.words.find(w=>w.original==='lovers.');assert.equal(a.breakParagraph,false);
  assert.equal(t.words.find(w=>w.original==='without.').breakParagraph,true);
 });
-test('M5: only v2 accepted; raw, v1 and old fields rejected',()=>{
- reject(raw,/v2/);
- const a=clone(data);a.script_to_video.schemaVersion=1;reject(a,/v2/);
+test('M5: only v3 with title accepted; raw, v2, v1 and old fields rejected',()=>{
+ reject(raw,/v3/);
+ const a=clone(data);a.script_to_video.schemaVersion=1;reject(a,/v3/);
+ const old=clone(data);old.script_to_video.schemaVersion=2;reject(old,/v3/);
+ const missingTitle=clone(data);delete missingTitle.title;reject(missingTitle,/title/);
+ const wrongTitle=clone(data);wrongTitle.title=null;reject(wrongTitle,/title/);
  const b=clone(data);b.enscript={format:'enscript-transcript',schemaVersion:1,paragraphBreaksAfter:[]};reject(b,/旧|禁止/);
  const c=clone(data);c.segments[0].words[0].paragraphAfter=true;reject(c,/旧/);
 });
@@ -35,41 +38,26 @@ test('M5: false, null, string and terminal break invalid',()=>{
 test('M5: word_segments is only raw data, never a break carrier',()=>{
  const a=clone(data);a.word_segments[1].breakParagraph=true;reject(a,/word_segments/);
 });
-test('M5: overrides can remove/add paragraph breaks, source stays untouched',()=>{
- const t=okay(data),original=t.words.find(w=>w.breakParagraph);assert.ok(original);
- const changed=t.words.map(w=>w.id===original.id?{...w,breakParagraph:false}:w);
- const project=core.saveProjectView(core.createProject('a.mp4','a.script.json',t.words),changed);
- assert.equal(project.overrides[original.id].breakParagraph,false);
- assert.equal(core.applyOverrides(t,project).words.find(w=>w.id===original.id).breakParagraph,false);
- assert.equal(t.words.find(w=>w.id===original.id).breakParagraph,true);
- assert.equal(core.validateProject(project),true);
- assert.equal(core.validateProject({...project,schemaVersion:1}),false);
-});
-test('M5: unknown schema keys and malformed displayOverrides rejected',()=>{
+
+test('M5: unknown schema keys and all displayOverrides rejected',()=>{
  const a=clone(data);a.script_to_video.extra=true;reject(a,/字段/);
- const b=clone(data);b.script_to_video.displayOverrides={'s4w0':'two words'};reject(b,/显示|覆盖/);
+ const b=clone(data);b.script_to_video.displayOverrides={'s4w0':'two words'};reject(b,/displayOverrides|字段|覆盖/);
 });
 test('M5: malformed or reversed source word timestamps rejected',()=>{
  const a=clone(data);a.segments[3].words[0].start=-10;reject(a,/时间/);
  const b=clone(data);b.segments[3].words[0].word='two tokens';reject(b,/单词/);
 });
-test('Code review: saved project rejects override IDs absent from the loaded transcript',()=>{
- const words=okay(data).words;
- const project=core.createProject('lesson.mp4','lesson.script.json',words);
- assert.equal(core.validateProject(project,words),true);
- const stale=structuredClone(project);
- stale.overrides.s999w999={display:'orphan'};
- assert.equal(core.validateProject(stale,words),false);
-});
-test('Code review: saved project rejects malformed style, media kind and word edits',()=>{
+
+test('Code review: saved project rejects malformed style and old subtitle overrides',()=>{
  const words=okay(data).words;
  const p=core.createProject('lesson.mp4','lesson.script.json',words);
  assert.equal(core.validateProject(p),true);
- assert.equal(core.validateProject({...p,mediaKind:'image'}),false);
+ assert.equal(core.validateProject({...p,mediaKind:'audio'}),true);
+ assert.equal(core.normalizeProjectStyle({...p,mediaKind:'audio'}).mediaKind,undefined);
  assert.equal(core.validateProject({...p,style:{...p.style,fontSize:0}}),false);
  assert.equal(core.validateProject({...p,style:{...p.style,paddingX:-3}}),false);
  assert.equal(core.validateProject({...p,style:{...p.style,textColor:'red'}}),false);
  assert.equal(core.validateProject({...p,export:{fps:25,quality:'standard'}}),false);
  assert.equal(core.validateProject({...p,overrides:{s1w2:{breakParagraph:'yes'}}}),false);
- assert.equal(core.validateProject({...p,source:{...p.source,subtitleSha256:'invalid'}}),false);
+ assert.equal(core.validateProject({...p,script:{filename:'wrong.json'}}),false);
 });

@@ -93,10 +93,22 @@ Run("a missing temporary output is an error, not an index retry", dir =>
     NotExists(Path.Combine(dir, "lesson.exported (1).mp4"));
 });
 
-Run("non-MP4 output is rejected without losing the temporary data", dir =>
+Run("all media extensions share the same non-overwrite numbering rule", dir =>
+{
+    foreach (var ext in new[] { ".mp4", ".mkv", ".mp3", ".wav", ".m4a" })
+    {
+        var output = Path.Combine(dir, "lesson.exported" + ext);
+        File.WriteAllText(output, "original");
+        var next = UniqueOutputCommit.Commit(Temp(dir, "new"), output);
+        Equal(Path.Combine(dir, "lesson.exported (1)" + ext), next);
+        Equal("original", File.ReadAllText(output));
+        Equal("new", File.ReadAllText(next));
+    }
+});
+Run("missing output extension is rejected without losing temporary data", dir =>
 {
     var temp = Temp(dir, "recoverable");
-    Throws<ArgumentException>(() => UniqueOutputCommit.Commit(temp, Path.Combine(dir, "article.txt")));
+    Throws<ArgumentException>(() => UniqueOutputCommit.Commit(temp, Path.Combine(dir, "article")));
     Equal("recoverable", File.ReadAllText(temp));
 });
 

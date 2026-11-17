@@ -48,9 +48,12 @@ test('M6.15.4 disposes NotifyIcon before releasing its owned icon', () => {
   assert.match(dispose, /trayIconImage\.Dispose\(\)/);
 });
 
-test('M6.15.4 normalizes the WPF state before hiding the main window in the tray', () => {
+test('M6.22 preserves normal taskbar minimization while retaining the WinForms tray icon', () => {
   const state = host.slice(host.indexOf('StateChanged += '), host.indexOf('Closing += OnClosing'));
-  assert.match(state, /WindowState\s*=\s*WindowState\.Normal[\s\S]*?ShowInTaskbar\s*=\s*false[\s\S]*?Hide\(\)/);
+  assert.match(state, /WindowState == WindowState\.Minimized/);
+  assert.doesNotMatch(state, /WindowState\s*=\s*WindowState\.Normal|ShowInTaskbar\s*=\s*false|Hide\(\)/);
+  assert.match(host, /new TrayIconManager\(this, ActivateFromTray, Close\)/);
+  assert.match(tray, /Forms\.NotifyIcon/);
 });
 
 test('M6.15.4 restores the existing WPF window and uses WPF activation without user32 P/Invoke', () => {

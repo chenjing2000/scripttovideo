@@ -7,7 +7,7 @@ const host = readFileSync(new URL('../desktop/ReaderWindow.cs', import.meta.url)
 const media = readFileSync(new URL('../desktop/LocalMediaServer.cs', import.meta.url), 'utf8');
 
 test('M6.20: reload button follows settings and is disabled without a desktop project or while busy', () => {
-  assert.match(ui, /iconButton\('settings','设置',openSettings\)}\{iconButton\('reload','重新加载当前文章',requestReload,/);
+  assert.match(ui, /iconButton\('settings','设置',openSettings,exporting\)}\{iconButton\('reload','重新加载当前文章',requestReload,/);
   assert.match(ui, /requestReload,!desktop\|\|!project\|\|exporting\|\|importing\|\|reloading/);
 });
 
@@ -28,9 +28,11 @@ test('M6.20: native reload reuses the current full transcript path and existing 
 
 test('M6.20: absent project is re-evaluated from disk and project save lock is reset', () => {
   assert.match(host, /File\.Exists\(projectPath\) \? File\.ReadAllText\(projectPath\) : null/);
-  assert.match(host, /projectSaveLocked = pending\.ProjectContent != null/);
+  assert.doesNotMatch(host, /projectSaveLocked|previousProjectSaveLocked/);
   assert.match(ui, /if\(data\.project!==null\)/);
-  assert.match(ui, /setProjectLoadBlocked\(blocked\)/);
+  assert.match(ui, /if\(resetProject&&desktop\)\{/);
+  assert.match(ui, /kind:'project-reset',operationId,subtitleName:data\.subtitleName,project:current/);
+  assert.match(ui, /data\.kind==='project-reset-saved'\|\|data\.kind==='project-reset-failed'/);
 });
 
 test('M6.20: successful reload resets playback, editor and scroll', () => {

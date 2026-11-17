@@ -2,39 +2,59 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {transcriptStem} from '../.tmp-core/media.js';
-const cs=readFileSync('desktop/ReaderWindow.cs','utf8');
+const host=readFileSync('desktop/ReaderWindow.cs','utf8');
 const ui=readFileSync('src/main.tsx','utf8');
-
-test('M6.12: exact JSON suffix becomes shared work-folder and both output names',()=>{
- assert.equal(transcriptStem('lesson01.script.json'),'lesson01');
+const storage=readFileSync('desktop/ReviseStorage.cs','utf8');
+test('work files remain under the exact script stem folder',()=>{
+ assert.equal(transcriptStem('lesson.script.json'),'lesson');
  assert.equal(transcriptStem('My Lesson.SCRIPT.JSON'),'My Lesson');
- assert.throws(()=>transcriptStem('lesson01.json'));
- assert.match(cs,/var workFolder = Path.Combine\(folder, stem\)/);
- assert.match(cs,/var projectPath = Path.Combine\(workFolder, stem \+ "\.project\.json"\)/);
- assert.match(cs,/var articlePath = Path.Combine\(workFolder, stem \+ "\.article\.txt"\)/);
+ assert.throws(()=>transcriptStem('lesson.json'));
+ assert.match(host,/var workFolder = Path.Combine\(folder, stem\)/);
+ assert.match(host,/var projectPath = Path.Combine\(workFolder, stem \+ "\.project\.json"\)/);
 });
-test('M6.12: legacy path is not searched or migrated and schema stays v2',()=>{
- assert.doesNotMatch(cs,/"\.script-to-video", "projects"/);
- assert.doesNotMatch(cs,/project\.settings\.json/);
- assert.match(cs,/schema\.GetInt32\(\) != 2/);
- assert.match(ui,/saveProjectView\(project,currentWords\)/);
- assert.match(ui,/a\.download=transcriptStem\(project\.source\.subtitleName\)\+'\.project\.json'/);
- assert.match(ui,/transcriptStem\(project\.source\.subtitleName\)\+'\.article\.txt'/);
+test('import allows missing revise and never creates derived TXT',()=>{
+ const start=host.indexOf('private void OpenPair('),end=host.indexOf('private void SaveProjectBundle(',start);
+ const code=host.slice(start,end);
+ assert.match(code,/ReviseStorage\.ReadExisting/);
+ assert.doesNotMatch(code,/CreateInitial|RepairRefinedText|CreateMissingText|RecoverPendingProjectSave/);
+ assert.match(ui,/planReviseOpen\(input,revised\)/);
+ assert.doesNotMatch(ui,/kind:'revised-create'|kind:'revised-repair-text'/);
 });
-test('M6.12: existing corrupt project cannot be silently overwritten',()=>{
- assert.match(cs,/projectSaveLocked = pending\.ProjectContent != null/);
- assert.match(cs,/case "project-validated":/);
- assert.match(cs,/if \(projectSaveLocked\)/);
- assert.match(ui,/setProjectLoadBlocked\(blocked\)/);
- assert.match(ui,/kind:'project-validated',fingerprint:data\.fingerprint,subtitleName:data\.subtitleName/);
- assert.match(ui,/projectLoadBlocked\)return notify/);
- assert.match(ui,/保存工程 Ctrl\+S',doSave,!project\|\|exporting\|\|projectLoadBlocked/);
+test('project mismatch causes default settings to replace old project',()=>{
+ assert.match(ui,/stored\.script\.filename\.toLowerCase\(\)!==data\.subtitleName\.toLowerCase\(\)/);
+ assert.match(ui,/kind:'project-reset',operationId,subtitleName:data\.subtitleName,project:current/);
+ assert.match(host,/case "project-reset":/);
+ assert.match(host,/ReviseStorage\.AtomicWrite\(current\.Project,project\.GetRawText\(\)\)/);
+ assert.match(host,/kind = "project-reset-failed"/);
+ assert.match(ui,/markDirty\(\);[\s\S]*?kind:\x27project-reset\x27/);
+ assert.match(ui,/data\.kind===\x27project-reset-failed\x27/);
+ assert.match(ui,/acknowledgeProjectSave\(projectEditStateRef\.current,pending\.revision\)/);
 });
-test('M6.12: saves only on demand and does not create empty directory on import',()=>{
- const open=cs.slice(cs.indexOf('private void OpenPair'),cs.indexOf('private Source CheckSource'));
- assert.doesNotMatch(open,/Directory\.CreateDirectory/);
- assert.match(cs,/private static void AtomicWrite/);
- assert.match(cs,/File\.Move\(temp, file, overwrite: true\)/);
- assert.match(cs,/AtomicWrite\(current\.Project, project\.GetRawText\(\)\)/);
- assert.match(cs,/AtomicWrite\(articlePath, windowsText\)/);
+test('Ctrl+S writes revise, TXT and project without old snapshots',()=>{
+ assert.match(storage,/AtomicWrite\(paths\.Revised,revised\)/);
+ assert.match(storage,/AtomicWrite\(paths\.Text,text\)/);
+ assert.match(storage,/AtomicWrite\(projectPath,project\)/);
+ assert.doesNotMatch(storage,/PendingProjectSave|ReplaceIfUnchanged|RecoverPendingProjectSave/);
+ assert.doesNotMatch(ui,/previousRefined|previousText|previousProject|confirmedDiskSnapshotRef/);
+});
+test('browser download does not acknowledge a verified save',()=>{
+ const start=ui.indexOf(' const doSave='),end=ui.indexOf(' const doExport=',start);
+ assert.ok(start>0&&end>start);
+ const body=ui.slice(start,end),browser=body.slice(body.indexOf('}else{'));
+ assert.match(browser,/\.script\.revise\.json/);
+ assert.match(browser,/\.project\.json/);
+ assert.doesNotMatch(browser,/acknowledgeProjectSave/);
+});
+test('desktop settings and work files share one atomic-writer implementation',()=>{
+ assert.doesNotMatch(host,/private static void AtomicWrite\(/);
+ assert.match(host,/ReviseStorage\.AtomicWrite\(settingsFile,/);
+ assert.match(host,/ReviseStorage\.AtomicWrite\(marker,checksum\)/);
+ assert.match(host,/ReviseStorage\.AtomicWrite\(browserMarker,checksum\)/);
+ assert.match(storage,/internal static void AtomicWrite\(/);
+});
+
+test('dotnet publish builds fresh WebView2 UI before embedding resources',()=>{
+ const csproj=readFileSync('desktop/ScriptToVideo.csproj','utf8');
+ assert.match(csproj,/<Target Name="BuildEmbeddedWebUi" BeforeTargets="AssignTargetPaths"/);
+ assert.ok(csproj.indexOf('npm run build')<csproj.indexOf('BuiltWebAsset Update='));
 });

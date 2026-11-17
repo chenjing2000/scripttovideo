@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""ScriptToVideo v2 conversion/validation: paragraph decisions are supplied, never guessed.
+"""ScriptToVideo v3 conversion/validation: paragraph decisions are supplied, never guessed.
 The tool preserves all raw WhisperX fields except adding word-level breakParagraph and
 script_to_video metadata. No old-format migration path is provided.
 """
@@ -86,22 +86,17 @@ def check(data,path=None):
     entries=words_of(data)
     if any(k in data for k in ('enscript','evr','paragraphs','paragraphBreaksAfter')): fail('禁止旧版分段格式')
     meta=data.get('script_to_video')
-    if not isinstance(meta,dict) or meta.get('format')!='script-to-video' or type(meta.get('schemaVersion')) is not int or meta['schemaVersion']!=2: fail('必须使用 ScriptToVideo v2')
-    if set(meta)-{'format','schemaVersion','displayOverrides'}: fail('存在未知的 script_to_video 字段')
-    overrides=meta.get('displayOverrides',{})
-    ids={ident for ident,_ in entries}
-    if not isinstance(overrides,dict): fail('displayOverrides 必须为对象')
-    for ident,val in overrides.items():
-        if ident not in ids or not isinstance(val,str) or not val.strip() or re.search(r'\s',val.strip()): fail(f'不合法显示词覆盖 {ident}')
+    if not isinstance(meta,dict) or meta.get('format')!='script-to-video' or type(meta.get('schemaVersion')) is not int or meta['schemaVersion']!=3: fail('必须使用 ScriptToVideo v3')
+    if set(meta)-{'format','schemaVersion'}: fail('存在未知的 script_to_video 字段')
+    if not isinstance(data.get('title'),str): fail('v3 必须包含字符串 title（允许为空）')
     if path is not None and not path.name.lower().endswith(EXT): fail(f'字幕文件必须以 {EXT} 结尾')
     return entries
 
 def preview(data):
     entries=check(data)
-    overrides=data['script_to_video'].get('displayOverrides',{})
     paras=[]; current=[]
     for ident,w in entries:
-        current.append(overrides.get(ident,w['word']).strip())
+        current.append(w['word'].strip())
         if w.get('breakParagraph') is True:
             paras.append(' '.join(current));current=[]
     if current:paras.append(' '.join(current))
@@ -125,8 +120,8 @@ def inspect(args):
 def read_decisions(path,ids):
     decision=load(path)
     # This is a *temporary human/AI decision file*, not an input subtitle schema.
-    if not isinstance(decision,dict) or not isinstance(decision.get('breakAfterWordIds'),list) or set(decision)-{'breakAfterWordIds','displayOverrides'}:
-        fail('边界决策文件必须为 {"breakAfterWordIds": ["s...w..."], "displayOverrides": {...}}')
+    if not isinstance(decision,dict) or not isinstance(decision.get('breakAfterWordIds'),list) or set(decision)-{'breakAfterWordIds'}:
+        fail('边界决策文件必须为 {"breakAfterWordIds": ["s...w..."]}')
     keys=decision['breakAfterWordIds'];position={key:i for i,key in enumerate(ids)};last=-1
     for ident in keys:
         if not isinstance(ident,str) or ident not in position or position[ident]<=last or position[ident]==len(ids)-1: fail(f'无效、重复或乱序边界：{ident}')
@@ -144,8 +139,8 @@ def build(args):
     if not args.output.name.lower().endswith(EXT): fail(f'输出必须以 {EXT} 结尾')
     if args.output.exists() and not args.force: fail('目标存在，如需重建请加 --force')
     out=copy.deepcopy(raw)
-    out['script_to_video']={'format':'script-to-video','schemaVersion':2}
-    if 'displayOverrides' in decision: out['script_to_video']['displayOverrides']=decision['displayOverrides']
+    out['script_to_video']={'format':'script-to-video','schemaVersion':3}
+    out['title']=''
     for ident in decision['breakAfterWordIds']:
         m=ID.fullmatch(ident);assert m is not None
         si,wi=(int(m.group(1)),int(m.group(2)))
@@ -157,7 +152,7 @@ def build(args):
     print(f'生成成功：{len(entries)} 词，{len(decision["breakAfterWordIds"])+1} 段')
 
 def edit(args):
-    """Re-apply the complete reviewed boundary set to an existing v2 file."""
+    """Re-apply the complete reviewed boundary set to an existing v3 file."""
     ensure_text_preview(args.preview)
     ensure_safe_output_paths([args.input,args.boundaries],[args.output,args.preview])
     original=load(args.input)
@@ -172,8 +167,6 @@ def edit(args):
         match=ID.fullmatch(ident)
         si,wi=int(match.group(1)),int(match.group(2))
         changed['segments'][si]['words'][wi]['breakParagraph']=True
-    if 'displayOverrides' in decision:
-        changed['script_to_video']['displayOverrides']=decision['displayOverrides']
     check(changed,args.output)
     args.output.parent.mkdir(parents=True,exist_ok=True)
     write_text_atomic(args.output,json.dumps(changed,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
@@ -186,7 +179,7 @@ def validate(args):
     data=load(args.input);entries=check(data,args.input)
     if args.source:
         raw=load(args.source);words_of(raw)
-        cleaned=copy.deepcopy(data);cleaned.pop('script_to_video',None)
+        cleaned=copy.deepcopy(data);cleaned.pop('script_to_video',None);cleaned.pop('title',None)
         for seg in cleaned['segments']:
             for w in seg['words']:w.pop('breakParagraph',None)
         if cleaned!=raw: fail('源文件内容发生变化（除允许新增的 breakParagraph/script_to_video 外）')
@@ -194,7 +187,7 @@ def validate(args):
     print(f'校验通过：{len(entries)} 词，{1+sum(w.get("breakParagraph") is True for _,w in entries)} 段')
 
 def main():
-    parser=argparse.ArgumentParser(description='ScriptToVideo v2 字幕分段工具')
+    parser=argparse.ArgumentParser(description='ScriptToVideo v3 字幕分段工具')
     commands=parser.add_subparsers(dest='command',required=True)
     a=commands.add_parser('inspect');a.add_argument('input',type=Path);a.add_argument('--out',type=Path);a.set_defaults(fn=inspect)
     a=commands.add_parser('build');a.add_argument('input',type=Path);a.add_argument('--boundaries',required=True,type=Path);a.add_argument('--output',required=True,type=Path);a.add_argument('--preview',type=Path);a.add_argument('--force',action='store_true');a.set_defaults(fn=build)

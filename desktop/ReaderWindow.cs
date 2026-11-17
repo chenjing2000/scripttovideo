@@ -28,20 +28,16 @@ internal sealed class ReaderWindow : Window
     private Source? source;
     private sealed record MediaCandidate(string Path, string Kind, string Url);
     private sealed record PendingMediaImport(string Id, string Subtitle, string Transcript,
-        string Fingerprint, string ProjectPath, string? ProjectContent, List<MediaCandidate> Candidates);
+        string ProjectPath, string? ProjectContent, List<MediaCandidate> Candidates);
     private PendingMediaImport? pendingMediaImport;
     private string? previousMediaUrl;
     private string? lastCommittedImportId;
     private Source? previousSource;
-    private bool previousProjectSaveLocked;
     private readonly ExportTaskManager exportTasks = new();
     private readonly ExportProcessManager exportProcesses = new();
     private bool isShuttingDown;
-    private bool isMinimizingToTray;
     private bool isCloseConfirmationOpen;
     private bool exporting => exportTasks.IsBusy;
-    // A discovered project cannot be overwritten until the front end validates it.
-    private bool projectSaveLocked;
     private bool hasUnsavedChanges;
     private bool initialLayoutApplied;
     private LocalMediaServer? mediaServer;
@@ -56,6 +52,7 @@ internal sealed class ReaderWindow : Window
     private static readonly object DefaultSettings = new
     {
         format = SettingsFormat, schemaVersion = 1,
+        titleStyle = new { bold = true, fontFamily = "Arial", fontSize = 50, lineHeight = 70, paragraphGap = 20, color = "#C25160" },
         leftFont = new { family = "Arial", size = 40, color = "#293847", highlightColor = "#B81A35" },
         rightFont = new { family = "Arial", size = 16, color = "#293847", backgroundColor = "#F7F4EC" },
         paragraph = new { firstLineIndentEm = 2, lineHeight = 1.4, gap = 20, alignment = "justify" },
@@ -64,7 +61,7 @@ internal sealed class ReaderWindow : Window
     };
 
 
-    private sealed record Source(string Media, string Transcript, string Fingerprint, string Project, string MediaKind);
+    private sealed record Source(string Media, string Transcript, string Project, string MediaKind);
 
     [STAThread]
     private static void Main()
@@ -126,23 +123,12 @@ internal sealed class ReaderWindow : Window
         ContentRendered += Initialize;
         trayIcon = new TrayIconManager(this, ActivateFromTray, Close);
         AppLog.Write("Window", "Main reader window constructed.");
+        // Native WPF minimization keeps the main window in the taskbar.
+        // The notification-area icon remains available as an alternative restore path.
         StateChanged += (_, _) =>
         {
-            if (isShuttingDown || isMinimizingToTray || WindowState != WindowState.Minimized)
-                return;
-
-            isMinimizingToTray = true;
-            try
-            {
-                AppLog.Write("Window", "Main window minimized to tray.");
-                WindowState = WindowState.Normal;
-                ShowInTaskbar = false;
-                Hide();
-            }
-            finally
-            {
-                isMinimizingToTray = false;
-            }
+            if (!isShuttingDown && WindowState == WindowState.Minimized)
+                AppLog.Write("Window", "Main window minimized; taskbar icon retained.");
         };
         Closing += OnClosing;
         Closed += (_, _) =>
@@ -345,17 +331,31 @@ internal sealed class ReaderWindow : Window
                         lastCommittedImportId = null;
                     }
                     break;
-                case "project-validated":
-                    if (source != null && projectSaveLocked &&
-                        request.GetProperty("fingerprint").GetString() == source.Fingerprint &&
-                        string.Equals(request.GetProperty("subtitleName").GetString(), Path.GetFileName(source.Transcript), StringComparison.OrdinalIgnoreCase))
-                        projectSaveLocked = false;
+                case "project-reset":
+                    try
+                    {
+                        ResetProject(request);
+                        Send(new { kind = "project-reset-saved", operationId = request.GetProperty("operationId").GetInt32(),
+                            subtitleName = request.GetProperty("subtitleName").GetString() });
+                    }
+                    catch (Exception error)
+                    {
+                        AppLog.WriteException("Project.Reset", error);
+                        Send(new { kind = "project-reset-failed", operationId = request.GetProperty("operationId").GetInt32(),
+                            subtitleName = request.GetProperty("subtitleName").GetString(), message = error.Message });
+                    }
                     break;
-                case "save":
-                    SaveProject(request.GetProperty("project"), request.GetProperty("revision").GetInt64());
-                    break;
-                case "export-text":
-                    ExportPlainText(request.GetProperty("text"));
+                case "project-bundle-save":
+                    try { SaveProjectBundle(request); }
+                    catch (Exception error)
+                    {
+                        AppLog.WriteException("ProjectBundle.Save", error);
+                        Send(new { kind = "project-bundle-save-failed",
+                            operationId = request.GetProperty("operationId").GetInt32(),
+                            revision = request.GetProperty("revision").GetInt64(),
+                            subtitleName = request.GetProperty("subtitleName").GetString(),
+                            message = error.Message });
+                    }
                     break;
                 case "export":
                     await ExportAsync(request);
@@ -465,7 +465,7 @@ internal sealed class ReaderWindow : Window
                     using var mergedDoc = JsonDocument.Parse(merged);
                     if (ValidSettings(mergedDoc.RootElement))
                     {
-                        AtomicWrite(settingsFile, merged);
+                        ReviseStorage.AtomicWrite(settingsFile, merged);
                         return merged;
                     }
                 }
@@ -489,7 +489,7 @@ internal sealed class ReaderWindow : Window
     private string CreateDefaultSettings()
     {
         var defaults = JsonSerializer.Serialize(DefaultSettings, JsonOptions);
-        AtomicWrite(settingsFile, defaults);
+        ReviseStorage.AtomicWrite(settingsFile, defaults);
         return defaults;
     }
 
@@ -508,9 +508,14 @@ internal sealed class ReaderWindow : Window
         {
             if (root.GetProperty("format").GetString() != SettingsFormat || root.GetProperty("schemaVersion").GetInt32() != 1) return false;
             var lf = root.GetProperty("leftFont"); var rf = root.GetProperty("rightFont");
+            var title = root.GetProperty("titleStyle");
             static bool Color(string? s) => s is not null && System.Text.RegularExpressions.Regex.IsMatch(s, "^#[a-fA-F0-9]{6}$");
             static bool Font(JsonElement e) => new[] { "Arial", "Nunito Sans", "Segoe UI" }.Contains(e.GetString());
             static bool Range(JsonElement e, int lo, int hi) => e.ValueKind == JsonValueKind.Number && e.TryGetInt32(out int x) && x >= lo && x <= hi;
+            if (title.GetProperty("bold").ValueKind is not (JsonValueKind.True or JsonValueKind.False) ||
+                !Font(title.GetProperty("fontFamily")) || !Range(title.GetProperty("fontSize"),1,200) ||
+                !Range(title.GetProperty("lineHeight"),title.GetProperty("fontSize").GetInt32(),300) ||
+                !Range(title.GetProperty("paragraphGap"),0,200) || !Color(title.GetProperty("color").GetString())) return false;
             if (!Font(lf.GetProperty("family")) || !Range(lf.GetProperty("size"), 1, 99) || !Color(lf.GetProperty("color").GetString()) || !Color(lf.GetProperty("highlightColor").GetString()) ||
                 !Font(rf.GetProperty("family")) || !Range(rf.GetProperty("size"), 1, 99) || !Color(rf.GetProperty("color").GetString()) || !Color(rf.GetProperty("backgroundColor").GetString())) return false;
             var paragraph = root.GetProperty("paragraph"); var page = root.GetProperty("page"); var output = root.GetProperty("output");
@@ -522,22 +527,10 @@ internal sealed class ReaderWindow : Window
         }
         catch (Exception e) when (e is KeyNotFoundException or InvalidOperationException or FormatException) { return false; }
     }
-    private static void AtomicWrite(string file, string content)
-    {
-        Directory.CreateDirectory(Path.GetDirectoryName(file)!);
-        var temp = file + "." + Guid.NewGuid().ToString("N") + ".tmp";
-        try
-        {
-            File.WriteAllText(temp, content, new UTF8Encoding(false));
-            if (File.Exists(file)) File.Move(temp, file, overwrite: true);
-            else File.Move(temp, file);
-        }
-        finally { if (File.Exists(temp)) File.Delete(temp); }
-    }
     private void SaveSettings(JsonElement settings)
     {
         if (!ValidSettings(settings)) throw new InvalidDataException("全局设置验证失败，未保存。");
-        AtomicWrite(settingsFile, JsonSerializer.Serialize(settings, JsonOptions));
+        ReviseStorage.AtomicWrite(settingsFile, JsonSerializer.Serialize(settings, JsonOptions));
     }
 
     private void OpenPair(string subtitle)
@@ -557,11 +550,14 @@ internal sealed class ReaderWindow : Window
             if (!root.TryGetProperty("language", out var language) || language.GetString() != "en" ||
                 !root.TryGetProperty("script_to_video", out var meta) || meta.ValueKind != JsonValueKind.Object ||
                 !meta.TryGetProperty("format", out var format) || format.GetString() != "script-to-video" ||
-                !meta.TryGetProperty("schemaVersion", out var version) || version.GetInt32() != 2 ||
+                !meta.TryGetProperty("schemaVersion", out var version) ||
+                version.ValueKind != JsonValueKind.Number ||
+                version.GetInt32() != 3 ||
+                !root.TryGetProperty("title", out var title) || title.ValueKind != JsonValueKind.String ||
+                meta.TryGetProperty("displayOverrides", out _) ||
                 root.TryGetProperty("video_transcript", out _) || root.TryGetProperty("enscript", out _))
-                throw new InvalidOperationException("字幕不是 ScriptToVideo v2 标准格式。");
+                throw new InvalidOperationException("原始字幕必须是包含 title 的 ScriptToVideo v3 格式。");
         }
-        var fingerprint = Convert.ToHexString(SHA256.HashData(bytes));
         // M6.12 is a breaking storage-layout change: do not search or migrate legacy projects.
         var workFolder = Path.Combine(folder, stem);
         var projectPath = Path.Combine(workFolder, stem + ".project.json");
@@ -569,6 +565,7 @@ internal sealed class ReaderWindow : Window
             throw new IOException($"工程工作目录被同名文件占用：{workFolder}");
         if (Directory.Exists(projectPath))
             throw new IOException($"工程文件路径被同名文件夹占用：{projectPath}");
+        var revisePaths = ReviseStorage.Resolve(subtitle);
         // Read the project before switching the active media token/source. If the
         // project is inaccessible, the previously loaded pair remains usable.
         var projectContent = File.Exists(projectPath) ? File.ReadAllText(projectPath) : null;
@@ -595,7 +592,7 @@ internal sealed class ReaderWindow : Window
             if (candidates.Count == 0)
                 throw new FileNotFoundException($"找不到同名媒体：{string.Join("、", new[] { ".mp4", ".mkv", ".m4a", ".mp3", ".wav" }.Select(ext => stem + ext))}");
             var id = Guid.NewGuid().ToString("N");
-            pendingMediaImport = new PendingMediaImport(id, subtitle, transcript, fingerprint, projectPath, projectContent, candidates);
+            pendingMediaImport = new PendingMediaImport(id, subtitle, transcript, projectPath, projectContent, candidates);
             Send(new
             {
                 kind = "import-candidates", requestId = id, subtitleName = filename, transcript,
@@ -636,20 +633,39 @@ internal sealed class ReaderWindow : Window
         server.ReleasePrevious(previousMediaUrl);
         previousMediaUrl = server.ActiveUrl;
         previousSource = source;
-        previousProjectSaveLocked = projectSaveLocked;
         server.CommitCandidate(selected.Url);
         foreach (var candidate in pending.Candidates)
             if (candidate.Url != selected.Url) server.ReleaseCandidate(candidate.Url);
         pendingMediaImport = null;
         lastCommittedImportId = pending.Id;
-        source = new Source(selected.Path, pending.Subtitle, pending.Fingerprint, pending.ProjectPath, selected.Kind);
-        projectSaveLocked = pending.ProjectContent != null;
+        source = new Source(selected.Path, pending.Subtitle, pending.ProjectPath, selected.Kind);
+        // Read only: existing revised content is validated by the front end before use.
+        // No work files are created during media probing or before pair acceptance.
+        string? existingRevised;
+        try
+        {
+            var revisePaths = ReviseStorage.Resolve(pending.Subtitle);
+            existingRevised = ReviseStorage.ReadExisting(revisePaths);
+        }
+        catch (Exception error)
+        {
+            AppLog.WriteException("Revise.ReadExisting", error);
+            existingRevised = null;
+            // An unreadable revised is not equivalent to a missing revised.
+            // Send an explicit error so the front end rejects this pair.
+            Send(new { kind = "pair", requestId = pending.Id, mediaName = Path.GetFileName(selected.Path),
+                mediaKind = selected.Kind, subtitleName = Path.GetFileName(pending.Subtitle),
+                mediaUrl = selected.Url, transcript = pending.Transcript,
+                project = pending.ProjectContent, revisedError = error.Message });
+            return;
+        }
         Send(new
         {
             kind = "pair", requestId = pending.Id, mediaName = Path.GetFileName(selected.Path),
             mediaKind = selected.Kind, subtitleName = Path.GetFileName(pending.Subtitle),
-            mediaUrl = selected.Url, transcript = pending.Transcript, fingerprint = pending.Fingerprint,
-            project = pending.ProjectContent
+            mediaUrl = selected.Url, transcript = pending.Transcript,
+            project = File.Exists(pending.ProjectPath) ? File.ReadAllText(pending.ProjectPath, Encoding.UTF8) : null,
+            revised = existingRevised
         });
     }
 
@@ -665,7 +681,6 @@ internal sealed class ReaderWindow : Window
             server.ReleasePrevious(invalidUrl);
         }
         source = previousSource;
-        projectSaveLocked = previousProjectSaveLocked;
         previousSource = null;
         previousMediaUrl = null;
         lastCommittedImportId = null;
@@ -683,26 +698,14 @@ internal sealed class ReaderWindow : Window
 
     private Source CheckSource(JsonElement project)
     {
-        var current = source ?? throw new InvalidOperationException("请先打开素材。");
-        if (!project.TryGetProperty("format", out var projectFormat) || projectFormat.GetString() != "script-to-video-project" ||
-            !project.TryGetProperty("schemaVersion", out var schema) || schema.ValueKind != JsonValueKind.Number || schema.GetInt32() != 2)
-            throw new InvalidOperationException("不支持的工程版本：必须为 ScriptToVideo Project v2。");
-        if (!project.TryGetProperty("source", out var projectSource) ||
-            projectSource.ValueKind != JsonValueKind.Object ||
-            !projectSource.TryGetProperty("videoName", out var mediaName) ||
-            mediaName.ValueKind != JsonValueKind.String ||
-            !string.Equals(mediaName.GetString(), Path.GetFileName(current.Media), StringComparison.OrdinalIgnoreCase) ||
-            !projectSource.TryGetProperty("subtitleName", out var subtitleName) ||
-            subtitleName.ValueKind != JsonValueKind.String ||
-            !string.Equals(subtitleName.GetString(), Path.GetFileName(current.Transcript), StringComparison.OrdinalIgnoreCase) ||
-            !projectSource.TryGetProperty("subtitleSha256", out var sha) ||
-            sha.ValueKind != JsonValueKind.String ||
-            !string.Equals(sha.GetString(), current.Fingerprint, StringComparison.OrdinalIgnoreCase) ||
-            Fingerprint(current.Transcript) != current.Fingerprint)
-            throw new InvalidOperationException("工程来源与当前媒体或字幕不匹配，请重新打开素材。");
-        if (project.TryGetProperty("mediaKind", out var mediaKind) &&
-            (mediaKind.ValueKind != JsonValueKind.String || mediaKind.GetString() != current.MediaKind))
-            throw new InvalidOperationException("工程媒体类型与当前文件不匹配。");
+        var current=source??throw new InvalidOperationException("请先打开素材。");
+        if(!project.TryGetProperty("format",out var format)||format.GetString()!="script-to-video-project"||
+           !project.TryGetProperty("schemaVersion",out var version)||version.GetInt32()!=3||
+           !project.TryGetProperty("script",out var script)||
+           !script.TryGetProperty("filename",out var filename)||
+           filename.ValueKind!=JsonValueKind.String||
+           !string.Equals(filename.GetString(),Path.GetFileName(current.Transcript),StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException("project.script.filename 与原始字幕名称不匹配。");
         return current;
     }
 
@@ -711,40 +714,54 @@ internal sealed class ReaderWindow : Window
         Title = hasUnsavedChanges ? "ScriptToVideo ●" : "ScriptToVideo";
     }
 
-    private void SaveProject(JsonElement project, long revision)
+    private void ResetProject(JsonElement request)
     {
-        if (projectSaveLocked)
-            throw new InvalidOperationException("现有工程文件未能通过验证，已禁止覆盖。请检查工程文件后重新打开素材。");
-        var current = CheckSource(project);
-        AtomicWrite(current.Project, project.GetRawText());
-        Send(new { kind = "saved", revision, message = $"工程已保存至 {current.Project}" });
+        var current=source??throw new InvalidOperationException("没有正在打开的字幕。");
+        var project=request.GetProperty("project");
+        CheckSource(project);
+        if (!string.Equals(request.GetProperty("subtitleName").GetString(), Path.GetFileName(current.Transcript), StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException("重置请求不属于当前字幕。");
+        ReviseStorage.AtomicWrite(current.Project,project.GetRawText());
     }
 
-    private void ExportPlainText(JsonElement content)
+    private void SaveProjectBundle(JsonElement request)
     {
-        try
+        var project=request.GetProperty("project");
+        var current=CheckSource(project);
+        if(!string.Equals(request.GetProperty("subtitleName").GetString(),Path.GetFileName(current.Transcript),StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException("保存请求不属于当前字幕。");
+        var revised=request.GetProperty("revised");
+        var words=revised.GetProperty("segments");
+        using(var original=JsonDocument.Parse(File.ReadAllText(current.Transcript,Encoding.UTF8)))
         {
-            var current = source ?? throw new InvalidOperationException("请先打开字幕和媒体文件。");
-            if (content.ValueKind != JsonValueKind.String)
-                throw new InvalidOperationException("导出的正文内容无效。");
-            var text = content.GetString() ?? string.Empty;
-            if (string.IsNullOrEmpty(text))
-                throw new InvalidOperationException("没有可导出的正文文本。");
-
-            // Same source-derived work directory as the project; no SaveFileDialog.
-            var workFolder = Path.GetDirectoryName(current.Project)!;
-            // The project filename is <stem>.project.json: remove the entire suffix.
-            var stem = Path.GetFileName(current.Project)[..^".project.json".Length];
-            var articlePath = Path.Combine(workFolder, stem + ".article.txt");
-            // Preserve punctuation, casing and spaces; normalize line endings to Windows CRLF.
-            var windowsText = text.Replace("\r\n", "\n").Replace('\r', '\n').Replace("\n", "\r\n");
-            AtomicWrite(articlePath, windowsText); // UTF-8 without BOM, staged replacement.
-            Send(new { kind = "text-exported", message = $"正文已导出至 {articlePath}" });
+            var anchors=original.RootElement.GetProperty("segments");
+            if(anchors.GetArrayLength()!=words.GetArrayLength())
+                throw new InvalidDataException("revise 的段落数量与原始字幕不同。");
+            for(var si=0;si<anchors.GetArrayLength();si++)
+            {
+                var before=anchors[si].GetProperty("words");
+                var after=words[si].GetProperty("words");
+                if(before.GetArrayLength()!=after.GetArrayLength())
+                    throw new InvalidDataException("revise 的单词数量与原始字幕不同。");
+                for(var wi=0;wi<before.GetArrayLength();wi++)
+                    if(!JsonElement.DeepEquals(before[wi].GetProperty("start"),after[wi].GetProperty("start"))||
+                       !JsonElement.DeepEquals(before[wi].GetProperty("end"),after[wi].GetProperty("end")))
+                        throw new InvalidDataException("revise 修改了原始单词的时间锚点。");
+            }
         }
-        catch (Exception error)
-        {
-            Send(new { kind = "text-export-error", message = $"正文导出失败：{error.Message}" });
-        }
+        if(revised.GetProperty("script_to_video").GetProperty("schemaVersion").GetInt32()!=3||
+           revised.GetProperty("title").ValueKind!=JsonValueKind.String)
+            throw new InvalidDataException("保存内容不是有效的 revise v3。");
+        var text=request.GetProperty("text").GetString()??throw new InvalidDataException("TXT 必须是字符串。");
+        var paths=ReviseStorage.Resolve(current.Transcript);
+        ReviseStorage.Save(paths,current.Project,revised.GetRawText(),text,project.GetRawText());
+        Send(new {kind="project-bundle-saved",
+            operationId=request.GetProperty("operationId").GetInt32(),
+            revision=request.GetProperty("revision").GetInt64(),
+            subtitleName=Path.GetFileName(current.Transcript),message="revise、TXT 和 project v3 已保存。",
+            revisedSnapshot=File.ReadAllText(paths.Revised,Encoding.UTF8),
+            textSnapshot=File.ReadAllText(paths.Text,Encoding.UTF8),
+            projectSnapshot=File.ReadAllText(current.Project,Encoding.UTF8)});
     }
 
     private async Task<string> PrepareExportRuntimeAsync(CancellationToken cancellationToken)
@@ -802,7 +819,7 @@ internal sealed class ReaderWindow : Window
                         Directory.Move(backupModules,activeModules);
                     throw;
                 }
-                AtomicWrite(marker,checksum);
+                ReviseStorage.AtomicWrite(marker,checksum);
                 File.Delete(Path.Combine(runtime,".browser-ready"));
                 if(Directory.Exists(backupModules))Directory.Delete(backupModules,recursive:true);
             }
@@ -825,7 +842,7 @@ internal sealed class ReaderWindow : Window
             var browser = await RunDependencyCommandAsync("node.exe",runtime,["scripts/ensure-browser.mjs"],timeoutMs:900000,cancellationToken:cancellationToken);
             cancellationToken.ThrowIfCancellationRequested();
             if(browser.ExitCode!=0) throw new InvalidOperationException("Remotion 浏览器准备失败：" + browser.Output[^Math.Min(2000,browser.Output.Length)..]);
-            AtomicWrite(browserMarker,checksum);
+            ReviseStorage.AtomicWrite(browserMarker,checksum);
         }
         return runtime;
     }
@@ -1014,11 +1031,9 @@ internal sealed class ReaderWindow : Window
         if (isShuttingDown) return;
         var projectElement = request.GetProperty("project");
         var current = CheckSource(projectElement);
-        if (string.IsNullOrWhiteSpace(current.Project) || !File.Exists(current.Project))
-        {
-            Send(new { kind = "status", message = "请先保存项目，再导出视频。", busy = false, error = true });
-            return;
-        }
+        var revisePaths = ReviseStorage.Resolve(current.Transcript);
+        if(!File.Exists(revisePaths.Revised)||!File.Exists(current.Project))
+            throw new IOException("revise 或 project 文件缺失，请先保存。");
 
         var projectPath = Path.GetFullPath(current.Project);
         var projectDirectory = Path.GetDirectoryName(projectPath)!;
@@ -1069,6 +1084,25 @@ internal sealed class ReaderWindow : Window
             dependencyInstallCancellation = null;
             Send(new { kind = "dependency-end" });
 
+            // Stage immutable copies for this render. Never let the renderer
+            // read mutable workspace files after dependency preparation.
+            string renderOriginal = task.TranscriptPath;
+            string renderRevised = revisePaths.Revised;
+            {
+                var renderInputs = Path.Combine(task.CacheDirectory, "input");
+                const string originalSuffix = ".script.json";
+                var originalName = Path.GetFileName(task.TranscriptPath);
+                var baseName = originalName[..^originalSuffix.Length];
+                var stagedDerived = Path.Combine(renderInputs, baseName);
+                Directory.CreateDirectory(stagedDerived);
+                renderOriginal = Path.Combine(renderInputs, originalName);
+                renderRevised = Path.Combine(stagedDerived, baseName + ".script.revise.json");
+                await File.WriteAllBytesAsync(renderOriginal, await File.ReadAllBytesAsync(task.TranscriptPath, token), token);
+                await File.WriteAllBytesAsync(renderRevised, await File.ReadAllBytesAsync(revisePaths.Revised, token), token);
+                using var stagedRevised = JsonDocument.Parse(await File.ReadAllTextAsync(renderRevised, token));
+                if (!JsonElement.DeepEquals(stagedRevised.RootElement, request.GetProperty("revised")))
+                    throw new IOException("导出输入在快照准备期间发生变化，已终止导出。");
+            }
             snapshot = Path.Combine(tempRoot, $"project-snapshot-{task.Id}.json.tmp");
             await File.WriteAllTextAsync(snapshot, projectElement.GetRawText(), token);
             if (request.TryGetProperty("pagePlan", out var pagePlan))
@@ -1095,7 +1129,10 @@ internal sealed class ReaderWindow : Window
                 "--duration", request.GetProperty("duration").GetDouble().ToString("R", CultureInfo.InvariantCulture),
                 "--video-height", request.GetProperty("videoHeight").GetInt32().ToString(CultureInfo.InvariantCulture)
             ];
+            arguments[4] = renderRevised; // value following --json
             foreach (var argument in arguments) start.ArgumentList.Add(argument);
+            start.ArgumentList.Add("--source-json");
+            start.ArgumentList.Add(renderOriginal);
             if (pagePlanSnapshot != null)
             {
                 start.ArgumentList.Add("--page-plan");
@@ -1302,8 +1339,6 @@ internal sealed class ReaderWindow : Window
     {
         try { if (Directory.Exists(path)) Directory.Delete(path, recursive: true); } catch { }
     }
-
-    private static string Fingerprint(string file) => Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(file)));
 
     private void Send(object message) => view.CoreWebView2.PostWebMessageAsJson(JsonSerializer.Serialize(message));
 }

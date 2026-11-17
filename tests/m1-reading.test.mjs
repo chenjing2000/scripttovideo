@@ -5,7 +5,7 @@ import {createRequire} from 'node:module';
 const require = createRequire(import.meta.url);
 const core = require('../.tmp-core/index.js');
 
-const transcript = core.parseScriptToVideo({language:'en',script_to_video:{format:'script-to-video',schemaVersion:2},segments: [
+const transcript = core.parseScriptToVideo({title:'',language:'en',script_to_video:{format:'script-to-video',schemaVersion:3},segments: [
   {words: [{word:'Hello.',start:7.293,end:7.613}]},
   {words: [{word:'Here',start:8,end:8.4},{word:'again.',start:8.5,end:9}]}
 ]});
@@ -29,23 +29,6 @@ test('Silent opening is uncolored and stationary, with stateless midpoint and re
   assert.equal(word.display, 'Hello.');
 });
 
-test('Semantic paragraph overrides remain separate from segment IDs and line wrapping', () => {
-  const original = transcript.words;
-  const changed = original.map(word => word.id === 's1w0' ? {...word, breakParagraph: true} : word);
-  const project = core.createProject('sample.mp4', 'sample.json', changed);
-  const restored = core.applyOverrides(transcript, project).words;
-  assert.deepEqual(Object.keys(project.overrides), ['s1w0']);
-  assert.deepEqual(restored.map(({id,start,end}) => [id,start,end]), original.map(({id,start,end}) => [id,start,end]));
-  const small = core.buildLayout(restored, {...style, paragraphGap: 4}, 100, 22, measure);
-  const large = core.buildLayout(restored, {...style, paragraphGap: 20}, 100, 22, measure);
-  assert.deepEqual(small.rows.map(row => row.startWord), [0, 2]);
-  assert.deepEqual(large.rows.map(row => row.top), [0, 30]);
-  assert.equal(core.buildScrollPlan(small).maxOffset, 2);
-  assert.equal(core.buildScrollPlan(large).maxOffset, 18);
-  const short = core.buildLayout(restored, style, 100, 100, measure);
-  assert.equal(short.rows[0].top, 0);
-  assert.equal(core.scrollOffset(core.buildScrollPlan(short), 100), 0);
-});
 
 test('Queued scroll consumes remaining silence and stays continuous and bounded', () => {
   const rows = [[0,1],[1.01,1.03],[1.05,1.06],[1.8,2]].map(([firstStart,lastEnd], index) => ({
@@ -73,16 +56,5 @@ test('Queued scroll consumes remaining silence and stays continuous and bounded'
   near(core.scrollOffset(plan, 1.55), midpoint);
 });
 
-test('Serialized export snapshot keeps preview geometry and edits after subsequent editing', () => {
-  const project = core.createProject('sample.mp4','sample.json',transcript.words);
-  const words = core.updateWord(transcript.words, 's0w0', 'Hi.');
-  const layout = core.buildLayout(words, project.style, 1200, 925, measure);
-  const snapshot = JSON.parse(JSON.stringify({project:core.saveProjectView(project, words),layout}));
-  const later = core.updateWord(words, 's0w0', 'Later.');
-  assert.equal(later[0].display, 'Later.');
-  const rendered = core.applyOverrides(transcript, snapshot.project).words;
-  assert.equal(rendered[0].display, words[0].display);
-  assert.equal(rendered[0].start, words[0].start);
-  assert.deepEqual(snapshot.layout, layout);
-  assert.deepEqual(core.buildScrollPlan(snapshot.layout), core.buildScrollPlan(layout));
-});
+
+test('edited paragraphs are independent of the source JSON',()=>{const original=transcript.words;const revised=original.map(w=>w.id==='s1w0'?{...w,breakParagraph:true}:w);assert.equal(revised[1].breakParagraph,true);assert.equal(original[1].breakParagraph,false)});

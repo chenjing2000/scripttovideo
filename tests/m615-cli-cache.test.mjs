@@ -7,7 +7,9 @@ function runExport(extraArgs = []) {
   return spawnSync(process.execPath, [
     'scripts/export.mjs',
     '--media', 'missing-input.mp4',
-    '--json', 'missing-input.script.json',
+    '--source-json', 'missing-input.script.json',
+    '--json', 'missing-input/missing-input.script.revise.json',
+    '--project', 'missing-input/missing-input.project.json',
     '--out', 'out/Lesson.exported.mp4',
     ...extraArgs
   ], {encoding: 'utf8'});
@@ -31,4 +33,13 @@ test('CLI default cache is placed beside the absolute output path', () => {
   const source = readFileSync('scripts/export.mjs', 'utf8');
   assert.match(source, /path\.join\(path\.dirname\(path\.resolve\(output\)\),\s*['"]\.script-to-video-cache['"]\)/);
   assert.match(source, /cacheArg\s*\?\s*path\.resolve\(cacheArg\)/);
+});
+
+test('M6.22 breaking: legacy bare-original export arguments are rejected',()=>{
+ const result=spawnSync(process.execPath,[
+  'scripts/export.mjs','--media','missing-input.mp4',
+  '--json','missing-input.script.json','--out','out/legacy.mp4'
+ ],{encoding:'utf8'});
+ assert.equal(result.status,2);
+ assert.match(result.stderr,/--source-json/);
 });

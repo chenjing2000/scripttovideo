@@ -18,11 +18,27 @@
     <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
     <EnableCompressionInSingleFile>false</EnableCompressionInSingleFile>
   </PropertyGroup>
+  <!-- Rebuild the WebView2 UI before MSBuild captures embedded resource filenames.
+       A plain dotnet publish must never reuse an older dist/ bundle. -->
+  <Target Name="BuildEmbeddedWebUi" BeforeTargets="AssignTargetPaths"
+          Condition="'$(DesignTimeBuild)' != 'true'">
+    <Exec Command="npm run build" WorkingDirectory="$(MSBuildProjectDirectory)/.." />
+    <ItemGroup>
+      <EmbeddedResource Include="../dist/index.html" LogicalName="TSUI/index.html" />
+      <EmbeddedResource Include="../dist/app.ico" LogicalName="TSUI/app.ico" />
+      <!-- Separate item type prevents target batching against unrelated TSRUNTIME resources. -->
+      <BuiltWebAsset Include="../dist/assets/**/*" />
+    </ItemGroup>
+    <ItemGroup>
+      <!-- Apply metadata after item discovery, when Filename/Extension are available. -->
+      <BuiltWebAsset Update="@(BuiltWebAsset)">
+        <LogicalName>TSUI/assets/%(BuiltWebAsset.RecursiveDir)%(BuiltWebAsset.Filename)%(BuiltWebAsset.Extension)</LogicalName>
+      </BuiltWebAsset>
+      <EmbeddedResource Include="@(BuiltWebAsset)" />
+    </ItemGroup>
+  </Target>
   <ItemGroup>
     <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.4258.31" />
-    <EmbeddedResource Include="../dist/index.html" LogicalName="TSUI/index.html" />
-    <EmbeddedResource Include="../dist/app.ico" LogicalName="TSUI/app.ico" />
-    <EmbeddedResource Include="../dist/assets/**/*" LogicalName="TSUI/assets/%(RecursiveDir)%(Filename)%(Extension)" />
     <EmbeddedResource Include="../package.json" LogicalName="TSRUNTIME/package.json" />
     <EmbeddedResource Include="../package-lock.json" LogicalName="TSRUNTIME/package-lock.json" />
     <EmbeddedResource Include="../tsconfig.json" LogicalName="TSRUNTIME/tsconfig.json" />

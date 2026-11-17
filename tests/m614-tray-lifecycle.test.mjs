@@ -22,11 +22,12 @@ test('M6.14: secondary launch forwards activation and does not create another wi
   assert.match(host, /ActivateFromTray/);
 });
 
-test('M6.14: minimizing hides the window without closing the WebView2 instance', () => {
-  assert.match(host, /WindowState != WindowState\.Minimized/);
-  assert.match(host, /ShowInTaskbar = false/);
-  assert.match(host, /Hide\(\)/);
+test('M6.22: minimizing keeps a taskbar entry and retains WebView2 until closing', () => {
+  const state = host.slice(host.indexOf('StateChanged += '), host.indexOf('Closing += OnClosing'));
+  assert.match(state, /WindowState == WindowState\.Minimized/);
+  assert.doesNotMatch(state, /ShowInTaskbar\s*=\s*false|Hide\(\)|WindowState\s*=\s*WindowState\.Normal/);
   assert.match(host, /DisposeSafely\("WebView2", view\.Dispose\)/);
+  assert.match(host, /Closed \+=/);
 });
 
 test('M6.14 current tray retains the WPF menu while NotifyIcon owns the tray icon', () => {
