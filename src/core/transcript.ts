@@ -1,4 +1,4 @@
-import type {Transcript,ScriptToVideoInput,Word,Project} from './types';
+import type {Transcript,ScriptToVideoInput,Word} from './types';
 const valid = (n:unknown):n is number => typeof n==='number' && Number.isFinite(n);
 const record = (v:unknown):v is Record<string,unknown> => v!==null && typeof v==='object' && !Array.isArray(v);
 /** Only the title-bearing ScriptToVideo v3 format is supported. */
@@ -48,11 +48,5 @@ export function updateWord(words:Word[],id:string,display:string):Word[]{
  const v=display.trim();if(!v||/\s/u.test(v))throw new Error('每个时间锚点只能编辑一个词，不能输入空格或空词');
  if(words.some(w=>w.id===id&&w.display===v))return words;
  return words.map(w=>w.id===id?{...w,display:v}:w);
-}
-export function applyOverrides(t:Transcript,p:Project):Transcript{
- return {...t,words:t.words.map(w=>{const o=p.overrides[w.id];return o?{...w,display:o.display??w.display,hidden:o.hidden??w.hidden,breakParagraph:o.breakParagraph??w.breakParagraph}:w;})};
-}
-export function buildOverrides(words:Word[]):Project['overrides']{
- const out:Project['overrides']={};for(const w of words){const x:{display?:string;hidden?:boolean;breakParagraph?:boolean}={};if(w.display!==(w.sourceDisplay??w.original))x.display=w.display;if(w.hidden)x.hidden=true;if(w.breakParagraph!==(w.sourceBreakParagraph??false))x.breakParagraph=w.breakParagraph;if(Object.keys(x).length)out[w.id]=x;}return out;
 }
 export function visibleWords(words:Word[]):Word[]{return words.filter(w=>!w.hidden)}

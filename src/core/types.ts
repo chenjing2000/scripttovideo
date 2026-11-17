@@ -9,6 +9,6 @@ export interface Row { index:number; startWord:number; endWord:number; top:numbe
 export interface Layout {rows:Row[]; wordRows:number[]; totalHeight:number; viewportHeight:number; viewportWidth:number}
 export interface ScrollEvent {start:number; end:number; from:number; to:number; rowIndex:number}
 export interface ScrollPlan {events:ScrollEvent[]; maxOffset:number}
-export interface Project {canvas:{width:number;height:number};mediaKind?:'video'|'audio';format:'script-to-video-project';schemaVersion:2;source:{videoName:string;subtitleName:string;subtitleSha256?:string}; overrides:Record<string,{display?:string;hidden?:boolean;breakParagraph?:boolean}>;style:ReadingStyle;titleStyle?:TitleStyle;export:{fps:30|60;quality:'standard'|'high'};savedAt?:string}
+export interface Project {canvas:{width:number;height:number};mediaKind?:'video'|'audio';format:'script-to-video-project';schemaVersion:3;script:{filename:string};style:ReadingStyle;titleStyle?:TitleStyle;export:{fps:30|60;quality:'standard'|'high'}}
 export const DEFAULT_STYLE:ReadingStyle={textAlign:'justify',fontFamily:'Arial',fontSize:40,fontWeight:400,firstLineIndentEm:2,lineHeight:1.4,paragraphGap:20,paddingX:36,paddingY:30,textColor:'#293847',highlightColor:'#b81a35',backgroundColor:'#f7f4ec',minScrollDuration:.15};
 export const WIDTH=1200; export const HEIGHT=1600;
