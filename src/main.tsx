@@ -22,7 +22,6 @@ type DesktopMessage =
  | {kind:'import-candidates';requestId:string;subtitleName:string;transcript:string;candidates:Array<{index:number;mediaName:string;mediaKind:'video'|'audio';mediaUrl:string}>}
  | {kind:'settings';settings:unknown}
  | {kind:'reload-failed';message:string}
- | {kind:'project-reset-complete';subtitleName:string}
  | {kind:'project-bundle-saved'|'project-bundle-save-failed';message:string;operationId:number;revision:number;subtitleName:string;revisedSnapshot?:string;textSnapshot?:string;projectSnapshot?:string}
  | {kind:'status';message:string;busy:boolean;error?:boolean;canCancel?:boolean}
  | {kind:'dependency-confirm';id:number;title:string;heading:string;details:string;action:string}
@@ -379,9 +378,7 @@ function App(){
    clearReload();notify(`字幕读取失败：${String(e)}`,true);
   }
  };
- useEffect(()=>{const receive=({data}:MessageEvent<DesktopMessage>)=>{if(data.kind==='settings'){if(validateSettings(data.settings)){loadedSettingsRef.current=true;appSettingsRef.current=data.settings;setAppSettings(data.settings)}}else if(data.kind==='import-candidates')void runDesktopProbe(data);else if(data.kind==='pair')applyPair(data);else if(data.kind==='reload-failed'){clearReload();notify(`重新加载失败：${data.message}`,true);}else if(data.kind==='project-reset-complete'){
-    notify('旧 project 不属于当前 script，已重建为默认设置。');
-   }else if(data.kind==='project-bundle-saved'||data.kind==='project-bundle-save-failed'){
+ useEffect(()=>{const receive=({data}:MessageEvent<DesktopMessage>)=>{if(data.kind==='settings'){if(validateSettings(data.settings)){loadedSettingsRef.current=true;appSettingsRef.current=data.settings;setAppSettings(data.settings)}}else if(data.kind==='import-candidates')void runDesktopProbe(data);else if(data.kind==='pair')applyPair(data);else if(data.kind==='reload-failed'){clearReload();notify(`重新加载失败：${data.message}`,true);}else if(data.kind==='project-bundle-saved'||data.kind==='project-bundle-save-failed'){
     const pending=pendingBundleSaveRef.current,exportRequest=pendingExportRef.current;
     if(!pending||!isMatchingBundleSaveReply(pending,data,activeRevisedSourceRef.current)){
      notify('已忽略过期的保存响应。',true);

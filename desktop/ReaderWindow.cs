@@ -725,7 +725,6 @@ internal sealed class ReaderWindow : Window
         var project=request.GetProperty("project");
         CheckSource(project);
         ReviseStorage.AtomicWrite(current.Project,project.GetRawText());
-        Send(new {kind="project-reset-complete",subtitleName=Path.GetFileName(current.Transcript)});
     }
 
     private void SaveProjectBundle(JsonElement request)

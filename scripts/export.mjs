@@ -1,4 +1,4 @@
-import {readFile,copyFile,mkdir,stat} from 'node:fs/promises';
+import {readFile,copyFile,mkdir,stat,link,unlink} from 'node:fs/promises';
 import path from 'node:path';import {execFileSync} from 'node:child_process';import{fileURLToPath}from'node:url';
 import {assertScriptToVideo,assertRevisedForExport,assertPresentationProjectForExport} from './script-to-video-contract.mjs';
 import {createCliTaskCacheDir} from './cli-cache.mjs';
@@ -61,6 +61,16 @@ try{
  const intermediate=path.join(cacheDir,'render-output.mp4');
  await renderMedia({composition,serveUrl:bundleLocation,codec:'h264',audioCodec:'aac',browserExecutable,concurrency:2,outputLocation:intermediate,inputProps,crf:18,onProgress:({progress})=>console.log('render '+Math.round(progress*100)+'%')});
  await stat(intermediate);
- await (await import('node:fs/promises')).rename(intermediate,output);
- console.log('Export succeeded:',output);
+ // Publish by an exclusive hard link: unlike rename(), this can never replace
+ // an existing output. All intermediate and default cache paths share a volume.
+ const outputName=path.basename(output,path.extname(output));
+ const outputExt=path.extname(output);
+ let committedOutput;
+ for(let i=0;;i++){
+  const candidate=i===0?output:path.join(path.dirname(output),outputName+' ('+i+')'+outputExt);
+  try{await link(intermediate,candidate);committedOutput=candidate;break}
+  catch(error){if(error?.code==='EEXIST')continue;throw error}
+ }
+ await unlink(intermediate);
+ console.log('Export succeeded:',committedOutput);
 }catch(e){console.error('Export failed:',e);process.exitCode=1}
