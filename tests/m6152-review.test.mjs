@@ -9,7 +9,7 @@ const app=read('src/main.tsx');
 const host=read('desktop/ReaderWindow.cs');
 
 test('Remotion renders revised v3 without v2 project override branches',()=>{
- assert.match(composition,/project\?:PresentationProject/);
+ assert.match(composition,/project\?:Project/);
  assert.match(composition,/const words=useMemo\(\(\)=>parseScriptToVideo\(transcript\)\.words/);
  assert.match(composition,/const style=useMemo\(\(\)=>\(\{\.\.\.DEFAULT_STYLE,\.\.\.project\?\.style\}\)/);
  assert.doesNotMatch(composition,/applyOverrides|project\.schemaVersion===2/);
