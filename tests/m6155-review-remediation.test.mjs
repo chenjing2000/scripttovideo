@@ -66,7 +66,7 @@ test('M6.15.5: an old save acknowledgement cannot clear dirty state after newer 
  assert.match(app,/markProjectEdited\(projectEditStateRef\.current\)/);
  assert.match(app,/resetProjectEditState\(projectEditStateRef\.current\)/);
  assert.match(host,/case "project-bundle-save":\s*try \{ SaveProjectBundle\(request\)/);
- assert.match(host,/kind = "project-bundle-saved"/);
+ assert.match(host,/kind="project-bundle-saved"/);
  assert.match(host,/revision = request\.GetProperty\("revision"\)\.GetInt64\(\)/);
 });
 
