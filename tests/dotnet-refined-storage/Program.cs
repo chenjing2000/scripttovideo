@@ -1,125 +1,76 @@
 using System;
 using System.IO;
-using System.Text.Json;
 using ScriptToVideo;
-
 internal static class Program
 {
-    private const string Old = "{\"title\":\"old\"}";
-    private const string New = "{\"title\":\"new\"}";
-    private const string OldProject = "{\"schemaVersion\":3,\"title\":\"old\"}";
-    private const string NewProject = "{\"schemaVersion\":3,\"title\":\"new\"}";
-
+    private static void Assert(bool condition,string message){if(!condition)throw new Exception(message);}
+    private static void Equal(string path,string expected)=>Assert(File.ReadAllText(path)==expected,$"Unexpected contents: {path}");
     private static int Main()
     {
-        var tests = new (string Name, Action<string> Run)[]
-        {
-            ("first creation and current three-file save", CurrentBundleSave),
-            ("interrupted current three-file save rolls forward", RecoverCurrentBundle),
-            ("external edit blocks recovery and retains journal", ConflictKeepsData),
-            ("orphaned journal blocks new writes", PendingJournalBlocksSave),
-            ("unexpected preexisting project is not overwritten", ExistingProjectBlocksCreate)
+        var cases=new (string Name,Action<string> Run)[]{
+            ("missing revise and TXT are created on save",FreshSave),
+            ("all three work files overwrite regardless of previous contents",Overwrite),
+            ("unchanged content is rewritten by Ctrl+S",Rewrite),
+            ("one-file atomic write never leaves partial output",SingleAtomic),
+            ("read-only original input remains unchanged",SourceUntouched)
         };
-        int passed = 0;
-        foreach (var (name, test) in tests)
+        var passed=0;
+        foreach(var (name,run) in cases)
         {
-            var root = Path.Combine(Path.GetTempPath(), "ScriptToVideo.RecoveryTests", Guid.NewGuid().ToString("N"));
+            var root=Path.Combine(Path.GetTempPath(),"ScriptToVideo.StorageTests",Guid.NewGuid().ToString("N"));
             Directory.CreateDirectory(root);
-            try { test(root); Console.WriteLine("PASS " + name); passed++; }
-            catch (Exception error) { Console.Error.WriteLine("FAIL " + name + ": " + error); }
-            finally { try { Directory.Delete(root, recursive: true); } catch { } }
+            try{run(root);Console.WriteLine("PASS "+name);passed++;}
+            catch(Exception error){Console.Error.WriteLine("FAIL "+name+": "+error);}
+            finally{try{Directory.Delete(root,true);}catch{}}
         }
-        Console.WriteLine($"{passed}/{tests.Length} current-format storage scenarios passed");
-        return passed == tests.Length ? 0 : 1;
+        Console.WriteLine($"{passed}/{cases.Length} atomic storage scenarios passed");
+        return passed==cases.Length?0:1;
     }
-
-    private static (RefinedStorage.Paths Paths, string Project) Setup(string root)
+    private static (ReviseStorage.Paths Paths,string Project,string Source) Paths(string root)
     {
-        var paths = RefinedStorage.Resolve(Path.Combine(root, "lesson.script.json"));
-        RefinedStorage.CreateInitial(paths, Old, "old-text");
-        return (paths, Path.Combine(paths.Folder, "lesson.project.json"));
+        var source=Path.Combine(root,"lesson.script.json");
+        File.WriteAllText(source,"immutable-source");
+        var paths=ReviseStorage.Resolve(source);
+        return (paths,Path.Combine(paths.Folder,"lesson.project.json"),source);
     }
-    private static void Equal(string actual, string expected)
+    private static void FreshSave(string root)
     {
-        if (!string.Equals(actual, expected, StringComparison.Ordinal))
-            throw new Exception($"Expected {expected}, got {actual}");
+        var (paths,project,_)=Paths(root);
+        Assert(ReviseStorage.ReadExisting(paths)==null,"revise should be optional");
+        ReviseStorage.Save(paths,project,"revise","text","project");
+        Equal(paths.Revised,"revise");Equal(paths.Text,"text");Equal(project,"project");
     }
-    private static void Check(bool value, string message)
+    private static void Overwrite(string root)
     {
-        if (!value) throw new Exception(message);
+        var (paths,project,_)=Paths(root);
+        ReviseStorage.Save(paths,project,"one","txt1","p1");
+        File.WriteAllText(paths.Revised,"external revise");
+        File.WriteAllText(paths.Text,"external TXT");
+        File.WriteAllText(project,"external project");
+        ReviseStorage.Save(paths,project,"two","txt2","p2");
+        Equal(paths.Revised,"two");Equal(paths.Text,"txt2");Equal(project,"p2");
     }
-    private static void Throws(Action action)
+    private static void Rewrite(string root)
     {
-        try { action(); }
-        catch (IOException) { return; }
-        throw new Exception("Expected guarded IOException");
+        var (paths,project,_)=Paths(root);
+        ReviseStorage.Save(paths,project,"same","same","same");
+        var before=File.GetLastWriteTimeUtc(paths.Revised);
+        ReviseStorage.Save(paths,project,"same","same","same");
+        Assert(File.GetLastWriteTimeUtc(paths.Revised)>=before,"mtime must not go backwards");
+        Equal(paths.Revised,"same");
     }
-
-    private static void CurrentBundleSave(string root)
+    private static void SingleAtomic(string root)
     {
-        var (paths, project) = Setup(root);
-        RefinedStorage.ReplaceProjectBundle(paths, project, Old, New, "old-text", "new-text", null, NewProject);
-        Equal(File.ReadAllText(paths.Refined), New);
-        Equal(File.ReadAllText(paths.Text), "new-text");
-        Equal(File.ReadAllText(project), NewProject);
-        Check(!File.Exists(paths.Refined + ".project-save-journal"), "Journal was not removed");
+        var path=Path.Combine(root,"atomic.txt");
+        ReviseStorage.AtomicWrite(path,"old");
+        ReviseStorage.AtomicWrite(path,"new");
+        Equal(path,"new");
+        Assert(Directory.GetFiles(root,"*.tmp",SearchOption.AllDirectories).Length==0,"temporary files leaked");
     }
-
-    private static void RecoverCurrentBundle(string root)
+    private static void SourceUntouched(string root)
     {
-        var (paths, project) = Setup(root);
-        File.WriteAllText(project, OldProject);
-        // The process crashed after updating revise, before updating TXT and project.
-        File.WriteAllText(paths.Refined, New);
-        File.WriteAllText(paths.Refined + ".project-save-journal", JsonSerializer.Serialize(new
-        {
-            ProjectPath=Path.GetFullPath(project), OldRefined=Old, NewRefined=New,
-            OldText="old-text", NewText="new-text",
-            OldProject, NewProject
-        }));
-        RefinedStorage.RecoverPendingProjectSave(paths, project);
-        Equal(File.ReadAllText(paths.Refined), New);
-        Equal(File.ReadAllText(paths.Text), "new-text");
-        Equal(File.ReadAllText(project), NewProject);
-        Check(!File.Exists(paths.Refined + ".project-save-journal"), "Pending journal retained after recovery");
-    }
-
-    private static void ConflictKeepsData(string root)
-    {
-        var (paths, project) = Setup(root);
-        File.WriteAllText(project, OldProject);
-        File.WriteAllText(paths.Text, "external-edit");
-        var journal = paths.Refined + ".project-save-journal";
-        File.WriteAllText(journal, JsonSerializer.Serialize(new
-        {
-            ProjectPath=Path.GetFullPath(project), OldRefined=Old, NewRefined=New,
-            OldText="old-text", NewText="new-text",
-            OldProject, NewProject
-        }));
-        Throws(() => RefinedStorage.RecoverPendingProjectSave(paths, project));
-        Equal(File.ReadAllText(paths.Refined), Old);
-        Equal(File.ReadAllText(paths.Text), "external-edit");
-        Equal(File.ReadAllText(project), OldProject);
-        Check(File.Exists(journal), "Conflicted journal was unexpectedly deleted");
-    }
-
-    private static void PendingJournalBlocksSave(string root)
-    {
-        var (paths, project) = Setup(root);
-        File.WriteAllText(paths.Refined + ".project-save-journal", "pending");
-        Throws(() => RefinedStorage.ReplaceProjectBundle(paths, project, Old, New,
-            "old-text", "new-text", null, NewProject));
-        Equal(File.ReadAllText(paths.Refined), Old);
-        Equal(File.ReadAllText(paths.Text), "old-text");
-    }
-
-    private static void ExistingProjectBlocksCreate(string root)
-    {
-        var (paths, project) = Setup(root);
-        File.WriteAllText(project, "obsolete-version");
-        Throws(() => RefinedStorage.ReplaceProjectBundle(paths, project, Old, New,
-            "old-text", "new-text", null, NewProject));
-        Equal(File.ReadAllText(project), "obsolete-version");
-        Equal(File.ReadAllText(paths.Refined), Old);
+        var (paths,project,source)=Paths(root);
+        ReviseStorage.Save(paths,project,"changed","changed","changed");
+        Equal(source,"immutable-source");
     }
 }

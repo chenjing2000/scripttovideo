@@ -3,7 +3,7 @@ using System.IO;
 namespace ScriptToVideo.Export;
 
 /// <summary>
-/// Commits a validated MP4 without replacing an existing output.
+/// Commits a validated media output without replacing any existing file.
 /// Uses the lowest free suffix, then relies on File.Move's no-overwrite behavior
 /// to protect against another process creating the name after the check.
 /// </summary>
@@ -15,8 +15,8 @@ internal static class UniqueOutputCommit
             ?? throw new ArgumentException("输出路径缺少目录。", nameof(defaultOutputPath));
         var filename = Path.GetFileNameWithoutExtension(defaultOutputPath);
         var extension = Path.GetExtension(defaultOutputPath);
-        if (string.IsNullOrEmpty(filename) || !extension.Equals(".mp4", StringComparison.OrdinalIgnoreCase))
-            throw new ArgumentException("输出文件必须是 .mp4 格式。", nameof(defaultOutputPath));
+        if (string.IsNullOrEmpty(filename) || string.IsNullOrEmpty(extension))
+            throw new ArgumentException("输出文件必须包含文件名和扩展名。", nameof(defaultOutputPath));
 
         for (var number = 0; ; number = checked(number + 1))
         {

@@ -1,4 +1,3 @@
-import {createHash} from 'node:crypto';
 /** Standalone CLI admission gate; mirrors src/core/transcript.ts. */
 export function assertScriptToVideo(input){
  const object=x=>!!x&&typeof x==='object'&&!Array.isArray(x);
@@ -34,7 +33,7 @@ export function assertScriptToVideo(input){
 
 
 /** Validate a refined v3 subtitle against its immutable v3 source.
- * The project still identifies the original subtitle by name and SHA256.
+ * The project identifies its original subtitle only by script.filename.
  */
 export function assertRefinedForExport(refined,original){
  const object=x=>!!x&&typeof x==='object'&&!Array.isArray(x);
@@ -68,15 +67,12 @@ function assertSharedProjectForExport(project,{mediaName,subtitleName,subtitleBy
  const object=x=>!!x&&typeof x==='object'&&!Array.isArray(x);
  const finite=n=>typeof n==='number'&&Number.isFinite(n);
  const color=s=>typeof s==='string'&&/^#[0-9a-f]{6}$/i.test(s);
- if(!object(project)||project.format!=='script-to-video-project'||project.schemaVersion!==3||'overrides' in project)
+ if(!object(project)||project.format!=='script-to-video-project'||project.schemaVersion!==3||'source' in project||'overrides' in project)
   throw new Error('Expected presentation-only project v3');
- const source=project.source;
- if(!object(source)||typeof source.videoName!=='string'||typeof source.subtitleName!=='string'||
-    source.videoName.toLowerCase()!==mediaName.toLowerCase()||source.subtitleName.toLowerCase()!==subtitleName.toLowerCase())
-  throw new Error('Project source names mismatch');
- const expectedHash=createHash('sha256').update(subtitleBytes).digest('hex');
- if(typeof source.subtitleSha256!=='string'||!/^[a-f0-9]{64}$/i.test(source.subtitleSha256)||source.subtitleSha256.toLowerCase()!==expectedHash)
-  throw new Error('Subtitle SHA256 mismatch');
+ const script=project.script;
+ if(!object(script)||typeof script.filename!=='string'||script.filename.toLowerCase()!==subtitleName.toLowerCase()||
+    script.filename.includes('/')||script.filename.includes('\\'))
+  throw new Error('Project script.filename mismatch');
  if(project.mediaKind!==undefined&&project.mediaKind!==mediaKind)throw new Error('Project media kind mismatch');
  const canvas=project.canvas;
  if(!object(canvas)||!Number.isInteger(canvas.width)||!Number.isInteger(canvas.height)||
