@@ -22,9 +22,11 @@ test('import allows missing revise and never creates derived TXT',()=>{
 });
 test('project mismatch causes default settings to replace old project',()=>{
  assert.match(ui,/stored\.script\.filename\.toLowerCase\(\)!==data\.subtitleName\.toLowerCase\(\)/);
- assert.match(ui,/kind:'project-reset',project:current/);
+ assert.match(ui,/kind:'project-reset',operationId,subtitleName:data\.subtitleName,project:current/);
  assert.match(host,/case "project-reset":/);
  assert.match(host,/ReviseStorage\.AtomicWrite\(current\.Project,project\.GetRawText\(\)\)/);
+ assert.match(host,/kind = "project-reset-failed"/);
+ assert.match(ui,/acknowledgeProjectSave\(projectEditStateRef\.current,pending\.revision\)/);
 });
 test('Ctrl+S writes revise, TXT and project without old snapshots',()=>{
  assert.match(storage,/AtomicWrite\(paths\.Revised,revised\)/);
