@@ -33,4 +33,5 @@ jobs:
       - run: npm ci
       - run: npm run build
       - run: dotnet run --project tests/dotnet-revise-storage/ReviseStorage.Tests.csproj -c Release
+      - run: dotnet run --project tests/UniqueOutputCommit.Tests/UniqueOutputCommit.Tests.csproj -c Release
       - run: dotnet publish desktop/ScriptToVideo.csproj -c Release -o dist/wpf
