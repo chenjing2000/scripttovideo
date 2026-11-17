@@ -7,7 +7,9 @@ export function createProject(_videoName:string,subtitleName:string):Project{
  titleStyle:{...DEFAULT_TITLE_STYLE},export:{fps:30,quality:'standard'}};
 }
 export function normalizeProjectStyle(project:Project):Project{
- return {...project,canvas:project.canvas??{width:WIDTH,height:HEIGHT},
+ // Ignore obsolete per-project media kind; the selected media determines audio/video mode.
+ const {mediaKind:_obsoleteMediaKind,...settings}=project as Project&{mediaKind?:unknown};
+ return {...settings,canvas:project.canvas??{width:WIDTH,height:HEIGHT},
  titleStyle:{...DEFAULT_TITLE_STYLE,...project.titleStyle},
  style:{...DEFAULT_STYLE,...project.style,...(project.style.firstLineIndentCh===undefined&&project.style.firstLineIndentEm===undefined?{firstLineIndentEm:2}:{})}};
 }
@@ -17,7 +19,6 @@ export function validateProject(value:unknown):value is Project{
  if(p.format!=='script-to-video-project'||p.schemaVersion!==3||'source' in p||'overrides' in p||'savedAt' in p)return false;
  if(!p.script||typeof p.script.filename!=='string'||!p.script.filename.toLowerCase().endsWith('.script.json')||
     p.script.filename.includes('/')||p.script.filename.includes('\\'))return false;
- if(p.mediaKind!==undefined&&p.mediaKind!=='video'&&p.mediaKind!=='audio')return false;
  if(!p.canvas||!Number.isInteger(p.canvas.width)||!Number.isInteger(p.canvas.height)||
     p.canvas.width%2!==0||p.canvas.height%2!==0||
     p.canvas.width<320||p.canvas.height<320||p.canvas.width>3840||p.canvas.height>3840)return false;

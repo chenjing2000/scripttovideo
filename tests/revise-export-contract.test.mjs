@@ -19,6 +19,8 @@ test('revised export accepts edited words and hidden flags but retains timing',(
  assertScriptToVideo(original);
  assert.equal(assertRevisedForExport(revised,original),revised);
  assert.equal(assertPresentationProjectForExport(project,context),project);
+ // A v3 project created while audio was selected must also export with video.
+ assert.equal(assertPresentationProjectForExport({...project,mediaKind:'audio'},context).mediaKind,'audio');
 });
 test('revised export rejects timing and segment structure changes',()=>{
  assert.throws(()=>assertRevisedForExport({...revised,segments:[{words:[

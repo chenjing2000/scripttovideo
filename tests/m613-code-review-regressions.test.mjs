@@ -55,13 +55,13 @@ test('Code review: media response streams are disposed if response handoff fails
  assert.match(media,/responseBody = null; \/\/ Ownership transferred to WebView2/);
 });
 
-test('Code review: standalone export checks saved project media kind',()=>{
+test('Code review: standalone export validates project v3 independently of media type',()=>{
  assert.match(exportScript,/assertPresentationProjectForExport\(project,context\)/);
  assert.doesNotMatch(exportScript,/assertProjectForExport\(project,context\)/);
 });
 
 
-test('Code review: direct export CLI rejects projects with bad source, media kind, style or overrides',()=>{
+test('Code review: direct export CLI rejects bad source, style or overrides',()=>{
  const require=createRequire(import.meta.url),core=require('../.tmp-core/index.js');
  const subtitleName='6 Minute English 01-seg1.script.json';
  const mediaName='6 Minute English 01-seg1.mp4';
@@ -69,11 +69,10 @@ test('Code review: direct export CLI rejects projects with bad source, media kin
  const transcript=JSON.parse(bytes.toString('utf8'));
  const words=core.parseScriptToVideo(transcript).words;
  const project=core.createProject(mediaName,subtitleName);
- project.mediaKind='video';
  const context={mediaName,subtitleName,subtitleBytes:bytes,mediaKind:'video',transcript};
  assert.equal(assertPresentationProjectForExport(project,context),project);
  assert.throws(()=>assertPresentationProjectForExport(null,context),/project v3/i);
- assert.throws(()=>assertPresentationProjectForExport({...project,mediaKind:'audio'},context),/media kind/i);
+ assert.equal(assertPresentationProjectForExport({...project,mediaKind:'audio'},context).mediaKind,'audio');
  assert.throws(()=>assertPresentationProjectForExport({...project,script:{filename:'other.script.json'}},context),/filename/i);
  assert.throws(()=>assertPresentationProjectForExport({...project,style:{...project.style,fontSize:0}},context),/style/i);
  assert.throws(()=>assertPresentationProjectForExport({...project,overrides:{s999w999:{hidden:true}}},context),/project v3/i);

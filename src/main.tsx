@@ -352,7 +352,7 @@ function App(){
    const next=createProject(data.mediaName,data.subtitleName);
    next.style=settingsToStyle(appSettingsRef.current);
    next.titleStyle={...appSettingsRef.current.titleStyle};
-   next.canvas={...appSettingsRef.current.output};next.mediaKind=data.mediaKind;
+   next.canvas={...appSettingsRef.current.output};
    let current=next,resetProject=false;
    if(data.project!==null){
     try{
@@ -439,7 +439,7 @@ function App(){
    if(controller.signal.aborted||changedDuringImport())throw Error('字幕导入已取消或原工程发生修改');
    const next=createProject(match.name,file.name);
    
-   next.style=settingsToStyle(appSettingsRef.current);next.canvas={...appSettingsRef.current.output};next.mediaKind=match.kind;
+   next.style=settingsToStyle(appSettingsRef.current);next.canvas={...appSettingsRef.current.output};
    openingOriginalRef.current={subtitleName:file.name,mediaName:match.name,mediaKind:match.kind,original:input};
    keepUrl=url;
 

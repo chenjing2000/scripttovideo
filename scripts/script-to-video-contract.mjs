@@ -63,7 +63,7 @@ export function assertRevisedForExport(revised,original){
 }
 
 /** Strict admission check for a saved project supplied directly to the export CLI. */
-function assertSharedProjectForExport(project,{mediaName,subtitleName,subtitleBytes,mediaKind}){
+function assertSharedProjectForExport(project,{subtitleName}){
  const object=x=>!!x&&typeof x==='object'&&!Array.isArray(x);
  const finite=n=>typeof n==='number'&&Number.isFinite(n);
  const color=s=>typeof s==='string'&&/^#[0-9a-f]{6}$/i.test(s);
@@ -73,7 +73,6 @@ function assertSharedProjectForExport(project,{mediaName,subtitleName,subtitleBy
  if(!object(script)||typeof script.filename!=='string'||script.filename.toLowerCase()!==subtitleName.toLowerCase()||
     script.filename.includes('/')||script.filename.includes('\\'))
   throw new Error('Project script.filename mismatch');
- if(project.mediaKind!==undefined&&project.mediaKind!==mediaKind)throw new Error('Project media kind mismatch');
  const canvas=project.canvas;
  if(!object(canvas)||!Number.isInteger(canvas.width)||!Number.isInteger(canvas.height)||
     canvas.width<320||canvas.width>3840||canvas.height<320||canvas.height>3840||canvas.width%2||canvas.height%2)

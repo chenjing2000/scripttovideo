@@ -23,7 +23,7 @@ Require the original `<stem>.script.json` and a decodable same-stem media file. 
 
 For `<stem>.project.json`, validate `script.filename` against the base filename of the selected original subtitle (case-insensitive on Windows). If matching, load it. If missing, use default presentation settings without writing a project. If invalid, malformed, v2, or belonging to a different script, atomically replace the file with current default project v3; no user confirmation or migration.
 
-Project v3 contains `format`, `schemaVersion: 3`, `script: {filename: "<stem>.script.json"}`, `canvas`, `style`, `titleStyle` and `export`. It does not contain SHA, `source`, `overrides`, or word edits.
+Project v3 contains `format`, `schemaVersion: 3`, `script: {filename: "<stem>.script.json"}`, `canvas`, `style`, `titleStyle` and `export`. It does not contain SHA, `source`, `mediaKind`, `overrides`, or word edits. Existing v3 project files with `mediaKind` are readable, but the field is ignored and omitted the next time they are saved.
 
 ## Saving
 
