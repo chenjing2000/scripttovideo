@@ -41,6 +41,14 @@ test('browser download does not acknowledge a verified save',()=>{
  assert.match(browser,/\.project\.json/);
  assert.doesNotMatch(browser,/acknowledgeProjectSave/);
 });
+test('desktop settings and work files share one atomic-writer implementation',()=>{
+ assert.doesNotMatch(host,/private static void AtomicWrite\(/);
+ assert.match(host,/ReviseStorage\.AtomicWrite\(settingsFile,/);
+ assert.match(host,/ReviseStorage\.AtomicWrite\(marker,checksum\)/);
+ assert.match(host,/ReviseStorage\.AtomicWrite\(browserMarker,checksum\)/);
+ assert.match(storage,/internal static void AtomicWrite\(/);
+});
+
 test('dotnet publish builds fresh WebView2 UI before embedding resources',()=>{
  const csproj=readFileSync('desktop/ScriptToVideo.csproj','utf8');
  assert.match(csproj,/<Target Name="BuildEmbeddedWebUi" BeforeTargets="AssignTargetPaths"/);

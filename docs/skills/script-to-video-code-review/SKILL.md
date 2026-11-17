@@ -38,7 +38,7 @@ Use this Skill for end-to-end code inspection and targeted fixes. **Never interp
 - Evaluate cohesion, dependencies, naming, error handling, complex duplication, dead code, temporary files and `.gitignore`.
 - Favor small, clear functions, direct control flow and tested behavior over abstractions, clever syntax or fewer lines. Do not change already-correct behavior for style alone.
 - Classify findings as (a) correctness/security issues, (b) maintainability opportunities, (c) optional style. Implement necessary low-risk corrections; discuss functionality-changing or major architecture proposals before applying.
-- Never delete user media, project data, source subtitles, assets or unrelated uncommitted changes. Update docs when behavior changes.
+- Never alter source subtitles, source media, assets or unrelated uncommitted changes. Work files (revise, TXT and project v3) may be atomically replaced as specified: an existing project with a different `script.filename` is automatically replaced by current defaults, without a warning. Update docs when behavior changes.
 
 ## 5. Verification gates
 
