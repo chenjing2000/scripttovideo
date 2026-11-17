@@ -645,18 +645,10 @@ internal sealed class ReaderWindow : Window
         // Read only: existing revised content is validated by the front end before use.
         // No work files are created during media probing or before pair acceptance.
         string? existingRevised;
-        string? existingText = null;
         try
         {
             var revisePaths = ReviseStorage.Resolve(pending.Subtitle);
             existingRevised = ReviseStorage.ReadExisting(revisePaths);
-            if (existingRevised != null)
-            {
-                if (Directory.Exists(revisePaths.Text))
-                    throw new IOException("TXT 文件路径被目录占用。");
-                if (File.Exists(revisePaths.Text))
-                    existingText = File.ReadAllText(revisePaths.Text, Encoding.UTF8);
-            }
         }
         catch (Exception error)
         {
@@ -676,7 +668,7 @@ internal sealed class ReaderWindow : Window
             mediaKind = selected.Kind, subtitleName = Path.GetFileName(pending.Subtitle),
             mediaUrl = selected.Url, transcript = pending.Transcript,
             project = File.Exists(pending.ProjectPath) ? File.ReadAllText(pending.ProjectPath, Encoding.UTF8) : null,
-            revised = existingRevised, revisedText = existingText
+            revised = existingRevised
         });
     }
 
