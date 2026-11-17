@@ -8,7 +8,6 @@
     "build": "tsc --noEmit && vite build",
     "typecheck": "tsc --noEmit",
     "test": "node scripts/test-core.mjs",
-    "test:core": "bash scripts/test-core.sh",
     "remotion:studio": "remotion studio src/remotion/index.ts",
     "export": "node scripts/export.mjs",
     "fixture:video": "node scripts/make-fixture.mjs",

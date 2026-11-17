@@ -1,10 +1,9 @@
-name: M6.16 verification
+name: ScriptToVideo verification
 on:
   pull_request:
   push:
     branches:
-      - feature/m616-script-to-video-breaking
-      - feature/m6-22-refined-data
+      - main
 jobs:
   node-python:
     runs-on: ubuntu-latest
@@ -31,7 +30,6 @@ jobs:
         with:
           dotnet-version: '10.0.x'
       - run: npm ci
-      - run: npm run build
       - run: dotnet run --project tests/dotnet-revise-storage/ReviseStorage.Tests.csproj -c Release
       - run: dotnet run --project tests/UniqueOutputCommit.Tests/UniqueOutputCommit.Tests.csproj -c Release
       - run: dotnet publish desktop/ScriptToVideo.csproj -c Release -o dist/wpf

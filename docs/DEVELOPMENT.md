@@ -10,15 +10,12 @@ git pull --ff-only
 npm.cmd ci
 npm.cmd run verify
 dotnet run --project tests/dotnet-revise-storage/ReviseStorage.Tests.csproj -c Release
+dotnet run --project tests/UniqueOutputCommit.Tests/UniqueOutputCommit.Tests.csproj -c Release
 dotnet publish desktop/ScriptToVideo.csproj -c Release -o dist/wpf
 .\dist\wpf\ScriptToVideo.exe
 ```
 
-For a framework-dependent single-file release, use:
-
-```powershell
-dotnet publish desktop/ScriptToVideo.csproj -c Release -r win-x64 --self-contained false -p:PublishSingleFile=true -o dist/wpf
-```
+The current desktop `.csproj` already enables framework-dependent, win-x64 single-file publishing (`SelfContained=false`, `PublishSingleFile=true`); the publish command above uses these defaults. This does not bundle the required .NET Desktop Runtime or WebView2 Runtime.
 
 The desktop project automatically runs `npm run build` before selecting the bundled WebView2 UI files for every .NET build/publish. This prevents `dotnet publish` from embedding stale `dist/` JavaScript. It requires an installed Node/npm toolchain and dependencies (`npm ci` once per checkout); do not disable the `BuildEmbeddedWebUi` target when releasing.
 
