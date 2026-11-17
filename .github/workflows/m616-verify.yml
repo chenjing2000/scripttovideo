@@ -4,7 +4,7 @@ on:
   push:
     branches:
       - feature/m616-script-to-video-breaking
-      - feature/m6-22-revised-data
+      - feature/m6-22-refined-data
 jobs:
   node-python:
     runs-on: ubuntu-latest
