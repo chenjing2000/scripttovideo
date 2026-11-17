@@ -44,4 +44,3 @@ export function validateProject(value:unknown):value is Project{
  }
  return true;
 }
-}
