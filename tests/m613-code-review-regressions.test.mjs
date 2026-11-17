@@ -1,7 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {createHash} from 'node:crypto';
 import {createRequire} from 'node:module';
 import {assertPresentationProjectForExport} from '../scripts/script-to-video-contract.mjs';
 
@@ -19,7 +18,7 @@ test('Code review: MP4 export commits the active word and snapshots a matching p
  assert.match(body,/updateWord\(words,active\.id,active\.text\)/);
  assert.match(body,/if\(!commitEditing\(\)\)return/);
  assert.match(body,/paginate\(exportWords,style,canvasWidth,canvasHeight-mediaHeight/);
- assert.match(body,/planManualSave\(disk\.original,disk\.revised,disk\.text,disk\.project,project,exportWords/);
+ assert.match(body,/planManualSave\(source\.original,project,exportWords/);
  assert.match(body,/pendingExportRef\.current=\{operationId,revision,duration,videoHeight:mediaHeight,pagePlan:exportPlan\}/);
  assert.match(body,/kind:'project-bundle-save'/);
  assert.doesNotMatch(body,/kind:'export',project:/);
@@ -69,14 +68,13 @@ test('Code review: direct export CLI rejects projects with bad source, media kin
  const bytes=readFileSync('fixtures/6 Minute English 01-seg1.script.json');
  const transcript=JSON.parse(bytes.toString('utf8'));
  const words=core.parseScriptToVideo(transcript).words;
- const project=core.toPresentationProject(core.createProject(mediaName,subtitleName,words));
- project.source.subtitleSha256=createHash('sha256').update(bytes).digest('hex');
+ const project=core.createProject(mediaName,subtitleName);
  project.mediaKind='video';
  const context={mediaName,subtitleName,subtitleBytes:bytes,mediaKind:'video',transcript};
  assert.equal(assertPresentationProjectForExport(project,context),project);
  assert.throws(()=>assertPresentationProjectForExport(null,context),/project v3/i);
  assert.throws(()=>assertPresentationProjectForExport({...project,mediaKind:'audio'},context),/media kind/i);
- assert.throws(()=>assertPresentationProjectForExport({...project,source:{...project.source,subtitleSha256:'0'.repeat(64)}},context),/SHA256/);
+ assert.throws(()=>assertPresentationProjectForExport({...project,script:{filename:'other.script.json'}},context),/filename/i);
  assert.throws(()=>assertPresentationProjectForExport({...project,style:{...project.style,fontSize:0}},context),/style/i);
  assert.throws(()=>assertPresentationProjectForExport({...project,overrides:{s999w999:{hidden:true}}},context),/project v3/i);
 });

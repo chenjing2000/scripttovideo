@@ -3,14 +3,14 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {createRequire} from 'node:module';
 const require=createRequire(import.meta.url);
-const {DEFAULT_TITLE_STYLE,DEFAULT_STYLE,createProject,toPresentationProject,
+const {DEFAULT_TITLE_STYLE,DEFAULT_STYLE,createProject,
  validatePresentationProject,layoutTitle,tryLayoutTitle,paginate,parseScriptToVideo,
  buildRevisedScript,buildRevisedText,planManualSave}=require('../.tmp-core/index.js');
 const measure=text=>text.length*10;
 
 test('M6.22 title: defaults are persisted in presentation v3, never word overrides',()=>{
  const project=createProject('example.mp4','example.script.json',[]);
- const presentation=toPresentationProject(project);
+ const presentation=project;
  assert.deepEqual(presentation.titleStyle,DEFAULT_TITLE_STYLE);
  assert.equal(presentation.titleStyle.bold,true);
  assert.equal(validatePresentationProject({...presentation,titleStyle:{...presentation.titleStyle,bold:false}}),true);
@@ -49,10 +49,9 @@ test('M6.22 title: v3 original snapshot saves edited title in revised and derive
  const words=parseScriptToVideo(original).words;
  const previous=buildRevisedScript(original,'',words);
  const project=createProject('6 Minute English 01-seg1.mp4','6 Minute English 01-seg1.script.json',words);
- const next=planManualSave(original,previous,buildRevisedText('',words),null,project,words,'A new title');
+ const next=planManualSave(original,project,words,'A new title');
  assert.equal(next.revised.title,'A new title');
  assert.ok(next.text.startsWith('A new title\r\n\r\n'));
- assert.equal(next.contentChanged,true);
  assert.equal(next.project.titleStyle.color,'#C25160');
 });
 

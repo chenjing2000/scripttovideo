@@ -7,7 +7,7 @@ const css=readFileSync('src/style.css','utf8');
 
 test('M6.13: export preparation is no longer rendered inside transcript flow',()=>{
  assert.doesNotMatch(ui,/exportStatus|setExportStatus|className="export-status"/);
- assert.match(ui,/setExportTaskNotice\('正在确认导出前的工程保存…'\)/);
+ assert.match(ui,/setExportTaskNotice\('正在保存导出所需的工作文件…'\)/);
  assert.match(ui,/setExportTaskNotice\('工程已保存，正在启动视频导出…'\)/);
 });
 

@@ -62,7 +62,7 @@ test('M6.15.5: an old save acknowledgement cannot clear dirty state after newer 
  assert.match(app,/acknowledgeProjectSave\(projectEditStateRef\.current,pending\.revision\)/);
  assert.match(app,/isMatchingBundleSaveReply\(pending,data,activeRevisedSourceRef\.current\)/);
  assert.match(app,/if\(bundleSaveSucceeded\(data\)\)/);
- assert.match(app,/confirmedDiskSnapshotRef\.current=\{\.\.\.disk,revised:persistedRevised,text:data\.textSnapshot,project:persistedProject\}/);
+ assert.doesNotMatch(app,/confirmedDiskSnapshotRef/);
  assert.match(app,/markProjectEdited\(projectEditStateRef\.current\)/);
  assert.match(app,/resetProjectEditState\(projectEditStateRef\.current\)/);
  assert.match(host,/case "project-bundle-save":\s*try \{ SaveProjectBundle\(request\)/);
@@ -75,7 +75,7 @@ test('M6.15.5: settings persistence and dirty-state updates remain accepted duri
  assert.ok(receive.indexOf('kind == "settings-save"') < receive.indexOf('if (exporting) return;'));
  assert.ok(receive.indexOf('kind == "dirty-state"') < receive.indexOf('if (exporting) return;'));
  assert.ok(receive.indexOf('kind == "layout"') < receive.indexOf('if (exporting) return;'));
- assert.match(app,/const doSave=\(\)=>\{if\(exporting\)return notify\('视频导出期间暂不支持保存工程/);
+ assert.match(app,/if\(exporting\|\|pendingBundleSaveRef\.current\)return notify/);
  assert.match(host,/busy\s*=\s*exportTasks\.IsBusy, error\s*=\s*true/);
  assert.match(app,/if\(data\.error\)notify\(data\.message,true\)/);
 });

@@ -30,7 +30,7 @@ test('M6.20: absent project is re-evaluated from disk and project save lock is r
   assert.match(host, /File\.Exists\(projectPath\) \? File\.ReadAllText\(projectPath\) : null/);
   assert.doesNotMatch(host, /projectSaveLocked|previousProjectSaveLocked/);
   assert.match(ui, /if\(data\.project!==null\)/);
-  assert.match(ui, /setProjectLoadBlocked\(blocked\)/);
+  assert.match(ui, /if\(resetProject&&desktop\)desktop\.postMessage/);
 });
 
 test('M6.20: successful reload resets playback, editor and scroll', () => {
