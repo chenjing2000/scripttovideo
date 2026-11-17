@@ -341,163 +341,79 @@ function App(){
   }
   if(data.requestId&&changedDuringImport()){
    desktop?.postMessage({kind:'pair-rejected',requestId:data.requestId});
-   clearReload();notify('导入完成前原工程被修改，已保留原工程。',true);return;
+   clearReload();notify('导入期间原工程被修改，已保留原工程。',true);return;
   }
-  try{if(data.refinedError)throw Error(`现有 refined 无法读取：${data.refinedError}`);
-   const input=JSON.parse(data.transcript),parsed=parseScriptToVideo(input);
-   const existingRefined=data.refined?JSON.parse(data.refined):null;
-   const openPlan=planRefinedOpen(input,existingRefined,data.project?JSON.parse(data.project):null);
-   const effective=openPlan.kind==='existing'?parseScriptToVideo(openPlan.refined):parsed;
-   const next=createProject(data.mediaName,data.subtitleName,parsed.words);next.style=settingsToStyle(appSettingsRef.current);next.titleStyle={...appSettingsRef.current.titleStyle};next.canvas={...appSettingsRef.current.output};next.source.subtitleSha256=data.fingerprint;next.mediaKind=data.mediaKind;
-   let current=next,currentWords=effective.words,blocked=false;
-   if(data.project!==null){try{
-    const saved:unknown=JSON.parse(data.project);
-    if(!validatePresentationProject(saved))
-     throw Error('工程仅支持 project v3，不允许使用旧版 v2');
-    if(saved.source.subtitleSha256!==data.fingerprint||
-       saved.source.videoName.toLowerCase()!==data.mediaName.toLowerCase()||
-       saved.source.subtitleName.toLowerCase()!==data.subtitleName.toLowerCase()||
-       (saved.mediaKind!==undefined&&saved.mediaKind!==data.mediaKind))
-     throw Error('v3 工程来源与当前媒体或字幕不匹配');
-    // Runtime display model is not a persisted v2 project.
-    current=normalizeProjectStyle({...saved,schemaVersion:2 as const,overrides:{}});
-    currentWords=effective.words;
-    notify(existingRefined===null?'已读取 v3 工程；未找到 revise，使用原始 v3 字幕。':'已读取 v3 工程和 revise 字幕，正在验证磁盘内容。');
-   }catch(e){blocked=true;notify(`工程读取失败，已禁止覆盖原工程文件：${String(e)}`,true)}}
-   if(blocked)throw Error('工程来源或格式校验失败，已拒绝切换到不安全的工作副本');
-   const operationId=++nextRefinedOperationIdRef.current;
-   activeRefinedSourceRef.current={fingerprint:data.fingerprint,subtitleName:data.subtitleName,operationId};
-   openingOriginalRef.current={fingerprint:data.fingerprint,subtitleName:data.subtitleName,mediaName:data.mediaName,mediaKind:data.mediaKind,original:input};
-   // A disk snapshot is authoritative only when the host supplied all its
-   // existing content. A missing TXT must first be repaired and acknowledged.
-   confirmedDiskSnapshotRef.current=existingRefined!==null&&data.refinedText!==null&&data.refinedText!==undefined
-    ?{fingerprint:data.fingerprint,subtitleName:data.subtitleName,original:input,
-      refined:existingRefined,text:data.refinedText,
-      project:data.project&&validatePresentationProject(JSON.parse(data.project))
-       ?JSON.parse(data.project):null}
-    :null;
-   // Lock desktop editing until the host confirms the complete disk snapshot.
-   setContentSaveUnavailable(Boolean(desktop));
-   setRefinedPreparationPending(Boolean(desktop));
-   setProjectLoadBlocked(blocked);
-   setMediaUrl(data.mediaUrl);setMediaName(data.mediaName);setKind(data.mediaKind);setProject(current);setWords(currentWords);titleRef.current=effective.title;setTitle(effective.title);setEditing(null);setWordTool(null);setToolLeaving(false);resetProjectDirtyState();setDuration(0);setVideoRatio(null);setMediaState('loading');setTime(0);setPlaying(false);
-   transcriptRef.current?.scrollTo({top:0});
-   clearReload();
+  try{
+   if(data.refinedError)throw Error(`revise 无法读取：${data.refinedError}`);
+   const input=JSON.parse(data.transcript),original=parseScriptToVideo(input);
+   const revised=data.refined?JSON.parse(data.refined):null;
+   const openPlan=planRefinedOpen(input,revised);
+   const effective=parseScriptToVideo(openPlan.script);
+   const next=createProject(data.mediaName,data.subtitleName);
+   next.style=settingsToStyle(appSettingsRef.current);
+   next.titleStyle={...appSettingsRef.current.titleStyle};
+   next.canvas={...appSettingsRef.current.output};next.mediaKind=data.mediaKind;
+   let current=next,resetProject=false;
+   if(data.project!==null){
+    try{
+     const stored:unknown=JSON.parse(data.project);
+     if(!validatePresentationProject(stored)||
+        stored.script.filename.toLowerCase()!==data.subtitleName.toLowerCase())resetProject=true;
+     else current=normalizeProjectStyle(stored);
+    }catch{resetProject=true}
+   }
+   openingOriginalRef.current={fingerprint:data.fingerprint,subtitleName:data.subtitleName,
+    mediaName:data.mediaName,mediaKind:data.mediaKind,original:input};
+   activeRefinedSourceRef.current={fingerprint:data.fingerprint,subtitleName:data.subtitleName,operationId:0};
+   setMediaUrl(data.mediaUrl);setMediaName(data.mediaName);setKind(data.mediaKind);
+   setProject(current);setWords(effective.words);titleRef.current=effective.title;setTitle(effective.title);
+   setEditing(null);setWordTool(null);setToolLeaving(false);resetProjectDirtyState();
+   setDuration(0);setVideoRatio(null);setMediaState('loading');setTime(0);setPlaying(false);
+   transcriptRef.current?.scrollTo({top:0});clearReload();
    if(data.requestId)committedPairAckRef.current=data.requestId;
-   // Revise is optional. Prepare a safe initial working copy even if project v3 exists.
-   if(desktop&&openPlan.kind==='create'){
-    desktop.postMessage({kind:'refined-create',fingerprint:data.fingerprint,
-     subtitleName:data.subtitleName,operationId,refined:openPlan.refined,text:openPlan.txt});
-   }
-   if(desktop&&openPlan.kind==='existing'){
-    desktop.postMessage({kind:'refined-repair-text',fingerprint:data.fingerprint,
-     subtitleName:data.subtitleName,operationId,refined:openPlan.refined,text:openPlan.txt});
-   }
-   notify(`已找到媒体：${data.mediaName}（${data.mediaKind==='audio'?'音频':'视频'}模式），正在读取媒体信息；${parsed.words.length} 个单词`);
+   if(resetProject&&desktop)desktop.postMessage({kind:'project-reset',project:current});
+   notify(`已找到媒体：${data.mediaName}（${data.mediaKind==='audio'?'音频':'视频'}模式），使用${openPlan.kind==='existing'?' revise':'原始 script'}；${original.words.length} 个单词`);
   }catch(e){
-   // A failed or malformed new pair must never discard the user's current project.
    if(data.requestId)desktop?.postMessage({kind:'pair-rejected',requestId:data.requestId});
-   clearReload();
-   notify(`字幕读取失败：${String(e)}`,true);
+   clearReload();notify(`字幕读取失败：${String(e)}`,true);
   }
  };
- useEffect(()=>{const receive=({data}:MessageEvent<DesktopMessage>)=>{if(data.kind==='settings'){if(validateSettings(data.settings)){loadedSettingsRef.current=true;appSettingsRef.current=data.settings;setAppSettings(data.settings)}}else if(data.kind==='import-candidates')void runDesktopProbe(data);else if(data.kind==='pair')applyPair(data);else if(data.kind==='reload-failed'){clearReload();notify(`重新加载失败：${data.message}`,true);}else if(data.kind==='refined-created'||data.kind==='refined-text-repaired'||data.kind==='refined-create-failed'||data.kind==='refined-repair-failed'){
-   const active=activeRefinedSourceRef.current;
-   if(active&&active.operationId===data.operationId&&active.fingerprint===data.fingerprint&&active.subtitleName.toLowerCase()===data.subtitleName.toLowerCase()){
-    setRefinedPreparationPending(false);
-    if(data.kind==='refined-create-failed'||data.kind==='refined-repair-failed'){
-     setProjectLoadBlocked(true);
-     notify(`refined/TXT 操作失败，已暂停工程保存：${data.message}`,true);
+ useEffect(()=>{const receive=({data}:MessageEvent<DesktopMessage>)=>{if(data.kind==='settings'){if(validateSettings(data.settings)){loadedSettingsRef.current=true;appSettingsRef.current=data.settings;setAppSettings(data.settings)}}else if(data.kind==='import-candidates')void runDesktopProbe(data);else if(data.kind==='pair')applyPair(data);else if(data.kind==='reload-failed'){clearReload();notify(`重新加载失败：${data.message}`,true);}else if(data.kind==='project-reset-complete'){
+    notify('旧 project 不属于当前 script，已重建为默认设置。');
+   }else if(data.kind==='project-bundle-saved'||data.kind==='project-bundle-save-failed'){
+    const pending=pendingBundleSaveRef.current,exportRequest=pendingExportRef.current;
+    if(!pending||!isMatchingBundleSaveReply(pending,data,activeRefinedSourceRef.current)){
+     notify('已忽略过期的保存响应。',true);
     }else{
-     try{
-      const disk=confirmedDiskSnapshotRef.current;
-      const original=disk?.original;
-      // On first creation the original source is not yet in a confirmed
-      // snapshot; keep it separately from the untrusted native reply.
-      const originalSource=openingOriginalRef.current;
-      if(!originalSource||originalSource.fingerprint!==data.fingerprint||
-         originalSource.subtitleName.toLowerCase()!==data.subtitleName.toLowerCase())
-       throw Error('无法确认当前原始字幕来源');
-      const refined=JSON.parse(data.refinedSnapshot) as ScriptToVideoInput;
-      const parsed=parseScriptToVideo(refined);
-      if(refined.script_to_video.schemaVersion!==3)throw Error('磁盘 refined 不是 v3');
-      const expectedText=buildRefinedText(parsed.title,parsed.words);
-      if(expectedText!==data.textSnapshot)throw Error('磁盘 TXT 与 refined 不一致');
-      const savedProject=data.projectSnapshot?JSON.parse(data.projectSnapshot):null;
-      if(savedProject!==null){
-       if(!validatePresentationProject(savedProject))
-        throw Error('磁盘 project v3 无效');
-       if(savedProject.source.subtitleSha256!==data.fingerprint||
-          savedProject.source.subtitleName.toLowerCase()!==data.subtitleName.toLowerCase()||
-          savedProject.source.videoName.toLowerCase()!==originalSource.mediaName.toLowerCase()||
-          (savedProject.mediaKind!==undefined&&savedProject.mediaKind!==originalSource.mediaKind))
-        throw Error('磁盘 project v3 与当前媒体或字幕来源不匹配');
-      }
-      confirmedDiskSnapshotRef.current={
-       fingerprint:data.fingerprint,subtitleName:data.subtitleName,
-       original:original??originalSource.original,refined,text:data.textSnapshot,project:savedProject
-      };
-      // Never unlock editing merely on a native success flag: the read-back
-      // snapshot and its media identity must have passed all checks above.
-      setContentSaveUnavailable(false);
-      notify(data.message);
-     }catch(error){setProjectLoadBlocked(true);notify(`无法确认保存快照：${String(error)}`,true)}
-    }
-   }
-  }else if(data.kind==='project-bundle-saved'||data.kind==='project-bundle-save-failed'){
-   const pending=pendingBundleSaveRef.current;
-   const exportRequest=pendingExportRef.current;
-   if(!pending||!isMatchingBundleSaveReply(pending,data,activeRefinedSourceRef.current)){
-    notify('忽略与当前工程不匹配的保存响应。',true);
-   }else{
-    pendingBundleSaveRef.current=null;
-    if(exportRequest?.operationId===pending.operationId)pendingExportRef.current=null;
-    let saved=false;
-    let savedProject:PresentationProject|null=null;
-    if(bundleSaveSucceeded(data)){
-     const disk=confirmedDiskSnapshotRef.current;
-     if(disk&&disk.fingerprint===pending.fingerprint&&
-        disk.subtitleName.toLowerCase()===pending.subtitleName.toLowerCase()){
+     pendingBundleSaveRef.current=null;
+     if(exportRequest?.operationId===pending.operationId)pendingExportRef.current=null;
+     let saved=false;
+     if(bundleSaveSucceeded(data)){
       try{
-       if(typeof data.refinedSnapshot!=='string'||typeof data.textSnapshot!=='string'||
-          typeof data.projectSnapshot!=='string')
-        throw new Error('保存响应缺少磁盘回读快照');
-       const persistedRefined=JSON.parse(data.refinedSnapshot) as ScriptToVideoInput;
-       const persistedProject=JSON.parse(data.projectSnapshot) as PresentationProject;
-       parseScriptToVideo(persistedRefined);
-       if(!validatePresentationProject(persistedProject))
-        throw new Error('保存后的 project v3 校验失败');
-       if(data.textSnapshot!==pending.text)
-        throw new Error('保存后的 TXT 与提交内容不一致');
-       confirmedDiskSnapshotRef.current={...disk,refined:persistedRefined,text:data.textSnapshot,project:persistedProject};
+       if(typeof data.revisedSnapshot!=='string'||data.textSnapshot!==pending.text||
+          typeof data.projectSnapshot!=='string')throw Error('保存响应缺少必要的文件内容');
+       parseScriptToVideo(JSON.parse(data.revisedSnapshot));
+       const savedProject=JSON.parse(data.projectSnapshot);
+       if(!validatePresentationProject(savedProject)||savedProject.script.filename.toLowerCase()!==pending.subtitleName.toLowerCase())
+        throw Error('保存的 project 与当前 script 不匹配');
        const next=acknowledgeProjectSave(projectEditStateRef.current,pending.revision);
-       updateProjectEditState(next);
-       saved=true;savedProject=persistedProject;
-       if(!exportRequest)
-        notify(hasUnsavedProjectChanges(next)?'已保存请求时的版本；后续修改仍未保存。':data.message);
-      }catch(error){
-       confirmedDiskSnapshotRef.current=null;
-       setContentSaveUnavailable(true);
-       notify(`保存响应无法验证：${String(error)}。请重新打开素材以核对磁盘状态。`,true);
+       updateProjectEditState(next);saved=true;
+       if(!exportRequest)notify(hasUnsavedProjectChanges(next)?'已保存当前操作的版本，后续修改仍未保存。':data.message);
+      }catch(error){notify(`保存反馈无效：${String(error)}`,true)}
+     }else notify(`保存失败：${data.message}`,true);
+     if(exportRequest?.operationId===pending.operationId){
+      if(saved&&projectEditStateRef.current.currentRevision===exportRequest.revision&&
+         !hasUnsavedProjectChanges(projectEditStateRef.current)){
+       setExportTaskNotice('工程已保存，正在启动视频导出…');
+       desktop?.postMessage({kind:'export',project:pending.project, revised:pending.refined,
+        duration:exportRequest.duration,videoHeight:exportRequest.videoHeight,pagePlan:exportRequest.pagePlan});
+      }else{
+       setExporting(false);clearExportTaskNotice();
+       notify('导出已取消：保存失败或保存期间发生新的修改。',true);
       }
      }
-    }else notify(`保存失败：${data.message}`,true);
-    if(exportRequest?.operationId===pending.operationId){
-     if(saved&&savedProject&&
-        projectEditStateRef.current.currentRevision===exportRequest.revision&&
-        !hasUnsavedProjectChanges(projectEditStateRef.current)){
-      setExportTaskNotice('工程已保存，正在启动视频导出…');
-      desktop?.postMessage({kind:'export',project:savedProject,
-       refined:confirmedDiskSnapshotRef.current!.refined,duration:exportRequest.duration,
-       videoHeight:exportRequest.videoHeight,pagePlan:exportRequest.pagePlan});
-     }else{
-      setExporting(false);
-      clearExportTaskNotice();
-      notify('导出已取消：保存未成功确认，或保存期间工程发生新的修改。',true);
-     }
     }
-   }
-  }else if(data.kind==='dependency-confirm')setDependency({mode:'confirm',...data});else if(data.kind==='dependency-progress')setDependency({mode:'progress',title:data.title,message:data.message});else if(data.kind==='dependency-cancelling'){const d=dependencyDialogRef.current;if(d?.mode==='progress')setDependency({mode:'cancelling',title:d.title,message:'正在停止安装任务并清理临时文件……'})}else if(data.kind==='dependency-end')setDependency(null);else if(data.kind==='export-cancelling')setExportTaskNotice('正在取消导出，等待渲染进程退出并清理缓存…',false);else if(data.kind==='dependency-failed')setDependency({mode:'error',message:data.message});else if(data.kind==='status'){if(data.error&&!data.busy&&reloadingRef.current)clearReload();setExporting(data.busy);if(data.busy){if(data.error)notify(data.message,true);else setExportTaskNotice(data.message,data.canCancel!==false)}else{clearExportTaskNotice();if(!data.error&&dependencyDialogRef.current?.mode==='progress')setDependency(null);if(!dependencyDialogRef.current||dependencyDialogRef.current.mode!=='error')notify(data.message,!!data.error)}}};desktop?.addEventListener('message',receive);return()=>desktop?.removeEventListener('message',receive)},[]);
+   }else if(data.kind==='dependency-confirm')setDependency({mode:'confirm',...data});else if(data.kind==='dependency-progress')setDependency({mode:'progress',title:data.title,message:data.message});else if(data.kind==='dependency-cancelling'){const d=dependencyDialogRef.current;if(d?.mode==='progress')setDependency({mode:'cancelling',title:d.title,message:'正在停止安装任务并清理临时文件……'})}else if(data.kind==='dependency-end')setDependency(null);else if(data.kind==='export-cancelling')setExportTaskNotice('正在取消导出，等待渲染进程退出并清理缓存…',false);else if(data.kind==='dependency-failed')setDependency({mode:'error',message:data.message});else if(data.kind==='status'){if(data.error&&!data.busy&&reloadingRef.current)clearReload();setExporting(data.busy);if(data.busy){if(data.error)notify(data.message,true);else setExportTaskNotice(data.message,data.canCancel!==false)}else{clearExportTaskNotice();if(!data.error&&dependencyDialogRef.current?.mode==='progress')setDependency(null);if(!dependencyDialogRef.current||dependencyDialogRef.current.mode!=='error')notify(data.message,!!data.error)}}};desktop?.addEventListener('message',receive);return()=>desktop?.removeEventListener('message',receive)},[]);
  useEffect(()=>{desktop?.postMessage({kind:'ready'})},[]);
  async function openBrowserJson(file:File){
   const controller=new AbortController(),id='browser-'+String(Date.now())+'-'+String(Math.random());
@@ -526,11 +442,11 @@ function App(){
    const fingerprint=Array.from(hash,b=>b.toString(16).padStart(2,'0')).join('').toUpperCase();
    if(controller.signal.aborted||changedDuringImport())throw Error('字幕导入已取消或原工程发生修改');
    const next=createProject(match.name,file.name,parsed.words);
-   next.source.subtitleSha256=fingerprint;
+   
    next.style=settingsToStyle(appSettingsRef.current);next.canvas={...appSettingsRef.current.output};next.mediaKind=match.kind;
    openingOriginalRef.current={fingerprint,subtitleName:file.name,mediaName:match.name,mediaKind:match.kind,original:input};
    keepUrl=url;
-   setProjectLoadBlocked(false);setContentSaveUnavailable(false);setRefinedPreparationPending(false);
+
    setMediaUrl(url);setMediaName(match.name);setKind(match.kind);setProject(next);
    setWords(parsed.words);titleRef.current=parsed.title;setTitle(parsed.title);setEditing(null);setWordTool(null);resetProjectDirtyState();
    setVideoRatio(null);setMediaState('loading');setDuration(0);
@@ -586,7 +502,7 @@ function App(){
   setMediaState('error');setPlaying(false);
   notify(`无法播放媒体：${mediaName||'未知文件'}。${describeMediaError(element.error?.code)}。请核对文件名与内部编码。`,true);
  };
- const refresh=(newWords:Word[])=>{if(desktop&&contentSaveUnavailable){notify('当前工作副本尚不支持可靠保存，已禁止修改正文。',true);return}setWords(newWords);markDirty()};
+ const refresh=(newWords:Word[])=>{setWords(newWords);markDirty()};
  const snapshot=(w:Word,text=w.display):WordToolSnapshot=>({id:w.id,text,start:w.start,end:w.end,breakParagraph:w.breakParagraph});
  const setEditing=(next:{id:string;text:string}|null)=>{
   editRef.current=next;setEdit(next);
@@ -608,7 +524,7 @@ function App(){
   setEditing(null);
  };
  const startEditing=(w:Word)=>{
-   if(desktop&&contentSaveUnavailable){notify('磁盘快照尚未验证，暂时不能编辑正文。',true);return}
+   
   if(editRef.current?.id===w.id)return;
   if(!commitEditing())return;
   mediaRef.current?.pause();
@@ -647,9 +563,7 @@ function App(){
   // Reject before touching either the global settings or the open project.
   // Previously the UI mutated appSettings and then returned, leaving an
   // unacknowledged settings change even though the project edit was blocked.
-  if(project&&layoutChanged&&desktop&&contentSaveUnavailable)
-   return notify('磁盘快照尚未验证，暂时不能修改展示设置。',true);
-  const globalNext=layoutChanged?next:{...appSettings,rightFont:next.rightFont};
+    const globalNext=layoutChanged?next:{...appSettings,rightFont:next.rightFont};
   appSettingsRef.current=globalNext;setAppSettings(globalNext);
   if(project&&layoutChanged){mediaRef.current?.pause();setProject(p=>p?{...p,canvas:{...next.output},style:settingsToStyle(next),titleStyle:{...next.titleStyle}}:p);markDirty()}
   if(desktop&&loadedSettingsRef.current)desktop.postMessage({kind:'settings-save',settings:globalNext});
@@ -687,8 +601,8 @@ function App(){
     <span className="transport-time">{timeLabel(time)} / {timeLabel(duration)}</span>
     <div className="transport-row"><input aria-label="进度" type="range" min={0} max={duration||1} step="0.01" value={time} onChange={e=>seek(Number(e.target.value))}/>{iconButton(playing?'pause':'play',playing?'暂停 Space':'播放 Space',toggle)}{iconButton('stop','停止 X',stop)}</div>
    </div></section>
-   <aside><div className="toolbar"><span className="app-label">ScriptToVideo {hasUnsavedProjectChanges(projectEditState)?'●':''}</span>{iconButton('settings','设置',openSettings,exporting)}{iconButton('reload','重新加载当前文章',requestReload,!desktop||!project||exporting||importing||reloading)}{iconButton('import',mediaName?`导入 JSON Ctrl+O · 当前媒体：${mediaName}`:'导入 JSON Ctrl+O',openPicker,exporting||importing||reloading)}{importing&&!reloading&&iconButton('stop','取消当前媒体导入',cancelPendingProbe)}{iconButton('save','保存工程 Ctrl+S',doSave,!project||exporting||projectLoadBlocked||contentSaveUnavailable||importing||reloading)}{iconButton('export','导出 MP4',doExport,!project||exporting||projectLoadBlocked||refinedPreparationPending||importing||reloading)}</div>
-    <div className="panel"><div className="title-editor-wrap"><textarea ref={titleEditorRef} aria-label="编辑标题" className="title-editor" placeholder="title" value={title} disabled={!project||contentSaveUnavailable||refinedPreparationPending||exporting}
+   <aside><div className="toolbar"><span className="app-label">ScriptToVideo {hasUnsavedProjectChanges(projectEditState)?'●':''}</span>{iconButton('settings','设置',openSettings,exporting)}{iconButton('reload','重新加载当前文章',requestReload,!desktop||!project||exporting||importing||reloading)}{iconButton('import',mediaName?`导入 JSON Ctrl+O · 当前媒体：${mediaName}`:'导入 JSON Ctrl+O',openPicker,exporting||importing||reloading)}{importing&&!reloading&&iconButton('stop','取消当前媒体导入',cancelPendingProbe)}{iconButton('save','保存工程 Ctrl+S',doSave,!project||exporting||importing||reloading)}{iconButton('export','导出 MP4',doExport,!project||exporting||importing||reloading)}</div>
+    <div className="panel"><div className="title-editor-wrap"><textarea ref={titleEditorRef} aria-label="编辑标题" className="title-editor" placeholder="title" value={title} disabled={!project||exporting}
       onChange={e=>{const next=e.currentTarget.value;if(next===titleRef.current)return;titleRef.current=next;setTitle(next);markDirty()}}
       style={{fontFamily:appSettings.rightFont.family,fontSize:editorFontSize,fontWeight:700,lineHeight:1.5,color:appSettings.rightFont.color,backgroundColor:appSettings.rightFont.backgroundColor}} rows={1}/></div><div ref={transcriptRef} className="transcript" style={{fontFamily:appSettings.rightFont.family,fontSize:editorFontSize,fontWeight:400,lineHeight:1.5,color:appSettings.rightFont.color,backgroundColor:appSettings.rightFont.backgroundColor}}>
      {words.map(w=><React.Fragment key={w.id}>{w.hidden?null:edit?.id===w.id?<InlineWordEditor key={w.id} text={edit.text} fontFamily={appSettings.rightFont.family} fontSize={editorFontSize} color={appSettings.rightFont.color} availableWidth={editorAvailableWidth}
