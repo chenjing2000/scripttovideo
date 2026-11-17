@@ -4,7 +4,7 @@ import {ReaderCanvas} from './ui/ReaderCanvas';
 import {StyleSettings} from './ui/StyleSettings';
 import {Dialog} from './ui/Dialog';
 import type {DialogAction} from './ui/Dialog';
-import {parseScriptToVideo,createProject,updateWord,buildRefinedScript,toPresentationProject,paginate,measureWithCanvas,DEFAULT_STYLE,normalizeProjectStyle,WIDTH,HEIGHT,validCanvas,transcriptStem,findMediaCandidates,provisionalVideoHeight,describeMediaError,missingCompanionMessage,planRefinedOpen,validatePresentationProject,buildRefinedText} from './core';
+import {parseScriptToVideo,createProject,updateWord,buildRefinedScript,paginate,measureWithCanvas,DEFAULT_STYLE,normalizeProjectStyle,WIDTH,HEIGHT,validCanvas,transcriptStem,findMediaCandidates,provisionalVideoHeight,describeMediaError,missingCompanionMessage,planRefinedOpen,validatePresentationProject,buildRefinedText} from './core';
 import type {Word,Project} from './core';
 import {probeInPriority} from './core/media-probe';
 import {resolvePlayerShortcut} from './core/player-shortcuts';
@@ -15,17 +15,13 @@ import {calculateWordEditorWidth,paragraphActionLabel,hasUnsavedWordDraft} from 
 import {createProjectEditState,markProjectEdited,setProjectDraftChanged,acknowledgeProjectSave,resetProjectEditState,hasUnsavedProjectChanges} from './core/project-edit-state';
 import {settingsDialogRect,nextSettingsWidth,requiredSettingsOuterWidth} from './core/settings-dialog-geometry';
 import {planManualSave,isMatchingBundleSaveReply,bundleSaveSucceeded,tryLayoutTitle,DEFAULT_TITLE_STYLE} from './core';
-import type {BundleSaveOperation,PresentationProject,ScriptToVideoInput} from './core';
+import type {BundleSaveOperation,ScriptToVideoInput} from './core';
 import type {AppSettings} from './core/app-settings';
 type DesktopMessage =
  | {kind:'pair';requestId?:string;mediaName:string;mediaKind:'video'|'audio';subtitleName:string;transcript:string;fingerprint:string;project:string|null;mediaUrl:string;refined?:string|null;refinedText?:string|null;refinedError?:string}
  | {kind:'import-candidates';requestId:string;subtitleName:string;transcript:string;candidates:Array<{index:number;mediaName:string;mediaKind:'video'|'audio';mediaUrl:string}>}
  | {kind:'settings';settings:unknown}
  | {kind:'reload-failed';message:string}
- | {kind:'refined-created';fingerprint:string;subtitleName:string;message:string;operationId:number;refinedSnapshot:string;textSnapshot:string;projectSnapshot:string|null}
- | {kind:'refined-create-failed';fingerprint:string;subtitleName:string;message:string;operationId:number}
- | {kind:'refined-text-repaired';fingerprint:string;subtitleName:string;message:string;operationId:number;refinedSnapshot:string;textSnapshot:string;projectSnapshot:string|null}
- | {kind:'refined-repair-failed';fingerprint:string;subtitleName:string;message:string;operationId:number}
  | {kind:'project-bundle-saved'|'project-bundle-save-failed';message:string;operationId:number;revision:number;fingerprint:string;subtitleName:string;refinedSnapshot?:string;textSnapshot?:string;projectSnapshot?:string}
  | {kind:'status';message:string;busy:boolean;error?:boolean;canCancel?:boolean}
  | {kind:'dependency-confirm';id:number;title:string;heading:string;details:string;action:string}
@@ -84,9 +80,6 @@ function App(){
  const [toolLeaving,setToolLeaving]=useState(false);
  const transcriptRef=useRef<HTMLDivElement|null>(null);
  const [editorAvailableWidth,setEditorAvailableWidth]=useState(240);
- const [projectLoadBlocked,setProjectLoadBlocked]=useState(false);
-  const [contentSaveUnavailable,setContentSaveUnavailable]=useState(false);
- const [refinedPreparationPending,setRefinedPreparationPending]=useState(false);
  const [projectEditState,setProjectEditState]=useState(createProjectEditState());
  const projectEditStateRef=useRef(projectEditState);
  const wordsRef=useRef<Word[]>([]);wordsRef.current=words;
@@ -113,10 +106,8 @@ function App(){
  const expectedDesktopImportIdRef=useRef<string|null>(null);
  const committedPairAckRef=useRef<string|null>(null);
  const activeRefinedSourceRef=useRef<{fingerprint:string;subtitleName:string;operationId:number}|null>(null);
- const confirmedDiskSnapshotRef=useRef<{fingerprint:string;subtitleName:string;original:import('./core').ScriptToVideoInput;refined:import('./core').ScriptToVideoInput;text:string;project:import('./core').PresentationProject|null}|null>(null);
  const openingOriginalRef=useRef<{fingerprint:string;subtitleName:string;mediaName:string;mediaKind:'video'|'audio';original:ScriptToVideoInput}|null>(null);
- const nextRefinedOperationIdRef=useRef(0);
- const pendingBundleSaveRef=useRef<(BundleSaveOperation&{refined:ScriptToVideoInput;text:string;project:PresentationProject})|null>(null);
+ const pendingBundleSaveRef=useRef<(BundleSaveOperation&{refined:ScriptToVideoInput;text:string;project:Project})|null>(null);
  const nextBundleSaveIdRef=useRef(0);
  const pendingExportRef=useRef<{operationId:number;revision:number;duration:number;videoHeight:number;pagePlan:ReturnType<typeof paginate>}|null>(null);
  const changedDuringImport=()=>{
@@ -238,111 +229,69 @@ function App(){
  const toggle=()=>{const v=mediaRef.current;if(v){if(v.paused)void v.play().catch(e=>notify(`播放失败：${String(e)}`,true));else v.pause()}};
  const stop=()=>{mediaRef.current?.pause();seek(0)};
  const openPicker=()=>{if(!exporting&&!importing&&!reloading)inputRef.current?.click()};
- const doSave=()=>{if(exporting)return notify('视频导出期间暂不支持保存工程，请在导出完成后保存。',true);
+ const doSave=()=>{
+  if(exporting||pendingBundleSaveRef.current)return notify('正在保存或导出，请完成后重试。',true);
   if(importing||reloading)return notify('正在加载文件，请完成后再保存。',true);
   if(!project)return notify('尚未打开标准字幕',true);
-  if(projectLoadBlocked)return notify('工程数据验证失败，已禁止覆盖。请检查文件后重新打开字幕。',true);
-   if(desktop){
-    if(refinedPreparationPending||!confirmedDiskSnapshotRef.current||projectLoadBlocked)
-     return notify('尚未取得完整的 refined/TXT 磁盘快照，不能保存。',true);
-    if(pendingBundleSaveRef.current)return notify('已有保存操作正在进行，请等待完成。',true);
-    let currentWords=words;
-    const active=editRef.current;
-    if(active){
-     try{currentWords=updateWord(words,active.id,active.text)}
-     catch(error){return notify(`单词编辑无效：${String(error)}`,true)}
-     if(!commitEditing())return;
-    }
-    const disk=confirmedDiskSnapshotRef.current;
-    const source=activeRefinedSourceRef.current;
-    if(!source||source.fingerprint!==disk.fingerprint||
-       source.subtitleName.toLowerCase()!==disk.subtitleName.toLowerCase())
-     return notify('磁盘快照与当前字幕不匹配，禁止保存。',true);
-    try{
-     const snapshot=planManualSave(disk.original,disk.refined,disk.text,disk.project,project,currentWords,titleRef.current);
-     const operationId=++nextBundleSaveIdRef.current;
-     const revision=projectEditStateRef.current.currentRevision;
-     pendingBundleSaveRef.current={operationId,revision,fingerprint:source.fingerprint,subtitleName:source.subtitleName,
-      refined:snapshot.refined,text:snapshot.text,project:snapshot.project};
-     desktop.postMessage({kind:'project-bundle-save',operationId,revision,
-      fingerprint:source.fingerprint,subtitleName:source.subtitleName,
-      previousRefined:disk.refined,refined:snapshot.refined,
-      previousText:disk.text,text:snapshot.text,
-      previousProject:disk.project,project:snapshot.project});
-    }catch(error){notify(`无法准备保存：${String(error)}`,true)}
-    return;
-   }
-  // Browser-only fallback. Desktop saves exclusively through project-bundle-save.
   let currentWords=words;const active=editRef.current;
-  if(active){try{currentWords=updateWord(words,active.id,active.text)}catch(error){notify(`无法保存工程：请先修正正在编辑的单词。${String(error)}`,true);return}if(!commitEditing())return}
+  if(active){
+   try{currentWords=updateWord(words,active.id,active.text)}
+   catch(error){return notify(`单词编辑无效：${String(error)}`,true)}
+   if(!commitEditing())return;
+  }
   const source=openingOriginalRef.current;
-  if(!source)return notify('缺少已验证的原始 v3 字幕，不能保存。',true);
+  if(!source)return notify('缺少原始 v3 字幕。',true);
   try{
-   const revised=buildRefinedScript(source.original,titleRef.current,currentWords);
-   const text=buildRefinedText(titleRef.current,currentWords);
-   const presentation=toPresentationProject(project);
-   const stem=transcriptStem(project.source.subtitleName);
-   const downloads=[
-    [stem+'.script.revise.json',JSON.stringify(revised,null,2),'application/json'],
-    [stem+'.txt',text,'text/plain'],
-    [stem+'.project.json',JSON.stringify(presentation,null,2),'application/json']
-   ];
-   for(const [name,content,mime] of downloads){
-    const blob=new Blob([content],{type:mime}),u=URL.createObjectURL(blob),a=document.createElement('a');
-    a.href=u;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(u),1000);
+   const snapshot=planManualSave(source.original,project,currentWords,titleRef.current);
+   if(desktop){
+    const operationId=++nextBundleSaveIdRef.current,revision=projectEditStateRef.current.currentRevision;
+    pendingBundleSaveRef.current={operationId,revision,subtitleName:source.subtitleName,...snapshot};
+    desktop.postMessage({kind:'project-bundle-save',operationId,revision,subtitleName:source.subtitleName,
+     revised:snapshot.refined,text:snapshot.text,project:snapshot.project});
+   }else{
+    const stem=transcriptStem(project.script.filename);
+    for(const [name,content,mime] of [
+     [stem+'.script.revise.json',JSON.stringify(snapshot.refined,null,2),'application/json'],
+     [stem+'.txt',snapshot.text,'text/plain'],
+     [stem+'.project.json',JSON.stringify(snapshot.project,null,2),'application/json']
+    ]){
+     const blob=new Blob([content],{type:mime}),u=URL.createObjectURL(blob),a=document.createElement('a');
+     a.href=u;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(u),1000);
+    }
+    notify('已发起三个工作文件下载；无法确认浏览器已保存，未清除未保存标记。');
    }
-   // A browser download click gives no confirmation that every file was saved.
-   // Keep the dirty marker until the user performs a verified native save.
-   notify('已请求下载 revise、TXT 和 project v3。请确认三个文件均已保存；浏览器下载不清除未保存标记。');
-  }catch(error){notify('无法导出当前格式文件：'+String(error),true)}
+  }catch(error){notify(`无法准备保存：${String(error)}`,true)}
  };
  const doExport=()=>{
   if(dependencyDialogRef.current)return;
-  if(mediaState!=='ready'){notify(`媒体尚未就绪：${mediaName||'未选择媒体'}`,true);return}
-  if(!desktop){notify('请使用 Windows 桌面版导出 MP4',true);return}
-  if(projectLoadBlocked){notify('现有工程未能通过验证，已禁止导出。请检查工程文件并重新打开字幕。',true);return}
-  if(refinedPreparationPending||contentSaveUnavailable||!confirmedDiskSnapshotRef.current)
-   return notify('refined/TXT 尚未完成磁盘确认，禁止导出。',true);
-  if(pendingBundleSaveRef.current||pendingExportRef.current||exporting)
-   return notify('已有保存或导出任务正在进行。',true);
-  if(importing||reloading)return notify('正在加载文件，请稍后再导出。',true);
-  if(titleLayout.error)return notify(`标题无法排版：${titleLayout.error}。请调整字号或画布宽度。`,true);
-  if(!project||!mediaUrl||!duration||!plan)
-   return notify('尚未载入可导出的媒体和字幕，或画布无法排版',true);
-  let exportWords=words;
-  const active=editRef.current;
+  if(mediaState!=='ready'||!desktop||!project||!mediaUrl||!duration||!plan)
+   return notify('请使用 Windows 桌面版，并确认媒体和字幕已就绪。',true);
+  if(pendingBundleSaveRef.current||pendingExportRef.current||exporting||importing||reloading)
+   return notify('已有保存、导出或导入任务正在进行。',true);
+  if(titleLayout.error)return notify(`标题无法排版：${titleLayout.error}`,true);
+  let exportWords=words;const active=editRef.current;
   if(active){
    try{exportWords=updateWord(words,active.id,active.text)}
-   catch(error){return notify(`无法导出视频：请先修正正在编辑的单词。${String(error)}`,true)}
+   catch(error){return notify(`无法导出：${String(error)}`,true)}
    if(!commitEditing())return;
   }
   let exportPlan;
   try{exportPlan=paginate(exportWords,style,canvasWidth,canvasHeight-mediaHeight,measureWithCanvas(style.fontFamily,style.fontSize,style.fontWeight),titleLayout.height)}
   catch(error){return notify(`无法生成视频分页：${String(error)}`,true)}
   if(!exportPlan.pages.length)return notify('没有可导出的视频正文页面。',true);
-  const disk=confirmedDiskSnapshotRef.current,source=activeRefinedSourceRef.current;
-  if(!source||source.fingerprint!==disk.fingerprint||
-     source.subtitleName.toLowerCase()!==disk.subtitleName.toLowerCase())
-   return notify('字幕来源与已确认磁盘快照不匹配，禁止导出。',true);
+  const source=openingOriginalRef.current;
+  if(!source)return notify('缺少原始字幕，无法导出。',true);
   try{
-   const snapshot=planManualSave(disk.original,disk.refined,disk.text,disk.project,project,exportWords,titleRef.current);
-   const operationId=++nextBundleSaveIdRef.current;
-   const revision=projectEditStateRef.current.currentRevision;
-   pendingBundleSaveRef.current={operationId,revision,fingerprint:source.fingerprint,subtitleName:source.subtitleName,
-    refined:snapshot.refined,text:snapshot.text,project:snapshot.project};
+   const snapshot=planManualSave(source.original,project,exportWords,titleRef.current);
+   const operationId=++nextBundleSaveIdRef.current,revision=projectEditStateRef.current.currentRevision;
+   pendingBundleSaveRef.current={operationId,revision,subtitleName:source.subtitleName,...snapshot};
    pendingExportRef.current={operationId,revision,duration,videoHeight:mediaHeight,pagePlan:exportPlan};
-   setExporting(true);
-   setExportTaskNotice('正在确认导出前的工程保存…');
-   desktop.postMessage({kind:'project-bundle-save',operationId,revision,
-    fingerprint:source.fingerprint,subtitleName:source.subtitleName,
-    previousRefined:disk.refined,refined:snapshot.refined,
-    previousText:disk.text,text:snapshot.text,
-    previousProject:disk.project,project:snapshot.project});
+   setExporting(true);setExportTaskNotice('正在保存导出所需的工作文件…');
+   desktop.postMessage({kind:'project-bundle-save',operationId,revision,subtitleName:source.subtitleName,
+    revised:snapshot.refined,text:snapshot.text,project:snapshot.project});
   }catch(error){
-   pendingExportRef.current=null;
-   pendingBundleSaveRef.current=null;
-   setExporting(false);
-   notify(`无法准备导出前保存：${String(error)}`,true);
+   pendingExportRef.current=null;pendingBundleSaveRef.current=null;setExporting(false);
+   notify(`无法准备导出：${String(error)}`,true);
   }
  };
  const cancelPendingProbe=()=>{
