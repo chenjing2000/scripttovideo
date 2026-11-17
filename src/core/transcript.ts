@@ -40,7 +40,7 @@ export function parseScriptToVideo(input:unknown):Transcript {
  const words:Word[]=[];
  input.segments.forEach((segment,si)=>segment.words.forEach((entry,wi)=>{
   const id=`s${si}w${wi}`,original=entry.word.trim(),breakParagraph=entry.breakParagraph===true;
-  words.push({id,segmentId:`s${si}`,original,display:original,sourceDisplay:original,start:entry.start,end:entry.end,score:entry.score,hidden:entry.hidden===true,breakParagraph,sourceBreakParagraph:breakParagraph});
+  words.push({id,segmentId:`s${si}`,original,display:original,start:entry.start,end:entry.end,score:entry.score,hidden:entry.hidden===true,breakParagraph});
  }));
  return {language:'en',title:input.title??'',words,warnings:[]};
 }
