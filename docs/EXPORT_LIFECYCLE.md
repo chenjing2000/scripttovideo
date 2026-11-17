@@ -12,7 +12,7 @@ The default output is `<stem>/<stem>.exported.mp4` beside the project JSON. Each
 
 Remotion renders an intermediate `.mp4` (for container inference), then renames it to `<stem>.exported-<guid>.mp4.tmp`. The WPF host checks MP4 top-level `ftyp`, `moov`, and `mdat` boxes before committing a new final file. This is a structural check, **not** a full decode/track-quality verification.
 
-Following validation, the WPF host moves the temporary file to a free destination without overwrite. If the destination is claimed concurrently, it retries the next available suffix; unrelated I/O errors fail immediately. A failed final commit preserves all existing MP4 files and retains the temporary result for recovery. Revised JSON, its derived TXT and presentation project use guarded, journal-backed save/recovery. The original subtitle is not rewritten. Cache cleanup is best-effort and only targets eligible stale task data older than seven days; never delete an active task.
+Following validation, the WPF host moves the temporary file to a free destination without overwrite. If the destination is claimed concurrently, it retries the next available suffix; unrelated I/O errors fail immediately. A failed final commit preserves all existing MP4 files and retains the temporary result for recovery. Revised JSON, derived TXT and project are each saved by atomic replacement without old-content comparisons, journal or cross-file rollback. The original subtitle is not rewritten. Cache cleanup is best-effort and only targets eligible stale task data older than seven days; never delete an active task.
 
 ## Window and settings interaction
 

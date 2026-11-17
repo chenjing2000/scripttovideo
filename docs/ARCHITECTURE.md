@@ -15,9 +15,9 @@ Do not replace active media tokens, project, preview or unsaved edits during pro
 
 ## Persistence and edit safety
 
-Global `scripttovideo.settings.json` is next to the EXE. Project state is `<stem>/<stem>.project.json` relative to the source JSON folder; the original subtitle is never rewritten. Revised word/title content belongs in `<stem>/<stem>.script.revise.json` (v3), derived text in `<stem>/<stem>.txt`, and presentation settings in `<stem>/<stem>.project.json` (v3). First opening a source may create the revised working copy and TXT. Project v2 and the previous `.script.revised.json` filename are not migrated or loaded. Only current project v3 and revise v3 are accepted; invalid or source-mismatched projects cannot be overwritten. Recovery applies only to current v3 three-file save journals.
+Global `scripttovideo.settings.json` is next to the EXE. Original `<stem>.script.json` and the selected media are read-only. The optional edited transcript lives in `<stem>/<stem>.script.revise.json`; when absent, the original subtitle is read directly. TXT is a derived output, not an import prerequisite. Project v3 at `<stem>/<stem>.project.json` contains presentation settings and `script.filename`, not SHA or media type. On import, a mismatched or invalid existing project is replaced atomically with current default settings without a warning; a missing project remains absent until save. Old project v2 and obsolete revised filenames are not migrated.
 
-React tracks edit revisions and active inline drafts; a save acknowledgment only clears dirty state for the matching revision. Import, close and export protect unsaved changes. Settings changes do not mutate an active export snapshot. Manual save and pre-export save use one revision-bound, guarded three-file transaction; export snapshots the revised subtitle, project and page plan.
+React tracks edit revisions and active inline drafts; a save acknowledgment only clears dirty state for the matching revision. Import, close and export protect unsaved changes. Settings changes do not mutate an active export snapshot. Manual save and pre-export save always write revise, TXT and project using the same revision-bound request and individual atomic file replacements; export snapshots the revised subtitle, project and page plan.
 
 ## Window lifecycle
 
