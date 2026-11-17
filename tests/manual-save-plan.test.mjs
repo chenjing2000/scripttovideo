@@ -4,7 +4,7 @@ import {planManualSave} from '../.tmp-core/manual-save-plan.js';
 import {parseScriptToVideo} from '../.tmp-core/transcript.js';
 import {createProject} from '../.tmp-core/project.js';
 const source={script_to_video:{format:'script-to-video',schemaVersion:3},title:'',language:'en',segments:[{words:[{word:'Hello',start:0,end:0.5},{word:'world',start:0.5,end:1}]}]};
-const words=parseScriptToVideo(source).words,project=createProject('x.mp4','x.script.json');
+const words=parseScriptToVideo(source).words,project=createProject('x.script.json');
 test('Ctrl+S snapshot always includes complete revise, TXT and project',()=>{
  const saved=planManualSave(source,project,words,'');
  assert.equal(saved.revised.script_to_video.schemaVersion,3);

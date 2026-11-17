@@ -351,7 +351,7 @@ function App(){
    const revised=data.revised?JSON.parse(data.revised):null;
    const openPlan=planReviseOpen(input,revised);
    const effective=parseScriptToVideo(openPlan.script);
-   const next=createProject(data.mediaName,data.subtitleName);
+   const next=createProject(data.subtitleName);
    next.style=settingsToStyle(appSettingsRef.current);
    next.titleStyle={...appSettingsRef.current.titleStyle};
    next.canvas={...appSettingsRef.current.output};
@@ -453,7 +453,7 @@ function App(){
    const match=probe.selected.item,url=urls.get(match.name)!;
    if(input.script_to_video.schemaVersion!==3)throw Error('浏览器只接受原始 ScriptToVideo v3 字幕');
    if(controller.signal.aborted||changedDuringImport())throw Error('字幕导入已取消或原工程发生修改');
-   const next=createProject(match.name,file.name);
+   const next=createProject(file.name);
    
    next.style=settingsToStyle(appSettingsRef.current);next.canvas={...appSettingsRef.current.output};
    openingOriginalRef.current={subtitleName:file.name,mediaName:match.name,mediaKind:match.kind,original:input};

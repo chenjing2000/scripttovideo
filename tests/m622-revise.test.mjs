@@ -28,7 +28,7 @@ test('revise rejects altered time anchors and bad v2 originals',()=>{
  assert.throws(()=>core.planReviseOpen({...source,script_to_video:{...source.script_to_video,schemaVersion:2}},null),/v3/);
 });
 test('project v3 is the only in-memory and persisted model',()=>{
- const p=core.createProject('demo.mp4','demo.script.json');
+ const p=core.createProject('demo.script.json');
  assert.equal(p.schemaVersion,3);
  assert.equal(p.script.filename,'demo.script.json');
  assert.equal(core.validateProject(p),true);

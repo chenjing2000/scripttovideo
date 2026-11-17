@@ -1,7 +1,7 @@
 import {DEFAULT_STYLE,DEFAULT_TITLE_STYLE,WIDTH,HEIGHT} from './types';
 import type {Project} from './types';
 
-export function createProject(_videoName:string,subtitleName:string):Project{
+export function createProject(subtitleName:string):Project{
  return {format:'script-to-video-project',schemaVersion:3,script:{filename:subtitleName},
  canvas:{width:WIDTH,height:HEIGHT},style:{...DEFAULT_STYLE},
  titleStyle:{...DEFAULT_TITLE_STYLE},export:{fps:30,quality:'standard'}};

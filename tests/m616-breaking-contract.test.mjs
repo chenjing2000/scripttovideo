@@ -24,7 +24,7 @@ test('M6.16: all former subtitle and project formats are rejected',()=>{
   const v2={...fixture,script_to_video:{...fixture.script_to_video,schemaVersion:2}};
   assert.throws(()=>assertScriptToVideo(v2),/v3/);
   assert.throws(()=>core.parseScriptToVideo(v2),/v3/);
-  const p=core.createProject('Lesson.mp4','Lesson.script.json',core.parseScriptToVideo(fixture).words);
+  const p=core.createProject('Lesson.script.json');
   const v3=p;
   assert.equal(core.validateProject(v3),true);
   assert.equal(core.validateProject({...v3,schemaVersion:2}),false);

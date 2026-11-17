@@ -49,8 +49,7 @@ test('M5: malformed or reversed source word timestamps rejected',()=>{
 });
 
 test('Code review: saved project rejects malformed style and old subtitle overrides',()=>{
- const words=okay(data).words;
- const p=core.createProject('lesson.mp4','lesson.script.json',words);
+ const p=core.createProject('lesson.script.json');
  assert.equal(core.validateProject(p),true);
  assert.equal(core.validateProject({...p,mediaKind:'audio'}),true);
  assert.equal(core.normalizeProjectStyle({...p,mediaKind:'audio'}).mediaKind,undefined);

@@ -9,7 +9,7 @@ const {DEFAULT_TITLE_STYLE,DEFAULT_STYLE,createProject,
 const measure=text=>text.length*10;
 
 test('M6.22 title: defaults are persisted in presentation v3, never word overrides',()=>{
- const project=createProject('example.mp4','example.script.json',[]);
+ const project=createProject('example.script.json');
  const presentation=project;
  assert.deepEqual(presentation.titleStyle,DEFAULT_TITLE_STYLE);
  assert.equal(presentation.titleStyle.bold,true);
@@ -48,7 +48,7 @@ test('M6.22 title: v3 original snapshot saves edited title in revised and derive
  const original=JSON.parse(readFileSync('fixtures/6 Minute English 01-seg1.script.json','utf8'));
  const words=parseScriptToVideo(original).words;
  const previous=buildRevisedScript(original,'',words);
- const project=createProject('6 Minute English 01-seg1.mp4','6 Minute English 01-seg1.script.json',words);
+ const project=createProject('6 Minute English 01-seg1.script.json');
  const next=planManualSave(original,project,words,'A new title');
  assert.equal(next.revised.title,'A new title');
  assert.ok(next.text.startsWith('A new title\r\n\r\n'));
