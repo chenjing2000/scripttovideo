@@ -26,6 +26,8 @@ test('project mismatch causes default settings to replace old project',()=>{
  assert.match(host,/case "project-reset":/);
  assert.match(host,/ReviseStorage\.AtomicWrite\(current\.Project,project\.GetRawText\(\)\)/);
  assert.match(host,/kind = "project-reset-failed"/);
+ assert.match(ui,/markDirty\(\);[\s\S]*?kind:\x27project-reset\x27/);
+ assert.match(ui,/data\.kind===\x27project-reset-failed\x27/);
  assert.match(ui,/acknowledgeProjectSave\(projectEditStateRef\.current,pending\.revision\)/);
 });
 test('Ctrl+S writes revise, TXT and project without old snapshots',()=>{
