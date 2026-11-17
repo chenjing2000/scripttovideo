@@ -22,7 +22,7 @@ type DesktopMessage =
  | {kind:'import-candidates';requestId:string;subtitleName:string;transcript:string;candidates:Array<{index:number;mediaName:string;mediaKind:'video'|'audio';mediaUrl:string}>}
  | {kind:'settings';settings:unknown}
  | {kind:'reload-failed';message:string}
- | {kind:'project-bundle-saved'|'project-bundle-save-failed';message:string;operationId:number;revision:number;fingerprint:string;subtitleName:string;refinedSnapshot?:string;textSnapshot?:string;projectSnapshot?:string}
+ | {kind:'project-bundle-saved'|'project-bundle-save-failed';message:string;operationId:number;revision:number;subtitleName:string;revisedSnapshot?:string;textSnapshot?:string;projectSnapshot?:string}
  | {kind:'status';message:string;busy:boolean;error?:boolean;canCancel?:boolean}
  | {kind:'dependency-confirm';id:number;title:string;heading:string;details:string;action:string}
  | {kind:'dependency-progress';title:string;message:string}
@@ -441,7 +441,7 @@ function App(){
    const hash=new Uint8Array(await crypto.subtle.digest('SHA-256',await file.arrayBuffer()));
    const fingerprint=Array.from(hash,b=>b.toString(16).padStart(2,'0')).join('').toUpperCase();
    if(controller.signal.aborted||changedDuringImport())throw Error('字幕导入已取消或原工程发生修改');
-   const next=createProject(match.name,file.name,parsed.words);
+   const next=createProject(match.name,file.name);
    
    next.style=settingsToStyle(appSettingsRef.current);next.canvas={...appSettingsRef.current.output};next.mediaKind=match.kind;
    openingOriginalRef.current={fingerprint,subtitleName:file.name,mediaName:match.name,mediaKind:match.kind,original:input};
