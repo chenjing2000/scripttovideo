@@ -332,7 +332,18 @@ internal sealed class ReaderWindow : Window
                     }
                     break;
                 case "project-reset":
-                    ResetProject(request);
+                    try
+                    {
+                        ResetProject(request);
+                        Send(new { kind = "project-reset-saved", operationId = request.GetProperty("operationId").GetInt32(),
+                            subtitleName = request.GetProperty("subtitleName").GetString() });
+                    }
+                    catch (Exception error)
+                    {
+                        AppLog.WriteException("Project.Reset", error);
+                        Send(new { kind = "project-reset-failed", operationId = request.GetProperty("operationId").GetInt32(),
+                            subtitleName = request.GetProperty("subtitleName").GetString(), message = error.Message });
+                    }
                     break;
                 case "project-bundle-save":
                     try { SaveProjectBundle(request); }
@@ -708,6 +719,8 @@ internal sealed class ReaderWindow : Window
         var current=source??throw new InvalidOperationException("没有正在打开的字幕。");
         var project=request.GetProperty("project");
         CheckSource(project);
+        if (!string.Equals(request.GetProperty("subtitleName").GetString(), Path.GetFileName(current.Transcript), StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException("重置请求不属于当前字幕。");
         ReviseStorage.AtomicWrite(current.Project,project.GetRawText());
     }
 
